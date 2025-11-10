@@ -1,0 +1,339 @@
+import { useState, useEffect } from "react"
+import { useQuery, useMutation } from "@tanstack/react-query"
+import { useAuth } from "@/hooks/useAuth"
+import { useToast } from "@/hooks/use-toast"
+import { isUnauthorizedError } from "@/lib/authUtils"
+import { PageHeader } from "@/components/page-header"
+import { PageContainer } from "@/components/page-container"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Plus, FileText, Search } from "lucide-react"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { z } from "zod"
+import { StatusBadge } from "@/components/status-badge"
+import { EmptyState } from "@/components/empty-state"
+import { apiRequest, queryClient } from "@/lib/queryClient"
+import type { AccountsReceivable } from "@shared/schema"
+import { format } from "date-fns"
+
+const formSchema = z.object({
+  description: z.string().min(1, "Descrição é obrigatória"),
+  customerName: z.string().optional(),
+  totalAmount: z.string().min(1, "Valor é obrigatório"),
+  dueDate: z.string().min(1, "Data de vencimento é obrigatória"),
+  issueDate: z.string().min(1, "Data de emissão é obrigatória"),
+  documentNumber: z.string().optional(),
+  notes: z.string().optional(),
+})
+
+export default function AccountsReceivable() {
+  const { toast } = useToast()
+  const { isAuthenticated, isLoading: authLoading } = useAuth()
+  const [open, setOpen] = useState(false)
+  const [searchTerm, setSearchTerm] = useState("")
+
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      toast({
+        title: "Não autorizado",
+        description: "Você precisa fazer login. Redirecionando...",
+        variant: "destructive",
+      })
+      setTimeout(() => {
+        window.location.href = "/api/login"
+      }, 500)
+    }
+  }, [isAuthenticated, authLoading, toast])
+
+  const { data: receivables, isLoading } = useQuery<AccountsReceivable[]>({
+    queryKey: ["/api/accounts-receivable"],
+    enabled: isAuthenticated,
+  })
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      description: "",
+      customerName: "",
+      totalAmount: "",
+      dueDate: "",
+      issueDate: "",
+      documentNumber: "",
+      notes: "",
+    },
+  })
+
+  const createMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof formSchema>) => {
+      await apiRequest("POST", "/api/accounts-receivable", {
+        ...data,
+        totalAmount: parseFloat(data.totalAmount),
+      })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/accounts-receivable"] })
+      toast({
+        title: "Sucesso",
+        description: "Conta a receber criada com sucesso",
+      })
+      setOpen(false)
+      form.reset()
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error as Error)) {
+        toast({
+          title: "Não autorizado",
+          description: "Você precisa fazer login novamente...",
+          variant: "destructive",
+        })
+        setTimeout(() => {
+          window.location.href = "/api/login"
+        }, 500)
+        return
+      }
+      toast({
+        title: "Erro",
+        description: "Falha ao criar conta a receber",
+        variant: "destructive",
+      })
+    },
+  })
+
+  const onSubmit = (data: z.infer<typeof formSchema>) => {
+    createMutation.mutate(data)
+  }
+
+  if (authLoading || !isAuthenticated) {
+    return null
+  }
+
+  const filteredReceivables = receivables?.filter(r =>
+    r.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    r.customerName?.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+
+  return (
+    <div className="flex h-screen w-full flex-col">
+      <PageHeader>
+        <h1 className="text-2xl font-semibold">Contas a Receber</h1>
+      </PageHeader>
+
+      <div className="flex-1 overflow-auto">
+        <PageContainer>
+          <div className="space-y-6">
+            <div className="flex items-center justify-between gap-4">
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar contas..."
+                  className="pl-10"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  data-testid="input-search"
+                />
+              </div>
+
+              <Dialog open={open} onOpenChange={setOpen}>
+                <DialogTrigger asChild>
+                  <Button data-testid="button-add-receivable">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Nova Conta a Receber
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Nova Conta a Receber</DialogTitle>
+                  </DialogHeader>
+                  <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="description"
+                          render={({ field }) => (
+                            <FormItem className="md:col-span-2">
+                              <FormLabel>Descrição *</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Ex: Cliente ABC - Serviços" {...field} data-testid="input-description" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="customerName"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Cliente</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Nome do cliente" {...field} data-testid="input-customer" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="totalAmount"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Valor Total *</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  placeholder="0.00"
+                                  className="font-mono text-right"
+                                  {...field}
+                                  data-testid="input-amount"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="issueDate"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Data de Emissão *</FormLabel>
+                              <FormControl>
+                                <Input type="date" {...field} data-testid="input-issue-date" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="dueDate"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Data de Vencimento *</FormLabel>
+                              <FormControl>
+                                <Input type="date" {...field} data-testid="input-due-date" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="documentNumber"
+                          render={({ field }) => (
+                            <FormItem className="md:col-span-2">
+                              <FormLabel>Número do Documento</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Ex: NF-12345" {...field} data-testid="input-document" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="notes"
+                          render={({ field }) => (
+                            <FormItem className="md:col-span-2">
+                              <FormLabel>Observações</FormLabel>
+                              <FormControl>
+                                <Textarea placeholder="Observações adicionais..." {...field} data-testid="input-notes" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      <div className="flex justify-end gap-2 pt-4">
+                        <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                          Cancelar
+                        </Button>
+                        <Button type="submit" disabled={createMutation.isPending} data-testid="button-submit">
+                          {createMutation.isPending ? "Salvando..." : "Salvar"}
+                        </Button>
+                      </div>
+                    </form>
+                  </Form>
+                </DialogContent>
+              </Dialog>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg font-semibold">Lista de Contas a Receber</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <div className="space-y-2">
+                    {[...Array(5)].map((_, i) => (
+                      <div key={i} className="h-12 bg-muted animate-pulse rounded" />
+                    ))}
+                  </div>
+                ) : !filteredReceivables || filteredReceivables.length === 0 ? (
+                  <EmptyState
+                    icon={FileText}
+                    title="Nenhuma conta a receber"
+                    description="Você ainda não cadastrou contas a receber. Clique no botão acima para adicionar a primeira."
+                    actionLabel="Nova Conta a Receber"
+                    onAction={() => setOpen(true)}
+                  />
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Descrição</TableHead>
+                          <TableHead>Cliente</TableHead>
+                          <TableHead>Vencimento</TableHead>
+                          <TableHead className="text-right">Valor</TableHead>
+                          <TableHead>Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredReceivables.map((receivable) => (
+                          <TableRow key={receivable.id} className="hover-elevate">
+                            <TableCell className="font-medium">{receivable.description}</TableCell>
+                            <TableCell>{receivable.customerName || "-"}</TableCell>
+                            <TableCell>{format(new Date(receivable.dueDate), 'dd/MM/yyyy')}</TableCell>
+                            <TableCell className="text-right font-mono">
+                              R$ {parseFloat(receivable.totalAmount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </TableCell>
+                            <TableCell>
+                              <StatusBadge status={receivable.status || 'pendente'} />
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </PageContainer>
+      </div>
+    </div>
+  )
+}
