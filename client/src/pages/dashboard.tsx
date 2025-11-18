@@ -103,22 +103,25 @@ export default function Dashboard() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg font-semibold">Fluxo de Caixa</CardTitle>
+                  <CardTitle className="text-base sm:text-lg font-semibold">Fluxo de Caixa</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={320}>
-                    <LineChart data={cashFlowData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <XAxis
-                        dataKey="month"
-                        stroke="hsl(var(--muted-foreground))"
-                        fontSize={12}
-                      />
-                      <YAxis
-                        stroke="hsl(var(--muted-foreground))"
-                        fontSize={12}
-                        tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`}
-                      />
+                <CardContent className="px-2 sm:px-6">
+                  <div className="h-[240px] sm:h-[320px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={cashFlowData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                        <XAxis
+                          dataKey="month"
+                          stroke="hsl(var(--muted-foreground))"
+                          fontSize={10}
+                          tick={{ fontSize: 10 }}
+                        />
+                        <YAxis
+                          stroke="hsl(var(--muted-foreground))"
+                          fontSize={10}
+                          tick={{ fontSize: 10 }}
+                          tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
+                        />
                       <Tooltip
                         contentStyle={{
                           backgroundColor: "hsl(var(--popover))",
@@ -127,7 +130,7 @@ export default function Dashboard() {
                         }}
                         formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR')}`, undefined]}
                       />
-                      <Legend />
+                      <Legend wrapperStyle={{ fontSize: '12px' }} />
                       <Line
                         type="monotone"
                         dataKey="receitas"
@@ -144,27 +147,34 @@ export default function Dashboard() {
                       />
                     </LineChart>
                   </ResponsiveContainer>
+                  </div>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg font-semibold">Despesas por Centro de Custo</CardTitle>
+                  <CardTitle className="text-base sm:text-lg font-semibold">Despesas por Centro de Custo</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={320}>
-                    <BarChart data={expensesByCostCenter}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <XAxis
-                        dataKey="name"
-                        stroke="hsl(var(--muted-foreground))"
-                        fontSize={12}
-                      />
-                      <YAxis
-                        stroke="hsl(var(--muted-foreground))"
-                        fontSize={12}
-                        tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`}
-                      />
+                <CardContent className="px-2 sm:px-6">
+                  <div className="h-[240px] sm:h-[320px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={expensesByCostCenter}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                        <XAxis
+                          dataKey="name"
+                          stroke="hsl(var(--muted-foreground))"
+                          fontSize={10}
+                          tick={{ fontSize: 10 }}
+                          angle={-45}
+                          textAnchor="end"
+                          height={60}
+                        />
+                        <YAxis
+                          stroke="hsl(var(--muted-foreground))"
+                          fontSize={10}
+                          tick={{ fontSize: 10 }}
+                          tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
+                        />
                       <Tooltip
                         contentStyle={{
                           backgroundColor: "hsl(var(--popover))",
@@ -176,6 +186,7 @@ export default function Dashboard() {
                       <Bar dataKey="value" fill="hsl(var(--chart-1))" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
+                  </div>
                 </CardContent>
               </Card>
             </div>
