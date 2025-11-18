@@ -27,6 +27,7 @@ import { z } from "zod"
 import { StatusBadge } from "@/components/status-badge"
 import { EmptyState } from "@/components/empty-state"
 import { MobileCardList, type MobileCardProps } from "@/components/mobile-card-list"
+import { MobileFormActions } from "@/components/mobile-form-actions"
 import { apiRequest, queryClient } from "@/lib/queryClient"
 import type { AccountsPayable } from "@shared/schema"
 import { format } from "date-fns"
@@ -270,14 +271,14 @@ export default function AccountsPayable() {
                         />
                       </div>
 
-                      <div className="flex justify-end gap-2 pt-4">
+                      <MobileFormActions>
                         <Button type="button" variant="outline" onClick={() => setOpen(false)}>
                           Cancelar
                         </Button>
                         <Button type="submit" disabled={createMutation.isPending} data-testid="button-submit">
                           {createMutation.isPending ? "Salvando..." : "Salvar"}
                         </Button>
-                      </div>
+                      </MobileFormActions>
                     </form>
                   </Form>
                 </DialogContent>

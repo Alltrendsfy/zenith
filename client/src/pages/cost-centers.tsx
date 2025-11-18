@@ -25,6 +25,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { EmptyState } from "@/components/empty-state"
 import { Badge } from "@/components/ui/badge"
+import { MobileFormActions } from "@/components/mobile-form-actions"
 import { apiRequest, queryClient } from "@/lib/queryClient"
 import type { CostCenter } from "@shared/schema"
 
@@ -193,14 +194,14 @@ export default function CostCenters() {
                         />
                       </div>
 
-                      <div className="flex justify-end gap-2 pt-4">
+                      <MobileFormActions>
                         <Button type="button" variant="outline" onClick={() => setOpen(false)}>
                           Cancelar
                         </Button>
                         <Button type="submit" disabled={createMutation.isPending} data-testid="button-submit">
                           {createMutation.isPending ? "Salvando..." : "Salvar"}
                         </Button>
-                      </div>
+                      </MobileFormActions>
                     </form>
                   </Form>
                 </DialogContent>
