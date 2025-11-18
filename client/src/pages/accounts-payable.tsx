@@ -131,27 +131,25 @@ export default function AccountsPayable() {
   )
 
   return (
-    <div className="flex h-screen w-full flex-col">
+    <PageContainer>
       <PageHeader>
-        <h1 className="text-2xl font-semibold">Contas a Pagar</h1>
+        <h1 className="text-xl sm:text-2xl font-semibold">Contas a Pagar</h1>
       </PageHeader>
 
-      <div className="flex-1 overflow-auto">
-        <PageContainer>
-          <div className="space-y-6">
-            <div className="flex items-center justify-between gap-4">
-              <div className="relative flex-1 max-w-md">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar contas..."
-                  className="pl-10"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  data-testid="input-search"
-                />
-              </div>
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Buscar contas..."
+              className="pl-10"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              data-testid="input-search"
+            />
+          </div>
 
-              <Dialog open={open} onOpenChange={setOpen}>
+          <Dialog open={open} onOpenChange={setOpen}>
                 <DialogTrigger asChild>
                   <Button data-testid="button-add-payable">
                     <Plus className="h-4 w-4 mr-2" />
@@ -282,63 +280,61 @@ export default function AccountsPayable() {
                     </form>
                   </Form>
                 </DialogContent>
-              </Dialog>
-            </div>
+          </Dialog>
+        </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg font-semibold">Lista de Contas a Pagar</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {isLoading ? (
-                  <div className="space-y-2">
-                    {[...Array(5)].map((_, i) => (
-                      <div key={i} className="h-12 bg-muted animate-pulse rounded" />
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold">Lista de Contas a Pagar</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="space-y-2">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="h-12 bg-muted animate-pulse rounded" />
+                ))}
+              </div>
+            ) : !filteredPayables || filteredPayables.length === 0 ? (
+              <EmptyState
+                icon={Receipt}
+                title="Nenhuma conta a pagar"
+                description="Você ainda não cadastrou contas a pagar. Clique no botão acima para adicionar a primeira."
+                actionLabel="Nova Conta a Pagar"
+                onAction={() => setOpen(true)}
+              />
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Descrição</TableHead>
+                      <TableHead>Fornecedor</TableHead>
+                      <TableHead>Vencimento</TableHead>
+                      <TableHead className="text-right">Valor</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredPayables.map((payable) => (
+                      <TableRow key={payable.id} className="hover-elevate">
+                        <TableCell className="font-medium">{payable.description}</TableCell>
+                        <TableCell>{payable.supplierName || "-"}</TableCell>
+                        <TableCell>{format(new Date(payable.dueDate), 'dd/MM/yyyy')}</TableCell>
+                        <TableCell className="text-right font-mono">
+                          R$ {parseFloat(payable.totalAmount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </TableCell>
+                        <TableCell>
+                          <StatusBadge status={payable.status || 'pendente'} />
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </div>
-                ) : !filteredPayables || filteredPayables.length === 0 ? (
-                  <EmptyState
-                    icon={Receipt}
-                    title="Nenhuma conta a pagar"
-                    description="Você ainda não cadastrou contas a pagar. Clique no botão acima para adicionar a primeira."
-                    actionLabel="Nova Conta a Pagar"
-                    onAction={() => setOpen(true)}
-                  />
-                ) : (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Descrição</TableHead>
-                          <TableHead>Fornecedor</TableHead>
-                          <TableHead>Vencimento</TableHead>
-                          <TableHead className="text-right">Valor</TableHead>
-                          <TableHead>Status</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredPayables.map((payable) => (
-                          <TableRow key={payable.id} className="hover-elevate">
-                            <TableCell className="font-medium">{payable.description}</TableCell>
-                            <TableCell>{payable.supplierName || "-"}</TableCell>
-                            <TableCell>{format(new Date(payable.dueDate), 'dd/MM/yyyy')}</TableCell>
-                            <TableCell className="text-right font-mono">
-                              R$ {parseFloat(payable.totalAmount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                            </TableCell>
-                            <TableCell>
-                              <StatusBadge status={payable.status || 'pendente'} />
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </PageContainer>
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
-    </div>
+    </PageContainer>
   )
 }

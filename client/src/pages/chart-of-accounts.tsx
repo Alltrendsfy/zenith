@@ -133,27 +133,25 @@ export default function ChartOfAccountsPage() {
   }
 
   return (
-    <div className="flex h-screen w-full flex-col">
+    <PageContainer>
       <PageHeader>
-        <h1 className="text-2xl font-semibold">Plano de Contas</h1>
+        <h1 className="text-xl sm:text-2xl font-semibold">Plano de Contas</h1>
       </PageHeader>
 
-      <div className="flex-1 overflow-auto">
-        <PageContainer>
-          <div className="space-y-6">
-            <div className="flex items-center justify-between gap-4">
-              <div className="relative flex-1 max-w-md">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar contas..."
-                  className="pl-10"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  data-testid="input-search"
-                />
-              </div>
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Buscar contas..."
+              className="pl-10"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              data-testid="input-search"
+            />
+          </div>
 
-              <Dialog open={open} onOpenChange={setOpen}>
+          <Dialog open={open} onOpenChange={setOpen}>
                 <DialogTrigger asChild>
                   <Button data-testid="button-add-account">
                     <Plus className="h-4 w-4 mr-2" />
@@ -281,74 +279,72 @@ export default function ChartOfAccountsPage() {
                     </form>
                   </Form>
                 </DialogContent>
-              </Dialog>
-            </div>
+          </Dialog>
+        </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg font-semibold">Plano de Contas</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {isLoading ? (
-                  <div className="space-y-2">
-                    {[...Array(5)].map((_, i) => (
-                      <div key={i} className="h-12 bg-muted animate-pulse rounded" />
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold">Plano de Contas</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="space-y-2">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="h-12 bg-muted animate-pulse rounded" />
+                ))}
+              </div>
+            ) : !filteredAccounts || filteredAccounts.length === 0 ? (
+              <EmptyState
+                icon={FileText}
+                title="Nenhuma conta cadastrada"
+                description="Você ainda não cadastrou contas contábeis. Clique no botão acima para adicionar a primeira."
+                actionLabel="Nova Conta"
+                onAction={() => setOpen(true)}
+              />
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Código</TableHead>
+                      <TableHead>Quick Code</TableHead>
+                      <TableHead>Nome</TableHead>
+                      <TableHead>Tipo</TableHead>
+                      <TableHead>Natureza</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredAccounts.map((account) => (
+                      <TableRow key={account.id} className="hover-elevate">
+                        <TableCell className="font-mono text-sm">{account.code}</TableCell>
+                        <TableCell>
+                          {account.quickCode && (
+                            <Badge variant="outline" className="font-mono text-xs">
+                              {account.quickCode}
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {account.level > 1 && (
+                            <ChevronRight className="inline h-3 w-3 text-muted-foreground mr-1" />
+                          )}
+                          {account.name}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={typeLabels[account.type]?.color as any}>
+                            {typeLabels[account.type]?.label}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-sm capitalize">{account.nature}</TableCell>
+                      </TableRow>
                     ))}
-                  </div>
-                ) : !filteredAccounts || filteredAccounts.length === 0 ? (
-                  <EmptyState
-                    icon={FileText}
-                    title="Nenhuma conta cadastrada"
-                    description="Você ainda não cadastrou contas contábeis. Clique no botão acima para adicionar a primeira."
-                    actionLabel="Nova Conta"
-                    onAction={() => setOpen(true)}
-                  />
-                ) : (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Código</TableHead>
-                          <TableHead>Quick Code</TableHead>
-                          <TableHead>Nome</TableHead>
-                          <TableHead>Tipo</TableHead>
-                          <TableHead>Natureza</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredAccounts.map((account) => (
-                          <TableRow key={account.id} className="hover-elevate">
-                            <TableCell className="font-mono text-sm">{account.code}</TableCell>
-                            <TableCell>
-                              {account.quickCode && (
-                                <Badge variant="outline" className="font-mono text-xs">
-                                  {account.quickCode}
-                                </Badge>
-                              )}
-                            </TableCell>
-                            <TableCell className="font-medium">
-                              {account.level > 1 && (
-                                <ChevronRight className="inline h-3 w-3 text-muted-foreground mr-1" />
-                              )}
-                              {account.name}
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant={typeLabels[account.type]?.color as any}>
-                                {typeLabels[account.type]?.label}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-sm capitalize">{account.nature}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </PageContainer>
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
-    </div>
+    </PageContainer>
   )
 }

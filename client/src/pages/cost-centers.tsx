@@ -118,27 +118,25 @@ export default function CostCenters() {
   )
 
   return (
-    <div className="flex h-screen w-full flex-col">
+    <PageContainer>
       <PageHeader>
-        <h1 className="text-2xl font-semibold">Centros de Custo</h1>
+        <h1 className="text-xl sm:text-2xl font-semibold">Centros de Custo</h1>
       </PageHeader>
 
-      <div className="flex-1 overflow-auto">
-        <PageContainer>
-          <div className="space-y-6">
-            <div className="flex items-center justify-between gap-4">
-              <div className="relative flex-1 max-w-md">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar centros de custo..."
-                  className="pl-10"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  data-testid="input-search"
-                />
-              </div>
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Buscar centros de custo..."
+              className="pl-10"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              data-testid="input-search"
+            />
+          </div>
 
-              <Dialog open={open} onOpenChange={setOpen}>
+          <Dialog open={open} onOpenChange={setOpen}>
                 <DialogTrigger asChild>
                   <Button data-testid="button-add-cost-center">
                     <Plus className="h-4 w-4 mr-2" />
@@ -206,68 +204,66 @@ export default function CostCenters() {
                     </form>
                   </Form>
                 </DialogContent>
-              </Dialog>
-            </div>
+          </Dialog>
+        </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg font-semibold">Centros de Custo</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {isLoading ? (
-                  <div className="space-y-2">
-                    {[...Array(5)].map((_, i) => (
-                      <div key={i} className="h-12 bg-muted animate-pulse rounded" />
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold">Centros de Custo</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="space-y-2">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="h-12 bg-muted animate-pulse rounded" />
+                ))}
+              </div>
+            ) : !filteredCostCenters || filteredCostCenters.length === 0 ? (
+              <EmptyState
+                icon={CreditCard}
+                title="Nenhum centro de custo"
+                description="Você ainda não cadastrou centros de custo. Clique no botão acima para adicionar o primeiro."
+                actionLabel="Novo Centro de Custo"
+                onAction={() => setOpen(true)}
+              />
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Código</TableHead>
+                      <TableHead>Nome</TableHead>
+                      <TableHead>Descrição</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredCostCenters.map((center) => (
+                      <TableRow key={center.id} className="hover-elevate">
+                        <TableCell className="font-mono text-sm">{center.code}</TableCell>
+                        <TableCell className="font-medium">
+                          {center.level > 1 && (
+                            <ChevronRight className="inline h-3 w-3 text-muted-foreground mr-1" />
+                          )}
+                          {center.name}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {center.description || "-"}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={center.isActive ? "default" : "secondary"}>
+                            {center.isActive ? "Ativo" : "Inativo"}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </div>
-                ) : !filteredCostCenters || filteredCostCenters.length === 0 ? (
-                  <EmptyState
-                    icon={CreditCard}
-                    title="Nenhum centro de custo"
-                    description="Você ainda não cadastrou centros de custo. Clique no botão acima para adicionar o primeiro."
-                    actionLabel="Novo Centro de Custo"
-                    onAction={() => setOpen(true)}
-                  />
-                ) : (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Código</TableHead>
-                          <TableHead>Nome</TableHead>
-                          <TableHead>Descrição</TableHead>
-                          <TableHead>Status</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredCostCenters.map((center) => (
-                          <TableRow key={center.id} className="hover-elevate">
-                            <TableCell className="font-mono text-sm">{center.code}</TableCell>
-                            <TableCell className="font-medium">
-                              {center.level > 1 && (
-                                <ChevronRight className="inline h-3 w-3 text-muted-foreground mr-1" />
-                              )}
-                              {center.name}
-                            </TableCell>
-                            <TableCell className="text-sm text-muted-foreground">
-                              {center.description || "-"}
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant={center.isActive ? "default" : "secondary"}>
-                                {center.isActive ? "Ativo" : "Inativo"}
-                              </Badge>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </PageContainer>
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
-    </div>
+    </PageContainer>
   )
 }

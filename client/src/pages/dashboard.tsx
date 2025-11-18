@@ -65,15 +65,13 @@ export default function Dashboard() {
   ]
 
   return (
-    <div className="flex h-screen w-full flex-col">
+    <PageContainer>
       <PageHeader>
-        <h1 className="text-2xl font-semibold">Dashboard</h1>
+        <h1 className="text-xl sm:text-2xl font-semibold">Dashboard</h1>
       </PageHeader>
 
-      <div className="flex-1 overflow-auto">
-        <PageContainer>
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
               <MetricCard
                 icon={Wallet}
                 label="Saldo Total"
@@ -214,9 +212,7 @@ export default function Dashboard() {
                 )}
               </CardContent>
             </Card>
-          </div>
-        </PageContainer>
       </div>
-    </div>
+    </PageContainer>
   )
 }

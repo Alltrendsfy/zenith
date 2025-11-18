@@ -117,15 +117,13 @@ export default function BankAccounts() {
   const totalBalance = accounts?.reduce((sum, acc) => sum + parseFloat(acc.balance || "0"), 0) || 0
 
   return (
-    <div className="flex h-screen w-full flex-col">
+    <PageContainer>
       <PageHeader>
-        <h1 className="text-2xl font-semibold">Contas Bancárias</h1>
+        <h1 className="text-xl sm:text-2xl font-semibold">Contas Bancárias</h1>
       </PageHeader>
 
-      <div className="flex-1 overflow-auto">
-        <PageContainer>
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="space-y-1">
                 <p className="text-sm text-muted-foreground">Saldo Consolidado</p>
                 <p className="text-3xl font-bold font-mono" data-testid="text-total-balance">
@@ -320,9 +318,7 @@ export default function BankAccounts() {
                 ))}
               </div>
             )}
-          </div>
-        </PageContainer>
       </div>
-    </div>
+    </PageContainer>
   )
 }

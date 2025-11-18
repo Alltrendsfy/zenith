@@ -127,27 +127,25 @@ export default function AccountsReceivable() {
   )
 
   return (
-    <div className="flex h-screen w-full flex-col">
+    <PageContainer>
       <PageHeader>
-        <h1 className="text-2xl font-semibold">Contas a Receber</h1>
+        <h1 className="text-xl sm:text-2xl font-semibold">Contas a Receber</h1>
       </PageHeader>
 
-      <div className="flex-1 overflow-auto">
-        <PageContainer>
-          <div className="space-y-6">
-            <div className="flex items-center justify-between gap-4">
-              <div className="relative flex-1 max-w-md">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar contas..."
-                  className="pl-10"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  data-testid="input-search"
-                />
-              </div>
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Buscar contas..."
+              className="pl-10"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              data-testid="input-search"
+            />
+          </div>
 
-              <Dialog open={open} onOpenChange={setOpen}>
+          <Dialog open={open} onOpenChange={setOpen}>
                 <DialogTrigger asChild>
                   <Button data-testid="button-add-receivable">
                     <Plus className="h-4 w-4 mr-2" />
@@ -278,63 +276,61 @@ export default function AccountsReceivable() {
                     </form>
                   </Form>
                 </DialogContent>
-              </Dialog>
-            </div>
+          </Dialog>
+        </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg font-semibold">Lista de Contas a Receber</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {isLoading ? (
-                  <div className="space-y-2">
-                    {[...Array(5)].map((_, i) => (
-                      <div key={i} className="h-12 bg-muted animate-pulse rounded" />
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold">Lista de Contas a Receber</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="space-y-2">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="h-12 bg-muted animate-pulse rounded" />
+                ))}
+              </div>
+            ) : !filteredReceivables || filteredReceivables.length === 0 ? (
+              <EmptyState
+                icon={FileText}
+                title="Nenhuma conta a receber"
+                description="Você ainda não cadastrou contas a receber. Clique no botão acima para adicionar a primeira."
+                actionLabel="Nova Conta a Receber"
+                onAction={() => setOpen(true)}
+              />
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Descrição</TableHead>
+                      <TableHead>Cliente</TableHead>
+                      <TableHead>Vencimento</TableHead>
+                      <TableHead className="text-right">Valor</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredReceivables.map((receivable) => (
+                      <TableRow key={receivable.id} className="hover-elevate">
+                        <TableCell className="font-medium">{receivable.description}</TableCell>
+                        <TableCell>{receivable.customerName || "-"}</TableCell>
+                        <TableCell>{format(new Date(receivable.dueDate), 'dd/MM/yyyy')}</TableCell>
+                        <TableCell className="text-right font-mono">
+                          R$ {parseFloat(receivable.totalAmount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </TableCell>
+                        <TableCell>
+                          <StatusBadge status={receivable.status || 'pendente'} />
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </div>
-                ) : !filteredReceivables || filteredReceivables.length === 0 ? (
-                  <EmptyState
-                    icon={FileText}
-                    title="Nenhuma conta a receber"
-                    description="Você ainda não cadastrou contas a receber. Clique no botão acima para adicionar a primeira."
-                    actionLabel="Nova Conta a Receber"
-                    onAction={() => setOpen(true)}
-                  />
-                ) : (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Descrição</TableHead>
-                          <TableHead>Cliente</TableHead>
-                          <TableHead>Vencimento</TableHead>
-                          <TableHead className="text-right">Valor</TableHead>
-                          <TableHead>Status</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredReceivables.map((receivable) => (
-                          <TableRow key={receivable.id} className="hover-elevate">
-                            <TableCell className="font-medium">{receivable.description}</TableCell>
-                            <TableCell>{receivable.customerName || "-"}</TableCell>
-                            <TableCell>{format(new Date(receivable.dueDate), 'dd/MM/yyyy')}</TableCell>
-                            <TableCell className="text-right font-mono">
-                              R$ {parseFloat(receivable.totalAmount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                            </TableCell>
-                            <TableCell>
-                              <StatusBadge status={receivable.status || 'pendente'} />
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </PageContainer>
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
-    </div>
+    </PageContainer>
   )
 }
