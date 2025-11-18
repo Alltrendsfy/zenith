@@ -255,6 +255,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Calculate amounts
       const allocationsWithAmounts = calculateAmounts(allocationInputs, parseFloat(transaction.totalAmount));
 
+      // Delete existing allocations first (upsert pattern)
+      await storage.deleteAllocations(userId, 'payable', id);
+
       // Create allocations
       const allocationsData = allocationsWithAmounts.map(a => ({
         transactionType: 'payable' as const,
@@ -317,6 +320,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Calculate amounts
       const allocationsWithAmounts = calculateAmounts(allocationInputs, parseFloat(transaction.totalAmount));
+
+      // Delete existing allocations first (upsert pattern)
+      await storage.deleteAllocations(userId, 'receivable', id);
 
       // Create allocations
       const allocationsData = allocationsWithAmounts.map(a => ({
