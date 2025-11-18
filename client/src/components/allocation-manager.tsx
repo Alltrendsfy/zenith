@@ -73,8 +73,17 @@ export function AllocationManager({ value, onChange, totalAmount = 0 }: Allocati
 
   const handleEqualSplit = () => {
     if (allocations.length === 0) return;
-    const percentage = parseFloat((100 / allocations.length).toFixed(2));
-    const newAllocations = allocations.map(a => ({ ...a, percentage }));
+    
+    // Calculate base percentage and remainder
+    const basePercentage = Math.floor((100 / allocations.length) * 100) / 100;
+    const remainder = 100 - (basePercentage * allocations.length);
+    
+    // Distribute the remainder to the first allocation
+    const newAllocations = allocations.map((a, index) => ({
+      ...a,
+      percentage: index === 0 ? parseFloat((basePercentage + remainder).toFixed(2)) : basePercentage
+    }));
+    
     setAllocations(newAllocations);
     onChange(newAllocations);
   };
