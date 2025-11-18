@@ -9,7 +9,10 @@ import {
   insertChartOfAccountsSchema,
   insertCostCenterSchema,
   insertBankTransferSchema,
+  insertCostAllocationSchema,
 } from "@shared/schema";
+import { validateAllocations, calculateAmounts } from "@shared/allocationUtils";
+import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   await setupAuth(app);
@@ -215,6 +218,132 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error creating cost center:", error);
       res.status(400).json({ message: error.message || "Failed to create cost center" });
+    }
+  });
+
+  // Cost Allocations - Accounts Payable
+  app.get('/api/accounts-payable/:id/allocations', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      const allocations = await storage.getAllocations(userId, 'payable', id);
+      res.json(allocations);
+    } catch (error) {
+      console.error("Error fetching payable allocations:", error);
+      res.status(500).json({ message: "Failed to fetch allocations" });
+    }
+  });
+
+  app.post('/api/accounts-payable/:id/allocations', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      const allocationInputs = req.body.allocations;
+
+      // Validate percentages
+      const validation = validateAllocations(allocationInputs);
+      if (!validation.isValid) {
+        return res.status(400).json({ message: validation.errors.join(', ') });
+      }
+
+      // Get transaction to calculate amounts
+      const transaction = await storage.getAccountPayable(id, userId);
+      if (!transaction) {
+        return res.status(404).json({ message: "Transaction not found" });
+      }
+
+      // Calculate amounts
+      const allocationsWithAmounts = calculateAmounts(allocationInputs, parseFloat(transaction.totalAmount));
+
+      // Create allocations
+      const allocationsData = allocationsWithAmounts.map(a => ({
+        transactionType: 'payable' as const,
+        transactionId: id,
+        costCenterId: a.costCenterId,
+        percentage: a.percentage.toString(),
+        amount: a.amount.toString(),
+      }));
+
+      const created = await storage.createAllocations(userId, 'payable', id, allocationsData);
+      res.json(created);
+    } catch (error: any) {
+      console.error("Error creating payable allocations:", error);
+      res.status(400).json({ message: error.message || "Failed to create allocations" });
+    }
+  });
+
+  app.delete('/api/accounts-payable/:id/allocations', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      await storage.deleteAllocations(userId, 'payable', id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting payable allocations:", error);
+      res.status(500).json({ message: "Failed to delete allocations" });
+    }
+  });
+
+  // Cost Allocations - Accounts Receivable
+  app.get('/api/accounts-receivable/:id/allocations', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      const allocations = await storage.getAllocations(userId, 'receivable', id);
+      res.json(allocations);
+    } catch (error) {
+      console.error("Error fetching receivable allocations:", error);
+      res.status(500).json({ message: "Failed to fetch allocations" });
+    }
+  });
+
+  app.post('/api/accounts-receivable/:id/allocations', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      const allocationInputs = req.body.allocations;
+
+      // Validate percentages
+      const validation = validateAllocations(allocationInputs);
+      if (!validation.isValid) {
+        return res.status(400).json({ message: validation.errors.join(', ') });
+      }
+
+      // Get transaction to calculate amounts
+      const transaction = await storage.getAccountReceivable(id, userId);
+      if (!transaction) {
+        return res.status(404).json({ message: "Transaction not found" });
+      }
+
+      // Calculate amounts
+      const allocationsWithAmounts = calculateAmounts(allocationInputs, parseFloat(transaction.totalAmount));
+
+      // Create allocations
+      const allocationsData = allocationsWithAmounts.map(a => ({
+        transactionType: 'receivable' as const,
+        transactionId: id,
+        costCenterId: a.costCenterId,
+        percentage: a.percentage.toString(),
+        amount: a.amount.toString(),
+      }));
+
+      const created = await storage.createAllocations(userId, 'receivable', id, allocationsData);
+      res.json(created);
+    } catch (error: any) {
+      console.error("Error creating receivable allocations:", error);
+      res.status(400).json({ message: error.message || "Failed to create allocations" });
+    }
+  });
+
+  app.delete('/api/accounts-receivable/:id/allocations', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      await storage.deleteAllocations(userId, 'receivable', id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting receivable allocations:", error);
+      res.status(500).json({ message: "Failed to delete allocations" });
     }
   });
 

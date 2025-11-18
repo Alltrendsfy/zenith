@@ -48,6 +48,7 @@ export const accountTypeEnum = pgEnum('account_type', ['receita', 'despesa', 'at
 export const accountNatureEnum = pgEnum('account_nature', ['analitica', 'sintetica']);
 export const transactionStatusEnum = pgEnum('transaction_status', ['pendente', 'pago', 'parcial', 'cancelado', 'vencido']);
 export const paymentIntervalEnum = pgEnum('payment_interval', ['mensal', 'quinzenal', 'semanal', 'personalizado']);
+export const transactionTypeEnum = pgEnum('transaction_type', ['payable', 'receivable']);
 
 // Chart of Accounts (Plano de Contas)
 export const chartOfAccounts = pgTable("chart_of_accounts", {
@@ -325,3 +326,41 @@ export const insertBankTransferSchema = createInsertSchema(bankTransfers).omit({
 
 export type BankTransfer = typeof bankTransfers.$inferSelect;
 export type InsertBankTransfer = z.infer<typeof insertBankTransferSchema>;
+
+// Cost Allocations (Rateio de Centros de Custo)
+export const costAllocations = pgTable("cost_allocations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  transactionType: transactionTypeEnum("transaction_type").notNull(),
+  transactionId: varchar("transaction_id").notNull(),
+  costCenterId: varchar("cost_center_id").notNull().references(() => costCenters.id, { onDelete: 'cascade' }),
+  percentage: decimal("percentage", { precision: 5, scale: 2 }).notNull(),
+  amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_cost_allocations_user_id").on(table.userId),
+  index("idx_cost_allocations_transaction").on(table.transactionType, table.transactionId),
+  index("idx_cost_allocations_cost_center").on(table.costCenterId),
+]);
+
+export const costAllocationsRelations = relations(costAllocations, ({ one }) => ({
+  user: one(users, {
+    fields: [costAllocations.userId],
+    references: [users.id],
+  }),
+  costCenter: one(costCenters, {
+    fields: [costAllocations.costCenterId],
+    references: [costCenters.id],
+  }),
+}));
+
+export const insertCostAllocationSchema = createInsertSchema(costAllocations).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type CostAllocation = typeof costAllocations.$inferSelect;
+export type InsertCostAllocation = z.infer<typeof insertCostAllocationSchema>;

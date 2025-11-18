@@ -14,12 +14,15 @@ import {
   type InsertCostCenter,
   type BankTransfer,
   type InsertBankTransfer,
+  type CostAllocation,
+  type InsertCostAllocation,
   bankAccounts,
   accountsPayable,
   accountsReceivable,
   chartOfAccounts,
   costCenters,
   bankTransfers,
+  costAllocations,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc } from "drizzle-orm";
@@ -67,6 +70,11 @@ export interface IStorage {
   // Bank Transfers
   getBankTransfers(userId: string): Promise<BankTransfer[]>;
   createBankTransfer(transfer: InsertBankTransfer): Promise<BankTransfer>;
+
+  // Cost Allocations
+  getAllocations(userId: string, transactionType: 'payable' | 'receivable', transactionId: string): Promise<CostAllocation[]>;
+  createAllocations(userId: string, transactionType: 'payable' | 'receivable', transactionId: string, allocations: InsertCostAllocation[]): Promise<CostAllocation[]>;
+  deleteAllocations(userId: string, transactionType: 'payable' | 'receivable', transactionId: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -247,6 +255,58 @@ export class DatabaseStorage implements IStorage {
   async createBankTransfer(transfer: InsertBankTransfer): Promise<BankTransfer> {
     const [created] = await db.insert(bankTransfers).values(transfer).returning();
     return created;
+  }
+
+  // Cost Allocations
+  async getAllocations(userId: string, transactionType: 'payable' | 'receivable', transactionId: string): Promise<CostAllocation[]> {
+    return await db
+      .select()
+      .from(costAllocations)
+      .where(
+        and(
+          eq(costAllocations.userId, userId),
+          eq(costAllocations.transactionType, transactionType),
+          eq(costAllocations.transactionId, transactionId)
+        )
+      )
+      .orderBy(costAllocations.createdAt);
+  }
+
+  async createAllocations(userId: string, transactionType: 'payable' | 'receivable', transactionId: string, allocations: InsertCostAllocation[]): Promise<CostAllocation[]> {
+    // Delete existing allocations first
+    await db.delete(costAllocations).where(
+      and(
+        eq(costAllocations.userId, userId),
+        eq(costAllocations.transactionType, transactionType),
+        eq(costAllocations.transactionId, transactionId)
+      )
+    );
+
+    // Insert new allocations
+    if (allocations.length === 0) {
+      return [];
+    }
+
+    const values = allocations.map(alloc => ({
+      ...alloc,
+      userId,
+      transactionType,
+      transactionId,
+    }));
+
+    const created = await db.insert(costAllocations).values(values).returning();
+    return created;
+  }
+
+  async deleteAllocations(userId: string, transactionType: 'payable' | 'receivable', transactionId: string): Promise<boolean> {
+    const result = await db.delete(costAllocations).where(
+      and(
+        eq(costAllocations.userId, userId),
+        eq(costAllocations.transactionType, transactionType),
+        eq(costAllocations.transactionId, transactionId)
+      )
+    );
+    return result.rowCount ? result.rowCount > 0 : false;
   }
 }
 
