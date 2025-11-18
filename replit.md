@@ -31,11 +31,21 @@ Preferred communication style: Simple, everyday language.
 - Typography: Inter for UI, JetBrains Mono for financial data
 - Component-based design system with reusable patterns
 
+**Mobile Responsiveness**:
+- **Breakpoints**: Mobile (< 768px), Tablet (768-1023px), Desktop (≥ 1024px)
+- **MobileBottomNav**: Fixed bottom navigation (< 1024px) with 4 main sections, active state highlighting via matchPaths
+- **MobileCardList**: Transforms tables to vertical cards on mobile while maintaining table view on desktop
+- **MobileFormActions**: Sticky bottom action bar for forms on mobile, static on desktop
+- **Dashboard**: Responsive metrics grid (1/2/3 columns) and charts (240px mobile, 320px desktop)
+- **Sidebar**: Collapsible overlay on mobile, permanent on desktop
+- **Touch-optimized**: All interactive elements sized for touch (min 44px height), proper spacing, no hover-dependent interactions
+
 **Key Design Decisions**:
 - Information-dense layouts prioritizing data clarity
 - Minimal click workflows with maximum context visibility
 - Professional aesthetic with restrained color palette
 - Consistent component patterns across all modules for rapid learning
+- Mobile-first responsive design with native-like mobile navigation
 
 ### Backend Architecture
 
