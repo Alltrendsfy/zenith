@@ -7,6 +7,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { AppSidebar } from "@/components/app-sidebar";
+import { MobileBottomNav } from "@/components/mobile-bottom-nav";
 import { useAuth } from "@/hooks/useAuth";
 import Landing from "@/pages/landing";
 import Dashboard from "@/pages/dashboard";
@@ -40,7 +41,7 @@ function Router() {
                   <div className="flex-1" />
                   <ThemeToggle />
                 </header>
-                <main className="flex-1 overflow-auto">
+                <main className="flex-1 overflow-auto pb-16 lg:pb-0">
                   <Switch>
                     <Route path="/" component={Dashboard} />
                     <Route path="/accounts-payable" component={AccountsPayable} />
@@ -51,6 +52,7 @@ function Router() {
                     <Route component={NotFound} />
                   </Switch>
                 </main>
+                <MobileBottomNav />
               </div>
             </div>
           </SidebarProvider>
