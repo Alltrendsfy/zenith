@@ -6,9 +6,27 @@ ZENITH ERP is a web-based enterprise resource planning system focused on financi
 
 The system is built as a full-stack TypeScript application with a React frontend and Express backend, designed for multi-user access with secure authentication via Replit's OpenID Connect implementation.
 
+**Recent Update (November 2024)**: Implemented comprehensive cost allocation (rateio) system allowing proportional distribution of financial transactions across multiple cost centers with percentage-based allocation and automatic amount calculation.
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
+
+## Key Features
+
+### Cost Allocation System (Rateio)
+The system supports proportional distribution of financial transactions across multiple cost centers:
+- **Percentage-based allocation**: Each transaction can be split across N cost centers with specific percentages
+- **Automatic amount calculation**: Server-side calculation ensures amounts match percentages × total amount
+- **Validation**: Frontend and backend validation ensures allocations sum to exactly 100%
+- **Quick actions**: Equal split button for uniform distribution, clear button for resetting
+- **Real-time feedback**: Visual indicators show total percentage and validation status
+- **Backwards compatible**: Maintains legacy `costCenterId` field for single cost center records
+
+**Implementation**:
+- Backend: `cost_allocations` table, REST API endpoints (`/api/accounts-payable/:id/allocations`, `/api/accounts-receivable/:id/allocations`)
+- Frontend: `AllocationManager` component with add/remove rows, percentage inputs, validation badges
+- Utilities: `shared/allocationUtils.ts` provides `validateAllocations`, `calculateAmounts`, `createEqualDistribution` helpers
 
 ## System Architecture
 
@@ -90,6 +108,7 @@ Preferred communication style: Simple, everyday language.
 - `chart_of_accounts`: Hierarchical account structure (receita/despesa/ativo/passivo)
 - `cost_centers`: Hierarchical cost center tracking
 - `bank_transfers`: Inter-account transfer records
+- `cost_allocations`: Many-to-many allocation table for distributing transactions across cost centers with percentage and amount tracking (transactionType: 'payable' | 'receivable', percentage must sum to 100%, amounts auto-calculated)
 
 **Schema Patterns**:
 - PostgreSQL enums for constrained fields (account types, transaction status, payment intervals)

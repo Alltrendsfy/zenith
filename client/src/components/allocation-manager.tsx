@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, X, Percent, Calculator } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import type { CostCenter } from "@shared/schema";
+import { createEqualDistribution } from "@shared/allocationUtils";
 
 export interface AllocationInput {
   costCenterId: string;
@@ -74,15 +75,17 @@ export function AllocationManager({ value, onChange, totalAmount = 0 }: Allocati
   const handleEqualSplit = () => {
     if (allocations.length === 0) return;
     
-    // Calculate base percentage and remainder
-    const basePercentage = Math.floor((100 / allocations.length) * 100) / 100;
-    const remainder = 100 - (basePercentage * allocations.length);
+    // Use shared utility to ensure exactly 100%
+    const costCenterIds = allocations.map(a => a.costCenterId).filter(Boolean);
+    if (costCenterIds.length === 0) return;
     
-    // Distribute the remainder to the first allocation
-    const newAllocations = allocations.map((a, index) => ({
-      ...a,
-      percentage: index === 0 ? parseFloat((basePercentage + remainder).toFixed(2)) : basePercentage
-    }));
+    const equalDistribution = createEqualDistribution(costCenterIds);
+    
+    // Map back to allocations with costCenterId
+    const newAllocations = allocations.map(a => {
+      const match = equalDistribution.find(ed => ed.costCenterId === a.costCenterId);
+      return match ? { ...a, percentage: match.percentage } : a;
+    });
     
     setAllocations(newAllocations);
     onChange(newAllocations);
