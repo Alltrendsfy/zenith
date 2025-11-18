@@ -25,6 +25,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { StatusBadge } from "@/components/status-badge"
 import { EmptyState } from "@/components/empty-state"
+import { MobileCardList, type MobileCardProps } from "@/components/mobile-card-list"
 import { apiRequest, queryClient } from "@/lib/queryClient"
 import type { AccountsReceivable } from "@shared/schema"
 import { format } from "date-fns"
@@ -299,34 +300,68 @@ export default function AccountsReceivable() {
                 onAction={() => setOpen(true)}
               />
             ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Descrição</TableHead>
-                      <TableHead>Cliente</TableHead>
-                      <TableHead>Vencimento</TableHead>
-                      <TableHead className="text-right">Valor</TableHead>
-                      <TableHead>Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredReceivables.map((receivable) => (
-                      <TableRow key={receivable.id} className="hover-elevate">
-                        <TableCell className="font-medium">{receivable.description}</TableCell>
-                        <TableCell>{receivable.customerName || "-"}</TableCell>
-                        <TableCell>{format(new Date(receivable.dueDate), 'dd/MM/yyyy')}</TableCell>
-                        <TableCell className="text-right font-mono">
-                          R$ {parseFloat(receivable.totalAmount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                        </TableCell>
-                        <TableCell>
-                          <StatusBadge status={receivable.status || 'pendente'} />
-                        </TableCell>
+              <>
+                <div className="md:hidden">
+                  <MobileCardList
+                    items={filteredReceivables}
+                    renderCard={(receivable): MobileCardProps => ({
+                      title: receivable.description,
+                      titleIcon: <FileText className="h-4 w-4 text-primary" />,
+                      fields: [
+                        {
+                          label: "Cliente",
+                          value: receivable.customerName || "-",
+                        },
+                        {
+                          label: "Vencimento",
+                          value: format(new Date(receivable.dueDate), 'dd/MM/yyyy'),
+                        },
+                        {
+                          label: "Valor Total",
+                          value: `R$ ${parseFloat(receivable.totalAmount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+                          className: "text-lg font-bold font-mono",
+                        },
+                        {
+                          label: "Status",
+                          value: receivable.status || 'pendente',
+                          isBadge: true,
+                          badgeVariant: receivable.status === 'recebido' ? 'default' : receivable.status === 'atrasado' ? 'destructive' : 'secondary',
+                        },
+                      ],
+                    })}
+                    emptyMessage="Nenhuma conta a receber encontrada"
+                  />
+                </div>
+                
+                <div className="hidden md:block overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Descrição</TableHead>
+                        <TableHead>Cliente</TableHead>
+                        <TableHead>Vencimento</TableHead>
+                        <TableHead className="text-right">Valor</TableHead>
+                        <TableHead>Status</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredReceivables.map((receivable) => (
+                        <TableRow key={receivable.id} className="hover-elevate">
+                          <TableCell className="font-medium">{receivable.description}</TableCell>
+                          <TableCell>{receivable.customerName || "-"}</TableCell>
+                          <TableCell>{format(new Date(receivable.dueDate), 'dd/MM/yyyy')}</TableCell>
+                          <TableCell className="text-right font-mono">
+                            R$ {parseFloat(receivable.totalAmount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </TableCell>
+                          <TableCell>
+                            <StatusBadge status={receivable.status || 'pendente'} />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>

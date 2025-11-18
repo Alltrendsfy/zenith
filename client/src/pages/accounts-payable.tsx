@@ -26,6 +26,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { StatusBadge } from "@/components/status-badge"
 import { EmptyState } from "@/components/empty-state"
+import { MobileCardList, type MobileCardProps } from "@/components/mobile-card-list"
 import { apiRequest, queryClient } from "@/lib/queryClient"
 import type { AccountsPayable } from "@shared/schema"
 import { format } from "date-fns"
@@ -303,34 +304,68 @@ export default function AccountsPayable() {
                 onAction={() => setOpen(true)}
               />
             ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Descrição</TableHead>
-                      <TableHead>Fornecedor</TableHead>
-                      <TableHead>Vencimento</TableHead>
-                      <TableHead className="text-right">Valor</TableHead>
-                      <TableHead>Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredPayables.map((payable) => (
-                      <TableRow key={payable.id} className="hover-elevate">
-                        <TableCell className="font-medium">{payable.description}</TableCell>
-                        <TableCell>{payable.supplierName || "-"}</TableCell>
-                        <TableCell>{format(new Date(payable.dueDate), 'dd/MM/yyyy')}</TableCell>
-                        <TableCell className="text-right font-mono">
-                          R$ {parseFloat(payable.totalAmount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                        </TableCell>
-                        <TableCell>
-                          <StatusBadge status={payable.status || 'pendente'} />
-                        </TableCell>
+              <>
+                <div className="md:hidden">
+                  <MobileCardList
+                    items={filteredPayables}
+                    renderCard={(payable): MobileCardProps => ({
+                      title: payable.description,
+                      titleIcon: <Receipt className="h-4 w-4 text-primary" />,
+                      fields: [
+                        {
+                          label: "Fornecedor",
+                          value: payable.supplierName || "-",
+                        },
+                        {
+                          label: "Vencimento",
+                          value: format(new Date(payable.dueDate), 'dd/MM/yyyy'),
+                        },
+                        {
+                          label: "Valor Total",
+                          value: `R$ ${parseFloat(payable.totalAmount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+                          className: "text-lg font-bold font-mono",
+                        },
+                        {
+                          label: "Status",
+                          value: payable.status || 'pendente',
+                          isBadge: true,
+                          badgeVariant: payable.status === 'pago' ? 'default' : payable.status === 'atrasado' ? 'destructive' : 'secondary',
+                        },
+                      ],
+                    })}
+                    emptyMessage="Nenhuma conta a pagar encontrada"
+                  />
+                </div>
+                
+                <div className="hidden md:block overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Descrição</TableHead>
+                        <TableHead>Fornecedor</TableHead>
+                        <TableHead>Vencimento</TableHead>
+                        <TableHead className="text-right">Valor</TableHead>
+                        <TableHead>Status</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredPayables.map((payable) => (
+                        <TableRow key={payable.id} className="hover-elevate">
+                          <TableCell className="font-medium">{payable.description}</TableCell>
+                          <TableCell>{payable.supplierName || "-"}</TableCell>
+                          <TableCell>{format(new Date(payable.dueDate), 'dd/MM/yyyy')}</TableCell>
+                          <TableCell className="text-right font-mono">
+                            R$ {parseFloat(payable.totalAmount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </TableCell>
+                          <TableCell>
+                            <StatusBadge status={payable.status || 'pendente'} />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
