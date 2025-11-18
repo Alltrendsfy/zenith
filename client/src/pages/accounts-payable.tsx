@@ -28,6 +28,7 @@ import { StatusBadge } from "@/components/status-badge"
 import { EmptyState } from "@/components/empty-state"
 import { MobileCardList, type MobileCardProps } from "@/components/mobile-card-list"
 import { MobileFormActions } from "@/components/mobile-form-actions"
+import { AllocationManager, type AllocationInput } from "@/components/allocation-manager"
 import { apiRequest, queryClient } from "@/lib/queryClient"
 import type { AccountsPayable } from "@shared/schema"
 import { format } from "date-fns"
@@ -50,6 +51,7 @@ export default function AccountsPayable() {
   const { isAuthenticated, isLoading: authLoading } = useAuth()
   const [open, setOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
+  const [allocations, setAllocations] = useState<AllocationInput[]>([])
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -84,10 +86,19 @@ export default function AccountsPayable() {
 
   const createMutation = useMutation({
     mutationFn: async (data: z.infer<typeof formSchema>) => {
-      await apiRequest("POST", "/api/accounts-payable", {
+      const response = await apiRequest("POST", "/api/accounts-payable", {
         ...data,
         totalAmount: data.totalAmount,
       })
+      
+      // Save allocations if configured
+      if (allocations.length > 0 && response.id) {
+        await apiRequest("POST", `/api/accounts-payable/${response.id}/allocations`, {
+          allocations,
+        })
+      }
+      
+      return response
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/accounts-payable"] })
@@ -98,6 +109,7 @@ export default function AccountsPayable() {
       })
       setOpen(false)
       form.reset()
+      setAllocations([])
     },
     onError: (error) => {
       if (isUnauthorizedError(error as Error)) {
@@ -120,6 +132,31 @@ export default function AccountsPayable() {
   })
 
   const onSubmit = (data: z.infer<typeof formSchema>) => {
+    // Validate allocations if configured
+    if (allocations.length > 0) {
+      const totalPercentage = allocations.reduce((sum, a) => sum + (a.percentage || 0), 0)
+      const isValid = Math.abs(totalPercentage - 100) < 0.01
+      
+      if (!isValid) {
+        toast({
+          title: "Erro de validação",
+          description: "Os percentuais de rateio devem somar exatamente 100%",
+          variant: "destructive",
+        })
+        return
+      }
+
+      // Check if all cost centers are selected
+      if (allocations.some(a => !a.costCenterId)) {
+        toast({
+          title: "Erro de validação",
+          description: "Selecione um centro de custo para cada linha de rateio",
+          variant: "destructive",
+        })
+        return
+      }
+    }
+
     createMutation.mutate(data)
   }
 
@@ -280,6 +317,14 @@ export default function AccountsPayable() {
                               <FormMessage />
                             </FormItem>
                           )}
+                        />
+                      </div>
+
+                      <div className="pt-4 border-t">
+                        <AllocationManager
+                          value={allocations}
+                          onChange={setAllocations}
+                          totalAmount={parseFloat(form.watch("totalAmount") || "0")}
                         />
                       </div>
 
