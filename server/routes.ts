@@ -30,15 +30,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/dashboard', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const bankAccounts = await storage.getBankAccounts(userId);
+      
+      const [bankAccounts, accountsPayable, accountsReceivable] = await Promise.all([
+        storage.getBankAccounts(userId),
+        storage.getAccountsPayable(userId),
+        storage.getAccountsReceivable(userId),
+      ]);
+
       const totalBalance = bankAccounts.reduce((sum, acc) => sum + parseFloat(acc.balance || "0"), 0);
+      
+      const totalPayable = accountsPayable
+        .filter(a => a.status !== 'pago' && a.status !== 'cancelado')
+        .reduce((sum, acc) => sum + parseFloat(acc.totalAmount || "0"), 0);
+      
+      const totalReceivable = accountsReceivable
+        .filter(a => a.status !== 'pago' && a.status !== 'cancelado')
+        .reduce((sum, acc) => sum + parseFloat(acc.totalAmount || "0"), 0);
+
+      const alerts = [];
+      
+      const overduePayables = accountsPayable.filter(a => 
+        a.status !== 'pago' && a.status !== 'cancelado' && new Date(a.dueDate) < new Date()
+      );
+      
+      if (overduePayables.length > 0) {
+        alerts.push({
+          type: 'critical',
+          title: `${overduePayables.length} conta(s) a pagar vencida(s)`,
+          description: 'Há contas a pagar com vencimento atrasado',
+          date: 'Agora',
+        });
+      }
 
       res.json({
         totalBalance: `R$ ${totalBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-        totalReceivable: "R$ 0,00",
-        totalPayable: "R$ 0,00",
+        totalReceivable: `R$ ${totalReceivable.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+        totalPayable: `R$ ${totalPayable.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
         bankAccountsCount: bankAccounts.length.toString(),
-        alerts: [],
+        alerts,
       });
     } catch (error) {
       console.error("Error fetching dashboard:", error);
