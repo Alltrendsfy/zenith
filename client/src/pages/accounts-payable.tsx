@@ -84,11 +84,12 @@ export default function AccountsPayable() {
     mutationFn: async (data: z.infer<typeof formSchema>) => {
       await apiRequest("POST", "/api/accounts-payable", {
         ...data,
-        totalAmount: parseFloat(data.totalAmount),
+        totalAmount: data.totalAmount,
       })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/accounts-payable"] })
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] })
       toast({
         title: "Sucesso",
         description: "Conta a pagar criada com sucesso",

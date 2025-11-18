@@ -80,11 +80,12 @@ export default function AccountsReceivable() {
     mutationFn: async (data: z.infer<typeof formSchema>) => {
       await apiRequest("POST", "/api/accounts-receivable", {
         ...data,
-        totalAmount: parseFloat(data.totalAmount),
+        totalAmount: data.totalAmount,
       })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/accounts-receivable"] })
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] })
       toast({
         title: "Sucesso",
         description: "Conta a receber criada com sucesso",

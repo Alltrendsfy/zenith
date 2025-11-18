@@ -69,12 +69,13 @@ export default function BankAccounts() {
     mutationFn: async (data: z.infer<typeof formSchema>) => {
       await apiRequest("POST", "/api/bank-accounts", {
         ...data,
-        initialBalance: parseFloat(data.initialBalance),
-        balance: parseFloat(data.initialBalance),
+        initialBalance: data.initialBalance,
+        balance: data.initialBalance,
       })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/bank-accounts"] })
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] })
       toast({
         title: "Sucesso",
         description: "Conta bancária criada com sucesso",
