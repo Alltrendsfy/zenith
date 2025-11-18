@@ -85,6 +85,7 @@ export const chartOfAccountsRelations = relations(chartOfAccounts, ({ one, many 
 
 export const insertChartOfAccountsSchema = createInsertSchema(chartOfAccounts).omit({
   id: true,
+  userId: true,
   createdAt: true,
   updatedAt: true,
 });
@@ -124,6 +125,7 @@ export const costCentersRelations = relations(costCenters, ({ one, many }) => ({
 
 export const insertCostCenterSchema = createInsertSchema(costCenters).omit({
   id: true,
+  userId: true,
   createdAt: true,
   updatedAt: true,
 });
@@ -159,6 +161,7 @@ export const bankAccountsRelations = relations(bankAccounts, ({ one }) => ({
 
 export const insertBankAccountSchema = createInsertSchema(bankAccounts).omit({
   id: true,
+  userId: true,
   createdAt: true,
   updatedAt: true,
 });
@@ -215,6 +218,7 @@ export const accountsPayableRelations = relations(accountsPayable, ({ one }) => 
 
 export const insertAccountsPayableSchema = createInsertSchema(accountsPayable).omit({
   id: true,
+  userId: true,
   createdAt: true,
   updatedAt: true,
 });
@@ -271,6 +275,7 @@ export const accountsReceivableRelations = relations(accountsReceivable, ({ one 
 
 export const insertAccountsReceivableSchema = createInsertSchema(accountsReceivable).omit({
   id: true,
+  userId: true,
   createdAt: true,
   updatedAt: true,
 });
@@ -313,6 +318,7 @@ export const bankTransfersRelations = relations(bankTransfers, ({ one }) => ({
 
 export const insertBankTransferSchema = createInsertSchema(bankTransfers).omit({
   id: true,
+  userId: true,
   createdAt: true,
   updatedAt: true,
 });

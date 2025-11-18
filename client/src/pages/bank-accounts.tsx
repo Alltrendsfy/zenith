@@ -83,6 +83,7 @@ export default function BankAccounts() {
       form.reset()
     },
     onError: (error) => {
+      console.error("Mutation error:", error)
       if (isUnauthorizedError(error as Error)) {
         toast({
           title: "Não autorizado",
@@ -96,13 +97,15 @@ export default function BankAccounts() {
       }
       toast({
         title: "Erro",
-        description: "Falha ao criar conta bancária",
+        description: error instanceof Error ? error.message : "Falha ao criar conta bancária",
         variant: "destructive",
       })
     },
   })
 
   const onSubmit = (data: z.infer<typeof formSchema>) => {
+    console.log("Form submitted with data:", data)
+    console.log("Form errors:", form.formState.errors)
     createMutation.mutate(data)
   }
 

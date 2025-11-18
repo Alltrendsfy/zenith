@@ -90,14 +90,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/bank-accounts', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      console.log("[POST /api/bank-accounts] Request body:", JSON.stringify(req.body, null, 2));
+      
       const validated = insertBankAccountSchema.parse(req.body);
+      console.log("[POST /api/bank-accounts] Validated data:", JSON.stringify(validated, null, 2));
+      
       const account = await storage.createBankAccount({
         ...validated,
         userId,
       });
+      console.log("[POST /api/bank-accounts] Created account:", account.id);
+      
       res.json(account);
     } catch (error: any) {
-      console.error("Error creating bank account:", error);
+      console.error("[POST /api/bank-accounts] Error:", error);
+      console.error("[POST /api/bank-accounts] Error message:", error.message);
+      console.error("[POST /api/bank-accounts] Error stack:", error.stack);
       res.status(400).json({ message: error.message || "Failed to create bank account" });
     }
   });
