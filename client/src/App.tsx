@@ -41,7 +41,7 @@ function Router() {
                   <div className="flex-1" />
                   <ThemeToggle />
                 </header>
-                <main className="flex-1 overflow-auto pb-16 lg:pb-0">
+                <main className="flex-1 overflow-auto pb-20 lg:pb-0">
                   <Switch>
                     <Route path="/" component={Dashboard} />
                     <Route path="/accounts-payable" component={AccountsPayable} />

@@ -217,7 +217,13 @@ export default function AccountsReceivable() {
                             <FormItem>
                               <FormLabel>Data de Emissão *</FormLabel>
                               <FormControl>
-                                <Input type="date" {...field} data-testid="input-issue-date" />
+                                <Input 
+                                  type="date" 
+                                  {...field}
+                                  value={field.value || ''}
+                                  onChange={(e) => field.onChange(e.target.value)}
+                                  data-testid="input-issue-date" 
+                                />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -231,7 +237,13 @@ export default function AccountsReceivable() {
                             <FormItem>
                               <FormLabel>Data de Vencimento *</FormLabel>
                               <FormControl>
-                                <Input type="date" {...field} data-testid="input-due-date" />
+                                <Input 
+                                  type="date" 
+                                  {...field}
+                                  value={field.value || ''}
+                                  onChange={(e) => field.onChange(e.target.value)}
+                                  data-testid="input-due-date" 
+                                />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
