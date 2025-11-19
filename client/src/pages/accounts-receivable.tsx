@@ -6,6 +6,7 @@ import { isUnauthorizedError } from "@/lib/authUtils"
 import { PageHeader } from "@/components/page-header"
 import { PageContainer } from "@/components/page-container"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Table,
@@ -42,6 +43,18 @@ const formSchema = z.object({
   issueDate: z.string().min(1, "Data de emissão é obrigatória"),
   documentNumber: z.string().optional(),
   notes: z.string().optional(),
+  recurrenceType: z.enum(['unica', 'mensal', 'trimestral', 'anual']).default('unica'),
+  recurrenceStartDate: z.string().optional(),
+  recurrenceEndDate: z.string().optional(),
+}).refine((data) => {
+  // Se recorrência não for única, deve ter data de início
+  if (data.recurrenceType !== 'unica' && !data.recurrenceStartDate) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Data de início é obrigatória para recebimentos recorrentes",
+  path: ["recurrenceStartDate"],
 })
 
 export default function AccountsReceivable() {
@@ -85,14 +98,29 @@ export default function AccountsReceivable() {
       issueDate: "",
       documentNumber: "",
       notes: "",
+      recurrenceType: "unica",
+      recurrenceStartDate: "",
+      recurrenceEndDate: "",
     },
   })
 
   const createMutation = useMutation({
     mutationFn: async (data: z.infer<typeof formSchema>) => {
+      // Prepare recurrence data
+      const recurrenceData = data.recurrenceType !== 'unica' ? {
+        recurrenceType: data.recurrenceType,
+        recurrenceStatus: 'ativa' as const,
+        recurrenceStartDate: data.recurrenceStartDate,
+        recurrenceEndDate: data.recurrenceEndDate || null,
+        recurrenceNextDate: data.recurrenceStartDate, // First occurrence
+      } : {
+        recurrenceType: 'unica' as const,
+      };
+
       const res = await apiRequest("POST", "/api/accounts-receivable", {
         ...data,
         totalAmount: data.totalAmount,
+        ...recurrenceData,
       })
       const response = await res.json()
       
@@ -348,6 +376,78 @@ export default function AccountsReceivable() {
 
                         <FormField
                           control={form.control}
+                          name="recurrenceType"
+                          render={({ field }) => (
+                            <FormItem className="md:col-span-2">
+                              <FormLabel>Tipo de Recorrência</FormLabel>
+                              <Select
+                                onValueChange={field.onChange}
+                                value={field.value}
+                                data-testid="select-recurrence-type"
+                              >
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Selecione o tipo" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="unica">Única (sem recorrência)</SelectItem>
+                                  <SelectItem value="mensal">Mensal</SelectItem>
+                                  <SelectItem value="trimestral">Trimestral</SelectItem>
+                                  <SelectItem value="anual">Anual</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        {form.watch("recurrenceType") !== "unica" && (
+                          <>
+                            <FormField
+                              control={form.control}
+                              name="recurrenceStartDate"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Data de Início da Recorrência *</FormLabel>
+                                  <FormControl>
+                                    <Input 
+                                      type="date" 
+                                      {...field}
+                                      value={field.value || ''}
+                                      onChange={(e) => field.onChange(e.target.value)}
+                                      data-testid="input-recurrence-start-date" 
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+
+                            <FormField
+                              control={form.control}
+                              name="recurrenceEndDate"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Data de Término (opcional)</FormLabel>
+                                  <FormControl>
+                                    <Input 
+                                      type="date" 
+                                      {...field}
+                                      value={field.value || ''}
+                                      onChange={(e) => field.onChange(e.target.value)}
+                                      data-testid="input-recurrence-end-date" 
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </>
+                        )}
+
+                        <FormField
+                          control={form.control}
                           name="documentNumber"
                           render={({ field }) => (
                             <FormItem className="md:col-span-2">
@@ -442,7 +542,7 @@ export default function AccountsReceivable() {
                           label: "Status",
                           value: receivable.status || 'pendente',
                           isBadge: true,
-                          badgeVariant: receivable.status === 'recebido' ? 'default' : receivable.status === 'atrasado' ? 'destructive' : 'secondary',
+                          badgeVariant: receivable.status === 'pago' ? 'default' : receivable.status === 'vencido' ? 'destructive' : 'secondary',
                         },
                       ],
                     })}
@@ -459,6 +559,7 @@ export default function AccountsReceivable() {
                         <TableHead>Vencimento</TableHead>
                         <TableHead className="text-right">Valor</TableHead>
                         <TableHead>Status</TableHead>
+                        <TableHead>Recorrência</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -472,6 +573,17 @@ export default function AccountsReceivable() {
                           </TableCell>
                           <TableCell>
                             <StatusBadge status={receivable.status || 'pendente'} />
+                          </TableCell>
+                          <TableCell>
+                            {receivable.recurrenceType && receivable.recurrenceType !== 'unica' ? (
+                              <Badge variant="outline" className="text-xs">
+                                {receivable.recurrenceType === 'mensal' && '🔄 Mensal'}
+                                {receivable.recurrenceType === 'trimestral' && '🔄 Trimestral'}
+                                {receivable.recurrenceType === 'anual' && '🔄 Anual'}
+                              </Badge>
+                            ) : (
+                              <span className="text-muted-foreground text-xs">-</span>
+                            )}
                           </TableCell>
                         </TableRow>
                       ))}
