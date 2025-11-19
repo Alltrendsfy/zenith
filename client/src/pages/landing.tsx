@@ -6,24 +6,28 @@ export default function Landing() {
     <div className="min-h-screen bg-background">
       <div className="mx-auto max-w-7xl px-6 py-12">
         <div className="flex flex-col items-center justify-center text-center space-y-8">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <Building2 className="h-10 w-10" />
-            </div>
-            <div className="flex flex-col items-start">
-              <h1 className="text-4xl font-bold">ZENITH ERP</h1>
-              <p className="text-lg text-muted-foreground">Sistema de Gestão Empresarial</p>
+          <div className="flex flex-col items-center gap-6 mb-4">
+            <img 
+              src="/attached_assets/logo zenith erp_1763561150551.jpeg" 
+              alt="Zenith ERP" 
+              className="h-32 w-auto"
+            />
+            <div className="flex flex-col items-center">
+              <h1 className="text-5xl font-bold bg-gradient-to-r from-primary to-accent-foreground bg-clip-text text-transparent">
+                ZENITH ERP
+              </h1>
+              <p className="text-xl text-muted-foreground mt-2">Sistema de Gestão Empresarial</p>
             </div>
           </div>
 
-          <p className="text-xl text-muted-foreground max-w-2xl">
+          <p className="text-xl text-foreground/80 max-w-2xl">
             Solução completa de gestão empresarial acessível via web. 
-            Gestão financeira, contábil e muito mais em um único sistema.
+            Gestão financeira, contábil e sistema de rateio em um único sistema moderno.
           </p>
 
           <a href="/api/login">
-            <Button size="lg" className="text-base px-8" data-testid="button-login">
-              Fazer Login
+            <Button size="lg" className="text-base px-8 h-12" data-testid="button-login">
+              Acessar Sistema
             </Button>
           </a>
 
@@ -67,10 +71,10 @@ export default function Landing() {
 
 function FeatureCard({ icon: Icon, title, description }: { icon: typeof Building2, title: string, description: string }) {
   return (
-    <div className="rounded-md border bg-card p-6 hover-elevate">
-      <Icon className="h-8 w-8 mb-3 text-primary" />
+    <div className="rounded-lg border bg-card p-6 hover-elevate transition-all">
+      <Icon className="h-10 w-10 mb-4 text-primary" />
       <h3 className="text-lg font-semibold mb-2">{title}</h3>
-      <p className="text-sm text-muted-foreground">{description}</p>
+      <p className="text-sm text-muted-foreground leading-relaxed">{description}</p>
     </div>
   )
 }
