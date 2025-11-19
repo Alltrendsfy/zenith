@@ -5,7 +5,8 @@ import {
   CreditCard,
   Building2,
   User,
-  LogOut
+  LogOut,
+  BarChart3
 } from "lucide-react"
 import {
   Sidebar,
@@ -54,6 +55,11 @@ const menuItems = [
     title: "Centros de Custo",
     url: "/cost-centers",
     icon: CreditCard,
+  },
+  {
+    title: "Relatórios",
+    url: "/reports",
+    icon: BarChart3,
   },
 ]
 

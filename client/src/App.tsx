@@ -16,6 +16,7 @@ import AccountsReceivable from "@/pages/accounts-receivable";
 import BankAccounts from "@/pages/bank-accounts";
 import ChartOfAccountsPage from "@/pages/chart-of-accounts";
 import CostCenters from "@/pages/cost-centers";
+import Reports from "@/pages/reports";
 import NotFound from "@/pages/not-found";
 import zenithLogo from "@assets/logo zenith erp_1763561150551.jpeg";
 
@@ -57,6 +58,7 @@ function Router() {
                     <Route path="/bank-accounts" component={BankAccounts} />
                     <Route path="/chart-of-accounts" component={ChartOfAccountsPage} />
                     <Route path="/cost-centers" component={CostCenters} />
+                    <Route path="/reports" component={Reports} />
                     <Route component={NotFound} />
                   </Switch>
                 </main>
