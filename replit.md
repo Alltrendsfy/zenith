@@ -7,6 +7,7 @@ ZENITH ERP is a web-based enterprise resource planning system focused on financi
 The system is built as a full-stack TypeScript application with a React frontend and Express backend, designed for multi-user access with secure authentication via Replit's OpenID Connect implementation.
 
 **Recent Updates:**
+- **November 19, 2025 - Suppliers and Customers Cadastros**: Implemented comprehensive registration modules for Suppliers (Fornecedores) and Customers (Clientes) with support for both PF/PJ entities, complete address/contact management, social media integration, and full CRUD operations. New "Cadastros" navigation section added to sidebar.
 - **November 19, 2025 - DRE Financial Reporting**: Implemented comprehensive Income Statement (DRE - Demonstração do Resultado do Exercício) reporting module with period filters, cost center filtering, hierarchical revenue/expense display, visual charts (bar and pie), and print functionality. Full integration with cost allocation system for multi-center reporting.
 - **November 2024 - Cost Allocation System**: Implemented comprehensive rateio system allowing proportional distribution of financial transactions across multiple cost centers with percentage-based allocation and automatic amount calculation.
 - **November 2024 - Brand Identity Overhaul**: Complete visual identity redesign based on Zenith logo with cyan (#00D4FF) primary color and deep blue (#0A1520) backgrounds. Dark mode set as default. All components updated with new color palette and logo integration via Vite asset pipeline.
@@ -16,6 +17,25 @@ The system is built as a full-stack TypeScript application with a React frontend
 Preferred communication style: Simple, everyday language.
 
 ## Key Features
+
+### Suppliers and Customers Registration (Cadastros)
+Complete management modules for business partners:
+- **Dual person type support**: Both natural persons (PF - Pessoa Física) and legal entities (PJ - Pessoa Jurídica)
+- **Flexible identification**: CPF for individuals, CNPJ for companies, with optional tax ID field
+- **Complete contact data**: Multiple phones (fixed/mobile), email, full postal address (CEP, street, number, complement, neighborhood, city, state, country)
+- **Social media integration**: Website, Instagram, Facebook, LinkedIn fields for modern business connectivity
+- **Observation notes**: Free-text field for additional information and context
+- **Active status tracking**: Flag to enable/disable suppliers/customers without deletion
+- **Full CRUD operations**: Create, read, update, delete with proper validation and error handling
+
+**Implementation**:
+- Backend: `suppliers` and `customers` tables with identical schemas, REST API endpoints for CRUD operations
+- Frontend: `/suppliers` and `/customers` pages with responsive tables, modal forms (using Shadcn Dialog), and validation
+- Navigation: New "Cadastros" section in sidebar with Truck icon for Fornecedores and Users icon for Clientes
+- Validation: Zod schemas ensuring data integrity, required fields (razaoSocial), optional fields with proper nullability
+- Types: Person type enum ("fisica" | "juridica"), shared InsertSupplier/InsertCustomer schemas from `shared/schema.ts`
+
+**Future enhancements planned**: Link suppliers to Accounts Payable, link customers to Accounts Receivable, contact history tracking, document attachments
 
 ### DRE - Demonstração do Resultado do Exercício (Income Statement)
 Comprehensive financial reporting module for analyzing revenues, expenses, and profitability:

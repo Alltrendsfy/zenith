@@ -74,11 +74,8 @@ export default function SuppliersPage() {
 
   const createMutation = useMutation({
     mutationFn: async (data: InsertSupplier) => {
-      return await apiRequest("/api/suppliers", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
+      const res = await apiRequest("POST", "/api/suppliers", data);
+      return await res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/suppliers"] });
@@ -93,11 +90,8 @@ export default function SuppliersPage() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<InsertSupplier> }) => {
-      return await apiRequest(`/api/suppliers/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
+      const res = await apiRequest("PATCH", `/api/suppliers/${id}`, data);
+      return await res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/suppliers"] });
@@ -113,7 +107,8 @@ export default function SuppliersPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      return await apiRequest(`/api/suppliers/${id}`, { method: "DELETE" });
+      const res = await apiRequest("DELETE", `/api/suppliers/${id}`);
+      return await res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/suppliers"] });

@@ -73,11 +73,8 @@ export default function CustomersPage() {
 
   const createMutation = useMutation({
     mutationFn: async (data: InsertCustomer) => {
-      return await apiRequest("/api/customers", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
+      const res = await apiRequest("POST", "/api/customers", data);
+      return await res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
@@ -92,11 +89,8 @@ export default function CustomersPage() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<InsertCustomer> }) => {
-      return await apiRequest(`/api/customers/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
+      const res = await apiRequest("PATCH", `/api/customers/${id}`, data);
+      return await res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
@@ -112,7 +106,8 @@ export default function CustomersPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      return await apiRequest(`/api/customers/${id}`, { method: "DELETE" });
+      const res = await apiRequest("DELETE", `/api/customers/${id}`);
+      return await res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
