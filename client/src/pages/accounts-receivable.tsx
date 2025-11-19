@@ -29,11 +29,13 @@ import { MobileCardList, type MobileCardProps } from "@/components/mobile-card-l
 import { MobileFormActions } from "@/components/mobile-form-actions"
 import { AllocationManager, type AllocationInput } from "@/components/allocation-manager"
 import { apiRequest, queryClient } from "@/lib/queryClient"
-import type { AccountsReceivable } from "@shared/schema"
+import type { AccountsReceivable, Customer } from "@shared/schema"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { format } from "date-fns"
 
 const formSchema = z.object({
   description: z.string().min(1, "Descrição é obrigatória"),
+  customerId: z.string().optional(),
   customerName: z.string().optional(),
   totalAmount: z.string().min(1, "Valor é obrigatório"),
   dueDate: z.string().min(1, "Data de vencimento é obrigatória"),
@@ -67,10 +69,16 @@ export default function AccountsReceivable() {
     enabled: isAuthenticated,
   })
 
+  const { data: customers } = useQuery<Customer[]>({
+    queryKey: ["/api/customers"],
+    enabled: isAuthenticated,
+  })
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       description: "",
+      customerId: "",
       customerName: "",
       totalAmount: "",
       dueDate: "",
@@ -82,10 +90,11 @@ export default function AccountsReceivable() {
 
   const createMutation = useMutation({
     mutationFn: async (data: z.infer<typeof formSchema>) => {
-      const response = await apiRequest("POST", "/api/accounts-receivable", {
+      const res = await apiRequest("POST", "/api/accounts-receivable", {
         ...data,
         totalAmount: data.totalAmount,
       })
+      const response = await res.json()
       
       // Save allocations if configured
       if (allocations.length > 0 && response.id) {
@@ -214,17 +223,56 @@ export default function AccountsReceivable() {
 
                         <FormField
                           control={form.control}
-                          name="customerName"
+                          name="customerId"
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Cliente</FormLabel>
-                              <FormControl>
-                                <Input placeholder="Nome do cliente" {...field} data-testid="input-customer" />
-                              </FormControl>
+                              <Select
+                                onValueChange={field.onChange}
+                                value={field.value || ""}
+                                data-testid="select-customer"
+                              >
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Selecione um cliente" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="" data-testid="select-customer-none">
+                                    Nenhum (informar manualmente)
+                                  </SelectItem>
+                                  {customers?.map((customer) => (
+                                    <SelectItem 
+                                      key={customer.id} 
+                                      value={customer.id}
+                                      data-testid={`select-customer-${customer.id}`}
+                                    >
+                                      {customer.razaoSocial}
+                                      {customer.nomeFantasia && ` (${customer.nomeFantasia})`}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
                               <FormMessage />
                             </FormItem>
                           )}
                         />
+
+                        {!form.watch("customerId") && (
+                          <FormField
+                            control={form.control}
+                            name="customerName"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Nome do Cliente (manual)</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="Digite o nome" {...field} data-testid="input-customer-name" />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        )}
 
                         <FormField
                           control={form.control}
