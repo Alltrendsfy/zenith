@@ -169,9 +169,18 @@ export default function AccountsReceivable() {
     return null
   }
 
+  const getCustomerName = (receivable: AccountsReceivable) => {
+    if (receivable.customerId && customers) {
+      const customer = customers.find(c => c.id === receivable.customerId)
+      return customer ? `${customer.razaoSocial}${customer.nomeFantasia ? ` (${customer.nomeFantasia})` : ''}` : receivable.customerName || "-"
+    }
+    return receivable.customerName || "-"
+  }
+
   const filteredReceivables = receivables?.filter(r =>
     r.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    r.customerName?.toLowerCase().includes(searchTerm.toLowerCase())
+    r.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    getCustomerName(r).toLowerCase().includes(searchTerm.toLowerCase())
   )
 
   return (
@@ -416,7 +425,7 @@ export default function AccountsReceivable() {
                       fields: [
                         {
                           label: "Cliente",
-                          value: receivable.customerName || "-",
+                          value: getCustomerName(receivable),
                         },
                         {
                           label: "Vencimento",
@@ -454,7 +463,7 @@ export default function AccountsReceivable() {
                       {filteredReceivables.map((receivable) => (
                         <TableRow key={receivable.id} className="hover-elevate">
                           <TableCell className="font-medium">{receivable.description}</TableCell>
-                          <TableCell>{receivable.customerName || "-"}</TableCell>
+                          <TableCell>{getCustomerName(receivable)}</TableCell>
                           <TableCell>{format(new Date(receivable.dueDate), 'dd/MM/yyyy')}</TableCell>
                           <TableCell className="text-right font-mono">
                             R$ {parseFloat(receivable.totalAmount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}

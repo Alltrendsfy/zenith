@@ -172,9 +172,18 @@ export default function AccountsPayable() {
     return null
   }
 
+  const getSupplierName = (payable: AccountsPayable) => {
+    if (payable.supplierId && suppliers) {
+      const supplier = suppliers.find(s => s.id === payable.supplierId)
+      return supplier ? `${supplier.razaoSocial}${supplier.nomeFantasia ? ` (${supplier.nomeFantasia})` : ''}` : payable.supplierName || "-"
+    }
+    return payable.supplierName || "-"
+  }
+
   const filteredPayables = payables?.filter(p =>
     p.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.supplierName?.toLowerCase().includes(searchTerm.toLowerCase())
+    p.supplierName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    getSupplierName(p).toLowerCase().includes(searchTerm.toLowerCase())
   )
 
   return (
@@ -419,7 +428,7 @@ export default function AccountsPayable() {
                       fields: [
                         {
                           label: "Fornecedor",
-                          value: payable.supplierName || "-",
+                          value: getSupplierName(payable),
                         },
                         {
                           label: "Vencimento",
@@ -457,7 +466,7 @@ export default function AccountsPayable() {
                       {filteredPayables.map((payable) => (
                         <TableRow key={payable.id} className="hover-elevate">
                           <TableCell className="font-medium">{payable.description}</TableCell>
-                          <TableCell>{payable.supplierName || "-"}</TableCell>
+                          <TableCell>{getSupplierName(payable)}</TableCell>
                           <TableCell>{format(new Date(payable.dueDate), 'dd/MM/yyyy')}</TableCell>
                           <TableCell className="text-right font-mono">
                             R$ {parseFloat(payable.totalAmount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
