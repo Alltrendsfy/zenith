@@ -237,8 +237,10 @@ export default function AccountsReceivable() {
                             <FormItem>
                               <FormLabel>Cliente</FormLabel>
                               <Select
-                                onValueChange={field.onChange}
-                                value={field.value || ""}
+                                onValueChange={(value) => {
+                                  field.onChange(value === "MANUAL" ? "" : value)
+                                }}
+                                value={field.value || "MANUAL"}
                                 data-testid="select-customer"
                               >
                                 <FormControl>
@@ -247,7 +249,7 @@ export default function AccountsReceivable() {
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                  <SelectItem value="" data-testid="select-customer-none">
+                                  <SelectItem value="MANUAL" data-testid="select-customer-none">
                                     Nenhum (informar manualmente)
                                   </SelectItem>
                                   {customers?.map((customer) => (

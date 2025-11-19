@@ -240,8 +240,10 @@ export default function AccountsPayable() {
                             <FormItem>
                               <FormLabel>Fornecedor</FormLabel>
                               <Select
-                                onValueChange={field.onChange}
-                                value={field.value || ""}
+                                onValueChange={(value) => {
+                                  field.onChange(value === "MANUAL" ? "" : value)
+                                }}
+                                value={field.value || "MANUAL"}
                                 data-testid="select-supplier"
                               >
                                 <FormControl>
@@ -250,7 +252,7 @@ export default function AccountsPayable() {
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                  <SelectItem value="" data-testid="select-supplier-none">
+                                  <SelectItem value="MANUAL" data-testid="select-supplier-none">
                                     Nenhum (informar manualmente)
                                   </SelectItem>
                                   {suppliers?.map((supplier) => (
