@@ -364,3 +364,55 @@ export const insertCostAllocationSchema = createInsertSchema(costAllocations).om
 
 export type CostAllocation = typeof costAllocations.$inferSelect;
 export type InsertCostAllocation = z.infer<typeof insertCostAllocationSchema>;
+
+// DRE (Demonstração de Resultado do Exercício) Types
+export interface DRELineItem {
+  accountId?: string;
+  accountCode?: string;
+  accountName: string;
+  amount: number;
+  percentage?: number; // Percentual sobre receita total
+  children?: DRELineItem[]; // Para contas hierárquicas
+}
+
+export interface DRESection {
+  title: string;
+  items: DRELineItem[];
+  total: number;
+  percentage?: number;
+}
+
+export interface DREReport {
+  period: {
+    startDate: string;
+    endDate: string;
+  };
+  costCenterId?: string;
+  costCenterName?: string;
+  revenues: DRESection;
+  expenses: DRESection;
+  result: {
+    grossProfit: number; // Receitas - Despesas
+    grossProfitPercentage: number;
+  };
+  generatedAt: string;
+}
+
+export interface DREFilters {
+  startDate: string;
+  endDate: string;
+  costCenterId?: string;
+}
+
+export interface DREComparison {
+  current: DREReport;
+  previous: DREReport;
+  variance: {
+    revenues: number;
+    revenuesPercentage: number;
+    expenses: number;
+    expensesPercentage: number;
+    result: number;
+    resultPercentage: number;
+  };
+}
