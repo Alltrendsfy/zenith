@@ -164,9 +164,13 @@ export default function CustomersPage() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <p>Carregando...</p>
+            <div className="space-y-4">
+              <div className="h-10 bg-muted animate-pulse rounded" />
+              <div className="h-10 bg-muted animate-pulse rounded" />
+              <div className="h-10 bg-muted animate-pulse rounded" />
+            </div>
           ) : customers.length === 0 ? (
-            <p className="text-muted-foreground">Nenhum cliente cadastrado</p>
+            <p className="text-muted-foreground" data-testid="text-empty-customers">Nenhum cliente cadastrado</p>
           ) : (
             <Table>
               <TableHeader>
@@ -182,17 +186,17 @@ export default function CustomersPage() {
               <TableBody>
                 {customers.map((customer) => (
                   <TableRow key={customer.id} data-testid={`row-customer-${customer.id}`}>
-                    <TableCell>
+                    <TableCell data-testid={`cell-type-${customer.id}`}>
                       {customer.personType === "juridica" ? (
-                        <Building2 className="h-4 w-4" />
+                        <Building2 className="h-4 w-4" data-testid={`icon-juridica-${customer.id}`} />
                       ) : (
-                        <User className="h-4 w-4" />
+                        <User className="h-4 w-4" data-testid={`icon-fisica-${customer.id}`} />
                       )}
                     </TableCell>
-                    <TableCell>{customer.cnpjCpf}</TableCell>
-                    <TableCell className="font-medium">{customer.razaoSocial}</TableCell>
-                    <TableCell>{customer.email}</TableCell>
-                    <TableCell>{customer.telefone || customer.celular}</TableCell>
+                    <TableCell data-testid={`cell-cnpj-cpf-${customer.id}`}>{customer.cnpjCpf}</TableCell>
+                    <TableCell className="font-medium" data-testid={`cell-razao-social-${customer.id}`}>{customer.razaoSocial}</TableCell>
+                    <TableCell data-testid={`cell-email-${customer.id}`}>{customer.email}</TableCell>
+                    <TableCell data-testid={`cell-telefone-${customer.id}`}>{customer.telefone || customer.celular}</TableCell>
                     <TableCell className="text-right space-x-2">
                       <Button
                         variant="ghost"

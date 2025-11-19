@@ -165,9 +165,13 @@ export default function SuppliersPage() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <p>Carregando...</p>
+            <div className="space-y-4">
+              <div className="h-10 bg-muted animate-pulse rounded" />
+              <div className="h-10 bg-muted animate-pulse rounded" />
+              <div className="h-10 bg-muted animate-pulse rounded" />
+            </div>
           ) : suppliers.length === 0 ? (
-            <p className="text-muted-foreground">Nenhum fornecedor cadastrado</p>
+            <p className="text-muted-foreground" data-testid="text-empty-suppliers">Nenhum fornecedor cadastrado</p>
           ) : (
             <Table>
               <TableHeader>
@@ -184,18 +188,18 @@ export default function SuppliersPage() {
               <TableBody>
                 {suppliers.map((supplier) => (
                   <TableRow key={supplier.id} data-testid={`row-supplier-${supplier.id}`}>
-                    <TableCell>
+                    <TableCell data-testid={`cell-type-${supplier.id}`}>
                       {supplier.personType === "juridica" ? (
-                        <Building2 className="h-4 w-4" />
+                        <Building2 className="h-4 w-4" data-testid={`icon-juridica-${supplier.id}`} />
                       ) : (
-                        <User className="h-4 w-4" />
+                        <User className="h-4 w-4" data-testid={`icon-fisica-${supplier.id}`} />
                       )}
                     </TableCell>
-                    <TableCell>{supplier.cnpjCpf}</TableCell>
-                    <TableCell className="font-medium">{supplier.razaoSocial}</TableCell>
-                    <TableCell>{supplier.nomeFantasia}</TableCell>
-                    <TableCell>{supplier.email}</TableCell>
-                    <TableCell>{supplier.telefone || supplier.celular}</TableCell>
+                    <TableCell data-testid={`cell-cnpj-cpf-${supplier.id}`}>{supplier.cnpjCpf}</TableCell>
+                    <TableCell className="font-medium" data-testid={`cell-razao-social-${supplier.id}`}>{supplier.razaoSocial}</TableCell>
+                    <TableCell data-testid={`cell-nome-fantasia-${supplier.id}`}>{supplier.nomeFantasia}</TableCell>
+                    <TableCell data-testid={`cell-email-${supplier.id}`}>{supplier.email}</TableCell>
+                    <TableCell data-testid={`cell-telefone-${supplier.id}`}>{supplier.telefone || supplier.celular}</TableCell>
                     <TableCell className="text-right space-x-2">
                       <Button
                         variant="ghost"
