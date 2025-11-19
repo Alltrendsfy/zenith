@@ -7,6 +7,7 @@ ZENITH ERP is a web-based enterprise resource planning system focused on financi
 The system is built as a full-stack TypeScript application with a React frontend and Express backend, designed for multi-user access with secure authentication via Replit's OpenID Connect implementation.
 
 **Recent Updates:**
+- **November 19, 2025 - DRE Financial Reporting**: Implemented comprehensive Income Statement (DRE - Demonstração do Resultado do Exercício) reporting module with period filters, cost center filtering, hierarchical revenue/expense display, visual charts (bar and pie), and print functionality. Full integration with cost allocation system for multi-center reporting.
 - **November 2024 - Cost Allocation System**: Implemented comprehensive rateio system allowing proportional distribution of financial transactions across multiple cost centers with percentage-based allocation and automatic amount calculation.
 - **November 2024 - Brand Identity Overhaul**: Complete visual identity redesign based on Zenith logo with cyan (#00D4FF) primary color and deep blue (#0A1520) backgrounds. Dark mode set as default. All components updated with new color palette and logo integration via Vite asset pipeline.
 
@@ -15,6 +16,25 @@ The system is built as a full-stack TypeScript application with a React frontend
 Preferred communication style: Simple, everyday language.
 
 ## Key Features
+
+### DRE - Demonstração do Resultado do Exercício (Income Statement)
+Comprehensive financial reporting module for analyzing revenues, expenses, and profitability:
+- **Period filtering**: Quick presets (This Month, Last Month, This Year) plus custom date range selection
+- **Cost center filtering**: Filter entire report by specific cost center using allocation data
+- **Hierarchical structure**: Organized display of Revenues → Expenses → Net Income with subtotals
+- **Percentage analysis**: Automatic calculation of each line item as percentage of total revenue
+- **Visual analytics**: Bar chart (revenue vs expenses comparison) and pie chart (expense distribution by account)
+- **Print-ready output**: Optimized print layout with window.print() integration
+- **Empty state handling**: Clear messaging when no transactions exist for selected period
+- **Real-time filtering**: Dynamic query with TanStack Query for instant period/filter updates
+
+**Implementation**:
+- Backend: `/api/reports/dre` endpoint with date range and cost center query params
+- Frontend: `/reports` page with filter controls, hierarchical display, and Recharts visualizations
+- Storage: `getAllAllocations()` method for cross-transaction cost center queries
+- Types: `DREReport`, `DRESection`, `DREItem` schemas in `shared/schema.ts`
+
+**Future enhancements noted**: Comparative period analysis, drill-down to transaction details, performance optimization for large datasets
 
 ### Cost Allocation System (Rateio)
 The system supports proportional distribution of financial transactions across multiple cost centers:
