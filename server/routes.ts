@@ -353,6 +353,180 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Reports - DRE
+  app.get('/api/reports/dre', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { startDate, endDate, costCenterId } = req.query;
+
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "startDate and endDate are required" });
+      }
+
+      const start = new Date(startDate as string);
+      const end = new Date(endDate as string);
+
+      // Fetch all transactions within period
+      const [payables, receivables, accounts, costCenters] = await Promise.all([
+        storage.getAccountsPayable(userId),
+        storage.getAccountsReceivable(userId),
+        storage.getChartOfAccounts(userId),
+        storage.getCostCenters(userId),
+      ]);
+
+      // Filter by date range and status
+      const filteredPayables = payables.filter(p => {
+        const issueDate = new Date(p.issueDate);
+        return issueDate >= start && issueDate <= end && p.status !== 'cancelado';
+      });
+
+      const filteredReceivables = receivables.filter(r => {
+        const issueDate = new Date(r.issueDate);
+        return issueDate >= start && issueDate <= end && r.status !== 'cancelado';
+      });
+
+      // Get allocations if filtering by cost center
+      let allocations: any[] = [];
+      if (costCenterId) {
+        const allAllocations = await storage.getAllAllocations(userId);
+        allocations = allAllocations.filter(a => a.costCenterId === costCenterId);
+      }
+
+      // Create account lookup map
+      const accountMap = new Map(accounts.map(acc => [acc.id, acc]));
+
+      // Helper to check if transaction should be included based on cost center filter
+      const shouldIncludeTransaction = (transactionId: string, type: 'payable' | 'receivable'): number => {
+        if (!costCenterId) return 1; // Include 100% if no filter
+        
+        const txAllocations = allocations.filter(a => 
+          a.transactionId === transactionId && a.transactionType === type
+        );
+        
+        if (txAllocations.length === 0) return 0; // Exclude if no allocations match
+        
+        // Sum percentages for this cost center
+        return txAllocations.reduce((sum, a) => sum + parseFloat(a.percentage), 0) / 100;
+      };
+
+      // Aggregate revenues
+      const revenueMap = new Map<string, { account: any, amount: number }>();
+      
+      filteredReceivables.forEach(r => {
+        if (!r.accountId) return;
+        
+        const account = accountMap.get(r.accountId);
+        if (!account || account.type !== 'receita') return;
+
+        const percentage = shouldIncludeTransaction(r.id, 'receivable');
+        if (percentage === 0) return;
+
+        const amount = parseFloat(r.totalAmount) * percentage;
+        
+        if (revenueMap.has(r.accountId)) {
+          revenueMap.get(r.accountId)!.amount += amount;
+        } else {
+          revenueMap.set(r.accountId, { account, amount });
+        }
+      });
+
+      // Aggregate expenses
+      const expenseMap = new Map<string, { account: any, amount: number }>();
+      
+      filteredPayables.forEach(p => {
+        if (!p.accountId) return;
+        
+        const account = accountMap.get(p.accountId);
+        if (!account || account.type !== 'despesa') return;
+
+        const percentage = shouldIncludeTransaction(p.id, 'payable');
+        if (percentage === 0) return;
+
+        const amount = parseFloat(p.totalAmount) * percentage;
+        
+        if (expenseMap.has(p.accountId)) {
+          expenseMap.get(p.accountId)!.amount += amount;
+        } else {
+          expenseMap.set(p.accountId, { account, amount });
+        }
+      });
+
+      // Build revenue items
+      const revenueItems = Array.from(revenueMap.values()).map(({ account, amount }) => ({
+        accountId: account.id,
+        accountCode: account.code,
+        accountName: account.name,
+        amount,
+      }));
+
+      const totalRevenue = revenueItems.reduce((sum, item) => sum + item.amount, 0);
+
+      // Add percentages to revenue items
+      const revenueItemsWithPercentage = revenueItems.map(item => ({
+        ...item,
+        percentage: totalRevenue > 0 ? (item.amount / totalRevenue) * 100 : 0,
+      }));
+
+      // Build expense items
+      const expenseItems = Array.from(expenseMap.values()).map(({ account, amount }) => ({
+        accountId: account.id,
+        accountCode: account.code,
+        accountName: account.name,
+        amount,
+      }));
+
+      const totalExpense = expenseItems.reduce((sum, item) => sum + item.amount, 0);
+
+      // Add percentages to expense items
+      const expenseItemsWithPercentage = expenseItems.map(item => ({
+        ...item,
+        percentage: totalRevenue > 0 ? (item.amount / totalRevenue) * 100 : 0,
+      }));
+
+      // Calculate result
+      const grossProfit = totalRevenue - totalExpense;
+      const grossProfitPercentage = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0;
+
+      // Get cost center name if filtering
+      let costCenterName: string | undefined;
+      if (costCenterId) {
+        const costCenter = costCenters.find(cc => cc.id === costCenterId);
+        costCenterName = costCenter?.name;
+      }
+
+      const report = {
+        period: {
+          startDate: startDate as string,
+          endDate: endDate as string,
+        },
+        costCenterId: costCenterId as string | undefined,
+        costCenterName,
+        revenues: {
+          title: "Receitas",
+          items: revenueItemsWithPercentage,
+          total: totalRevenue,
+          percentage: 100,
+        },
+        expenses: {
+          title: "Despesas",
+          items: expenseItemsWithPercentage,
+          total: totalExpense,
+          percentage: totalRevenue > 0 ? (totalExpense / totalRevenue) * 100 : 0,
+        },
+        result: {
+          grossProfit,
+          grossProfitPercentage,
+        },
+        generatedAt: new Date().toISOString(),
+      };
+
+      res.json(report);
+    } catch (error: any) {
+      console.error("Error generating DRE:", error);
+      res.status(500).json({ message: error.message || "Failed to generate DRE report" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

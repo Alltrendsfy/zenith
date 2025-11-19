@@ -72,6 +72,7 @@ export interface IStorage {
   createBankTransfer(transfer: InsertBankTransfer): Promise<BankTransfer>;
 
   // Cost Allocations
+  getAllAllocations(userId: string): Promise<CostAllocation[]>;
   getAllocations(userId: string, transactionType: 'payable' | 'receivable', transactionId: string): Promise<CostAllocation[]>;
   createAllocations(userId: string, transactionType: 'payable' | 'receivable', transactionId: string, allocations: InsertCostAllocation[]): Promise<CostAllocation[]>;
   deleteAllocations(userId: string, transactionType: 'payable' | 'receivable', transactionId: string): Promise<boolean>;
@@ -258,6 +259,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Cost Allocations
+  async getAllAllocations(userId: string): Promise<CostAllocation[]> {
+    return await db
+      .select()
+      .from(costAllocations)
+      .where(eq(costAllocations.userId, userId))
+      .orderBy(desc(costAllocations.createdAt));
+  }
+
   async getAllocations(userId: string, transactionType: 'payable' | 'receivable', transactionId: string): Promise<CostAllocation[]> {
     return await db
       .select()
