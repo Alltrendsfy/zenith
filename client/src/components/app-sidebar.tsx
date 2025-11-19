@@ -6,7 +6,9 @@ import {
   Building2,
   User,
   LogOut,
-  BarChart3
+  BarChart3,
+  Users,
+  Truck
 } from "lucide-react"
 import {
   Sidebar,
@@ -63,6 +65,19 @@ const menuItems = [
   },
 ]
 
+const cadastrosItems = [
+  {
+    title: "Fornecedores",
+    url: "/suppliers",
+    icon: Truck,
+  },
+  {
+    title: "Clientes",
+    url: "/customers",
+    icon: Users,
+  },
+]
+
 export function AppSidebar() {
   const { user } = useAuth()
   const [location] = useLocation()
@@ -96,6 +111,28 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {menuItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location === item.url}
+                    data-testid={`link-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
+                  >
+                    <Link href={item.url}>
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-xs font-medium uppercase tracking-wide">Cadastros</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {cadastrosItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild

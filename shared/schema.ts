@@ -49,6 +49,105 @@ export const accountNatureEnum = pgEnum('account_nature', ['analitica', 'sinteti
 export const transactionStatusEnum = pgEnum('transaction_status', ['pendente', 'pago', 'parcial', 'cancelado', 'vencido']);
 export const paymentIntervalEnum = pgEnum('payment_interval', ['mensal', 'quinzenal', 'semanal', 'personalizado']);
 export const transactionTypeEnum = pgEnum('transaction_type', ['payable', 'receivable']);
+export const personTypeEnum = pgEnum('person_type', ['fisica', 'juridica']);
+
+// Suppliers (Fornecedores)
+export const suppliers = pgTable("suppliers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  personType: personTypeEnum("person_type").notNull().default('juridica'),
+  cnpjCpf: varchar("cnpj_cpf", { length: 18 }),
+  razaoSocial: varchar("razao_social", { length: 255 }).notNull(),
+  nomeFantasia: varchar("nome_fantasia", { length: 255 }),
+  email: varchar("email", { length: 255 }),
+  telefone: varchar("telefone", { length: 20 }),
+  celular: varchar("celular", { length: 20 }),
+  cep: varchar("cep", { length: 10 }),
+  endereco: varchar("endereco", { length: 500 }),
+  numero: varchar("numero", { length: 20 }),
+  complemento: varchar("complemento", { length: 100 }),
+  bairro: varchar("bairro", { length: 100 }),
+  cidade: varchar("cidade", { length: 100 }),
+  estado: varchar("estado", { length: 2 }),
+  pais: varchar("pais", { length: 100 }).default('Brasil'),
+  website: varchar("website", { length: 255 }),
+  instagram: varchar("instagram", { length: 100 }),
+  facebook: varchar("facebook", { length: 100 }),
+  linkedin: varchar("linkedin", { length: 100 }),
+  observacoes: text("observacoes"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_suppliers_user_id").on(table.userId),
+  index("idx_suppliers_cnpj_cpf").on(table.cnpjCpf),
+]);
+
+export const suppliersRelations = relations(suppliers, ({ one }) => ({
+  user: one(users, {
+    fields: [suppliers.userId],
+    references: [users.id],
+  }),
+}));
+
+export const insertSupplierSchema = createInsertSchema(suppliers).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type Supplier = typeof suppliers.$inferSelect;
+export type InsertSupplier = z.infer<typeof insertSupplierSchema>;
+
+// Customers (Clientes)
+export const customers = pgTable("customers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  personType: personTypeEnum("person_type").notNull().default('fisica'),
+  cnpjCpf: varchar("cnpj_cpf", { length: 18 }),
+  razaoSocial: varchar("razao_social", { length: 255 }).notNull(),
+  nomeFantasia: varchar("nome_fantasia", { length: 255 }),
+  email: varchar("email", { length: 255 }),
+  telefone: varchar("telefone", { length: 20 }),
+  celular: varchar("celular", { length: 20 }),
+  cep: varchar("cep", { length: 10 }),
+  endereco: varchar("endereco", { length: 500 }),
+  numero: varchar("numero", { length: 20 }),
+  complemento: varchar("complemento", { length: 100 }),
+  bairro: varchar("bairro", { length: 100 }),
+  cidade: varchar("cidade", { length: 100 }),
+  estado: varchar("estado", { length: 2 }),
+  pais: varchar("pais", { length: 100 }).default('Brasil'),
+  website: varchar("website", { length: 255 }),
+  instagram: varchar("instagram", { length: 100 }),
+  facebook: varchar("facebook", { length: 100 }),
+  linkedin: varchar("linkedin", { length: 100 }),
+  observacoes: text("observacoes"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_customers_user_id").on(table.userId),
+  index("idx_customers_cnpj_cpf").on(table.cnpjCpf),
+]);
+
+export const customersRelations = relations(customers, ({ one }) => ({
+  user: one(users, {
+    fields: [customers.userId],
+    references: [users.id],
+  }),
+}));
+
+export const insertCustomerSchema = createInsertSchema(customers).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type Customer = typeof customers.$inferSelect;
+export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
 
 // Chart of Accounts (Plano de Contas)
 export const chartOfAccounts = pgTable("chart_of_accounts", {

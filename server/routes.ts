@@ -10,6 +10,8 @@ import {
   insertCostCenterSchema,
   insertBankTransferSchema,
   insertCostAllocationSchema,
+  insertSupplierSchema,
+  insertCustomerSchema,
 } from "@shared/schema";
 import { validateAllocations, calculateAmounts } from "@shared/allocationUtils";
 import { z } from "zod";
@@ -524,6 +526,122 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error generating DRE:", error);
       res.status(500).json({ message: error.message || "Failed to generate DRE report" });
+    }
+  });
+
+  // Suppliers
+  app.get('/api/suppliers', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const suppliers = await storage.getSuppliers(userId);
+      res.json(suppliers);
+    } catch (error) {
+      console.error("Error fetching suppliers:", error);
+      res.status(500).json({ message: "Failed to fetch suppliers" });
+    }
+  });
+
+  app.post('/api/suppliers', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const validated = insertSupplierSchema.parse(req.body);
+      const supplier = await storage.createSupplier({
+        ...validated,
+        userId,
+      });
+      res.json(supplier);
+    } catch (error: any) {
+      console.error("Error creating supplier:", error);
+      res.status(400).json({ message: error.message || "Failed to create supplier" });
+    }
+  });
+
+  app.patch('/api/suppliers/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      const validated = insertSupplierSchema.partial().parse(req.body);
+      const supplier = await storage.updateSupplier(id, userId, validated);
+      if (!supplier) {
+        return res.status(404).json({ message: "Supplier not found" });
+      }
+      res.json(supplier);
+    } catch (error: any) {
+      console.error("Error updating supplier:", error);
+      res.status(400).json({ message: error.message || "Failed to update supplier" });
+    }
+  });
+
+  app.delete('/api/suppliers/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      const deleted = await storage.deleteSupplier(id, userId);
+      if (!deleted) {
+        return res.status(404).json({ message: "Supplier not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting supplier:", error);
+      res.status(500).json({ message: "Failed to delete supplier" });
+    }
+  });
+
+  // Customers
+  app.get('/api/customers', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const customers = await storage.getCustomers(userId);
+      res.json(customers);
+    } catch (error) {
+      console.error("Error fetching customers:", error);
+      res.status(500).json({ message: "Failed to fetch customers" });
+    }
+  });
+
+  app.post('/api/customers', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const validated = insertCustomerSchema.parse(req.body);
+      const customer = await storage.createCustomer({
+        ...validated,
+        userId,
+      });
+      res.json(customer);
+    } catch (error: any) {
+      console.error("Error creating customer:", error);
+      res.status(400).json({ message: error.message || "Failed to create customer" });
+    }
+  });
+
+  app.patch('/api/customers/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      const validated = insertCustomerSchema.partial().parse(req.body);
+      const customer = await storage.updateCustomer(id, userId, validated);
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+      res.json(customer);
+    } catch (error: any) {
+      console.error("Error updating customer:", error);
+      res.status(400).json({ message: error.message || "Failed to update customer" });
+    }
+  });
+
+  app.delete('/api/customers/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      const deleted = await storage.deleteCustomer(id, userId);
+      if (!deleted) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting customer:", error);
+      res.status(500).json({ message: "Failed to delete customer" });
     }
   });
 

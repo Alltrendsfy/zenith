@@ -16,6 +16,10 @@ import {
   type InsertBankTransfer,
   type CostAllocation,
   type InsertCostAllocation,
+  type Supplier,
+  type InsertSupplier,
+  type Customer,
+  type InsertCustomer,
   bankAccounts,
   accountsPayable,
   accountsReceivable,
@@ -23,6 +27,8 @@ import {
   costCenters,
   bankTransfers,
   costAllocations,
+  suppliers,
+  customers,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc } from "drizzle-orm";
@@ -76,6 +82,20 @@ export interface IStorage {
   getAllocations(userId: string, transactionType: 'payable' | 'receivable', transactionId: string): Promise<CostAllocation[]>;
   createAllocations(userId: string, transactionType: 'payable' | 'receivable', transactionId: string, allocations: InsertCostAllocation[]): Promise<CostAllocation[]>;
   deleteAllocations(userId: string, transactionType: 'payable' | 'receivable', transactionId: string): Promise<boolean>;
+
+  // Suppliers
+  getSuppliers(userId: string): Promise<Supplier[]>;
+  getSupplier(id: string, userId: string): Promise<Supplier | undefined>;
+  createSupplier(supplier: InsertSupplier): Promise<Supplier>;
+  updateSupplier(id: string, userId: string, data: Partial<InsertSupplier>): Promise<Supplier | undefined>;
+  deleteSupplier(id: string, userId: string): Promise<boolean>;
+
+  // Customers
+  getCustomers(userId: string): Promise<Customer[]>;
+  getCustomer(id: string, userId: string): Promise<Customer | undefined>;
+  createCustomer(customer: InsertCustomer): Promise<Customer>;
+  updateCustomer(id: string, userId: string, data: Partial<InsertCustomer>): Promise<Customer | undefined>;
+  deleteCustomer(id: string, userId: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -315,6 +335,64 @@ export class DatabaseStorage implements IStorage {
         eq(costAllocations.transactionId, transactionId)
       )
     );
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  // Suppliers
+  async getSuppliers(userId: string): Promise<Supplier[]> {
+    return await db.select().from(suppliers).where(eq(suppliers.userId, userId)).orderBy(desc(suppliers.createdAt));
+  }
+
+  async getSupplier(id: string, userId: string): Promise<Supplier | undefined> {
+    const [supplier] = await db.select().from(suppliers).where(and(eq(suppliers.id, id), eq(suppliers.userId, userId)));
+    return supplier;
+  }
+
+  async createSupplier(supplier: InsertSupplier): Promise<Supplier> {
+    const [created] = await db.insert(suppliers).values(supplier).returning();
+    return created;
+  }
+
+  async updateSupplier(id: string, userId: string, data: Partial<InsertSupplier>): Promise<Supplier | undefined> {
+    const [updated] = await db
+      .update(suppliers)
+      .set({ ...data, updatedAt: new Date() })
+      .where(and(eq(suppliers.id, id), eq(suppliers.userId, userId)))
+      .returning();
+    return updated;
+  }
+
+  async deleteSupplier(id: string, userId: string): Promise<boolean> {
+    const result = await db.delete(suppliers).where(and(eq(suppliers.id, id), eq(suppliers.userId, userId)));
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  // Customers
+  async getCustomers(userId: string): Promise<Customer[]> {
+    return await db.select().from(customers).where(eq(customers.userId, userId)).orderBy(desc(customers.createdAt));
+  }
+
+  async getCustomer(id: string, userId: string): Promise<Customer | undefined> {
+    const [customer] = await db.select().from(customers).where(and(eq(customers.id, id), eq(customers.userId, userId)));
+    return customer;
+  }
+
+  async createCustomer(customer: InsertCustomer): Promise<Customer> {
+    const [created] = await db.insert(customers).values(customer).returning();
+    return created;
+  }
+
+  async updateCustomer(id: string, userId: string, data: Partial<InsertCustomer>): Promise<Customer | undefined> {
+    const [updated] = await db
+      .update(customers)
+      .set({ ...data, updatedAt: new Date() })
+      .where(and(eq(customers.id, id), eq(customers.userId, userId)))
+      .returning();
+    return updated;
+  }
+
+  async deleteCustomer(id: string, userId: string): Promise<boolean> {
+    const result = await db.delete(customers).where(and(eq(customers.id, id), eq(customers.userId, userId)));
     return result.rowCount ? result.rowCount > 0 : false;
   }
 }
