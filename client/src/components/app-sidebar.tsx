@@ -8,7 +8,8 @@ import {
   LogOut,
   BarChart3,
   Users,
-  Truck
+  Truck,
+  ArrowLeftRight
 } from "lucide-react"
 import {
   Sidebar,
@@ -47,6 +48,11 @@ const menuItems = [
     title: "Contas Bancárias",
     url: "/bank-accounts",
     icon: Building2,
+  },
+  {
+    title: "Transferências",
+    url: "/bank-transfers",
+    icon: ArrowLeftRight,
   },
   {
     title: "Plano de Contas",

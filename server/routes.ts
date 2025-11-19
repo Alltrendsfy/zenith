@@ -115,6 +115,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Bank Transfers
+  app.get('/api/bank-transfers', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const transfers = await storage.getBankTransfers(userId);
+      res.json(transfers);
+    } catch (error) {
+      console.error("Error fetching bank transfers:", error);
+      res.status(500).json({ message: "Failed to fetch bank transfers" });
+    }
+  });
+
+  app.post('/api/bank-transfers', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const validated = insertBankTransferSchema.parse(req.body);
+      
+      // Create the transfer
+      const transfer = await storage.createBankTransfer({
+        ...validated,
+        userId,
+      });
+      
+      // Update account balances
+      const accounts = await storage.getBankAccounts(userId);
+      const fromAccount = accounts.find(a => a.id === validated.fromAccountId);
+      const toAccount = accounts.find(a => a.id === validated.toAccountId);
+      
+      if (fromAccount && toAccount) {
+        const transferAmount = parseFloat(validated.amount);
+        const newFromBalance = parseFloat(fromAccount.balance) - transferAmount;
+        const newToBalance = parseFloat(toAccount.balance) + transferAmount;
+        
+        // Update both account balances
+        await storage.updateBankAccount(fromAccount.id, userId, {
+          balance: newFromBalance.toString(),
+        });
+        
+        await storage.updateBankAccount(toAccount.id, userId, {
+          balance: newToBalance.toString(),
+        });
+      }
+      
+      res.json(transfer);
+    } catch (error: any) {
+      console.error("Error creating bank transfer:", error);
+      res.status(400).json({ message: error.message || "Failed to create bank transfer" });
+    }
+  });
+
   // Accounts Payable
   app.get('/api/accounts-payable', isAuthenticated, async (req: any, res) => {
     try {

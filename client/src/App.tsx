@@ -14,6 +14,7 @@ import Dashboard from "@/pages/dashboard";
 import AccountsPayable from "@/pages/accounts-payable";
 import AccountsReceivable from "@/pages/accounts-receivable";
 import BankAccounts from "@/pages/bank-accounts";
+import BankTransfers from "@/pages/bank-transfers";
 import ChartOfAccountsPage from "@/pages/chart-of-accounts";
 import CostCenters from "@/pages/cost-centers";
 import Reports from "@/pages/reports";
@@ -58,6 +59,7 @@ function Router() {
                     <Route path="/accounts-payable" component={AccountsPayable} />
                     <Route path="/accounts-receivable" component={AccountsReceivable} />
                     <Route path="/bank-accounts" component={BankAccounts} />
+                    <Route path="/bank-transfers" component={BankTransfers} />
                     <Route path="/chart-of-accounts" component={ChartOfAccountsPage} />
                     <Route path="/cost-centers" component={CostCenters} />
                     <Route path="/reports" component={Reports} />
