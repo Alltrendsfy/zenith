@@ -122,6 +122,9 @@ export default function AccountsPayable() {
 
       const res = await apiRequest("POST", "/api/accounts-payable", {
         ...data,
+        // Convert empty strings to null for foreign keys
+        supplierId: data.supplierId || null,
+        supplierName: data.supplierName || null,
         totalAmount: data.totalAmount,
         ...recurrenceData,
       })
@@ -547,6 +550,12 @@ export default function AccountsPayable() {
                           isBadge: true,
                           badgeVariant: payable.status === 'pago' ? 'default' : payable.status === 'atrasado' ? 'destructive' : 'secondary',
                         },
+                        ...(payable.recurrenceType && payable.recurrenceType !== 'unica' ? [{
+                          label: "Recorrência",
+                          value: payable.recurrenceType === 'mensal' ? 'Mensal' : payable.recurrenceType === 'trimestral' ? 'Trimestral' : 'Anual',
+                          isBadge: true,
+                          badgeVariant: 'outline' as const,
+                        }] : []),
                       ],
                     })}
                     emptyMessage="Nenhuma conta a pagar encontrada"

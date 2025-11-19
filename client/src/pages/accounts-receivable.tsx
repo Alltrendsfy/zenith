@@ -119,6 +119,9 @@ export default function AccountsReceivable() {
 
       const res = await apiRequest("POST", "/api/accounts-receivable", {
         ...data,
+        // Convert empty strings to null for foreign keys
+        customerId: data.customerId || null,
+        customerName: data.customerName || null,
         totalAmount: data.totalAmount,
         ...recurrenceData,
       })
@@ -544,6 +547,12 @@ export default function AccountsReceivable() {
                           isBadge: true,
                           badgeVariant: receivable.status === 'pago' ? 'default' : receivable.status === 'vencido' ? 'destructive' : 'secondary',
                         },
+                        ...(receivable.recurrenceType && receivable.recurrenceType !== 'unica' ? [{
+                          label: "Recorrência",
+                          value: receivable.recurrenceType === 'mensal' ? 'Mensal' : receivable.recurrenceType === 'trimestral' ? 'Trimestral' : 'Anual',
+                          isBadge: true,
+                          badgeVariant: 'outline' as const,
+                        }] : []),
                       ],
                     })}
                     emptyMessage="Nenhuma conta a receber encontrada"
