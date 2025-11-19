@@ -50,6 +50,8 @@ export const transactionStatusEnum = pgEnum('transaction_status', ['pendente', '
 export const paymentIntervalEnum = pgEnum('payment_interval', ['mensal', 'quinzenal', 'semanal', 'personalizado']);
 export const transactionTypeEnum = pgEnum('transaction_type', ['payable', 'receivable']);
 export const personTypeEnum = pgEnum('person_type', ['fisica', 'juridica']);
+export const recurrenceTypeEnum = pgEnum('recurrence_type', ['unica', 'mensal', 'trimestral', 'anual']);
+export const recurrenceStatusEnum = pgEnum('recurrence_status', ['ativa', 'pausada', 'concluida']);
 
 // Suppliers (Fornecedores)
 export const suppliers = pgTable("suppliers", {
@@ -290,6 +292,13 @@ export const accountsPayable = pgTable("accounts_payable", {
   installmentNumber: integer("installment_number"),
   totalInstallments: integer("total_installments"),
   parentPayableId: varchar("parent_payable_id"),
+  // Recorrência
+  recurrenceType: recurrenceTypeEnum("recurrence_type").default('unica'),
+  recurrenceStatus: recurrenceStatusEnum("recurrence_status"),
+  recurrenceStartDate: date("recurrence_start_date"),
+  recurrenceEndDate: date("recurrence_end_date"),
+  recurrenceNextDate: date("recurrence_next_date"),
+  recurrenceParentId: varchar("recurrence_parent_id"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
@@ -297,6 +306,7 @@ export const accountsPayable = pgTable("accounts_payable", {
   index("idx_accounts_payable_supplier_id").on(table.supplierId),
   index("idx_accounts_payable_due_date").on(table.dueDate),
   index("idx_accounts_payable_status").on(table.status),
+  index("idx_accounts_payable_recurrence_next").on(table.recurrenceNextDate),
 ]);
 
 export const accountsPayableRelations = relations(accountsPayable, ({ one }) => ({
@@ -353,6 +363,13 @@ export const accountsReceivable = pgTable("accounts_receivable", {
   installmentNumber: integer("installment_number"),
   totalInstallments: integer("total_installments"),
   parentReceivableId: varchar("parent_receivable_id"),
+  // Recorrência
+  recurrenceType: recurrenceTypeEnum("recurrence_type").default('unica'),
+  recurrenceStatus: recurrenceStatusEnum("recurrence_status"),
+  recurrenceStartDate: date("recurrence_start_date"),
+  recurrenceEndDate: date("recurrence_end_date"),
+  recurrenceNextDate: date("recurrence_next_date"),
+  recurrenceParentId: varchar("recurrence_parent_id"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
@@ -360,6 +377,7 @@ export const accountsReceivable = pgTable("accounts_receivable", {
   index("idx_accounts_receivable_customer_id").on(table.customerId),
   index("idx_accounts_receivable_due_date").on(table.dueDate),
   index("idx_accounts_receivable_status").on(table.status),
+  index("idx_accounts_receivable_recurrence_next").on(table.recurrenceNextDate),
 ]);
 
 export const accountsReceivableRelations = relations(accountsReceivable, ({ one }) => ({
