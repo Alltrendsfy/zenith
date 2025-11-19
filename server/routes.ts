@@ -119,6 +119,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/accounts-payable', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      // Process pending recurrences before fetching accounts
+      await storage.processRecurrences(userId);
       const accounts = await storage.getAccountsPayable(userId);
       res.json(accounts);
     } catch (error) {
@@ -146,6 +148,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/accounts-receivable', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      // Process pending recurrences before fetching accounts
+      await storage.processRecurrences(userId);
       const accounts = await storage.getAccountsReceivable(userId);
       res.json(accounts);
     } catch (error) {
@@ -166,6 +170,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error creating account receivable:", error);
       res.status(400).json({ message: error.message || "Failed to create account receivable" });
+    }
+  });
+
+  // Recurrence Management
+  app.patch('/api/accounts-payable/:id/recurrence', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      const { recurrenceStatus } = req.body;
+
+      if (!['ativa', 'pausada', 'concluida'].includes(recurrenceStatus)) {
+        return res.status(400).json({ message: "Invalid recurrence status" });
+      }
+
+      const updated = await storage.updateAccountPayable(id, userId, { recurrenceStatus });
+      if (!updated) {
+        return res.status(404).json({ message: "Account payable not found" });
+      }
+
+      res.json(updated);
+    } catch (error: any) {
+      console.error("Error updating payable recurrence:", error);
+      res.status(400).json({ message: error.message || "Failed to update recurrence" });
+    }
+  });
+
+  app.patch('/api/accounts-receivable/:id/recurrence', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      const { recurrenceStatus } = req.body;
+
+      if (!['ativa', 'pausada', 'concluida'].includes(recurrenceStatus)) {
+        return res.status(400).json({ message: "Invalid recurrence status" });
+      }
+
+      const updated = await storage.updateAccountReceivable(id, userId, { recurrenceStatus });
+      if (!updated) {
+        return res.status(404).json({ message: "Account receivable not found" });
+      }
+
+      res.json(updated);
+    } catch (error: any) {
+      console.error("Error updating receivable recurrence:", error);
+      res.status(400).json({ message: error.message || "Failed to update recurrence" });
+    }
+  });
+
+  app.post('/api/recurrences/process', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const result = await storage.processRecurrences(userId);
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error processing recurrences:", error);
+      res.status(500).json({ message: error.message || "Failed to process recurrences" });
     }
   });
 

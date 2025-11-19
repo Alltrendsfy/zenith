@@ -395,6 +395,194 @@ export class DatabaseStorage implements IStorage {
     const result = await db.delete(customers).where(and(eq(customers.id, id), eq(customers.userId, userId)));
     return result.rowCount ? result.rowCount > 0 : false;
   }
+
+  // Recurrence Management
+  async generateNextPayable(parentPayable: AccountsPayable): Promise<AccountsPayable | null> {
+    if (parentPayable.recurrenceType === 'unica' || !parentPayable.recurrenceNextDate) {
+      return null;
+    }
+
+    // Calculate next due date
+    const nextDueDate = new Date(parentPayable.recurrenceNextDate);
+    const nextIssueDate = new Date(nextDueDate);
+    nextIssueDate.setDate(nextIssueDate.getDate() - (new Date(parentPayable.dueDate).getTime() - new Date(parentPayable.issueDate).getTime()) / (1000 * 60 * 60 * 24));
+
+    // Calculate next recurrence date
+    let newNextDate: Date | null = new Date(nextDueDate);
+    switch (parentPayable.recurrenceType) {
+      case 'mensal':
+        newNextDate.setMonth(newNextDate.getMonth() + 1);
+        break;
+      case 'trimestral':
+        newNextDate.setMonth(newNextDate.getMonth() + 3);
+        break;
+      case 'anual':
+        newNextDate.setFullYear(newNextDate.getFullYear() + 1);
+        break;
+      default:
+        newNextDate = null;
+    }
+
+    // Check if we've reached the end date
+    if (parentPayable.recurrenceEndDate && newNextDate) {
+      if (newNextDate > new Date(parentPayable.recurrenceEndDate)) {
+        // Mark recurrence as completed
+        await this.updateAccountPayable(parentPayable.id, parentPayable.userId, {
+          recurrenceStatus: 'concluida'
+        });
+        return null;
+      }
+    }
+
+    // Create next installment
+    const nextPayable: InsertAccountsPayable = {
+      userId: parentPayable.userId,
+      description: parentPayable.description,
+      supplierId: parentPayable.supplierId,
+      supplierName: parentPayable.supplierName,
+      accountId: parentPayable.accountId,
+      costCenterId: parentPayable.costCenterId,
+      totalAmount: parentPayable.totalAmount,
+      amountPaid: '0.00',
+      dueDate: nextDueDate.toISOString().split('T')[0],
+      issueDate: nextIssueDate.toISOString().split('T')[0],
+      status: 'pendente',
+      bankAccountId: parentPayable.bankAccountId,
+      documentNumber: parentPayable.documentNumber,
+      notes: parentPayable.notes,
+      recurrenceType: 'unica',
+      recurrenceParentId: parentPayable.id,
+    };
+
+    const [created] = await db.insert(accountsPayable).values(nextPayable).returning();
+
+    // Update parent recurrence next date
+    if (newNextDate) {
+      await this.updateAccountPayable(parentPayable.id, parentPayable.userId, {
+        recurrenceNextDate: newNextDate.toISOString().split('T')[0]
+      });
+    }
+
+    return created;
+  }
+
+  async generateNextReceivable(parentReceivable: AccountsReceivable): Promise<AccountsReceivable | null> {
+    if (parentReceivable.recurrenceType === 'unica' || !parentReceivable.recurrenceNextDate) {
+      return null;
+    }
+
+    // Calculate next due date
+    const nextDueDate = new Date(parentReceivable.recurrenceNextDate);
+    const nextIssueDate = new Date(nextDueDate);
+    nextIssueDate.setDate(nextIssueDate.getDate() - (new Date(parentReceivable.dueDate).getTime() - new Date(parentReceivable.issueDate).getTime()) / (1000 * 60 * 60 * 24));
+
+    // Calculate next recurrence date
+    let newNextDate: Date | null = new Date(nextDueDate);
+    switch (parentReceivable.recurrenceType) {
+      case 'mensal':
+        newNextDate.setMonth(newNextDate.getMonth() + 1);
+        break;
+      case 'trimestral':
+        newNextDate.setMonth(newNextDate.getMonth() + 3);
+        break;
+      case 'anual':
+        newNextDate.setFullYear(newNextDate.getFullYear() + 1);
+        break;
+      default:
+        newNextDate = null;
+    }
+
+    // Check if we've reached the end date
+    if (parentReceivable.recurrenceEndDate && newNextDate) {
+      if (newNextDate > new Date(parentReceivable.recurrenceEndDate)) {
+        // Mark recurrence as completed
+        await this.updateAccountReceivable(parentReceivable.id, parentReceivable.userId, {
+          recurrenceStatus: 'concluida'
+        });
+        return null;
+      }
+    }
+
+    // Create next installment
+    const nextReceivable: InsertAccountsReceivable = {
+      userId: parentReceivable.userId,
+      description: parentReceivable.description,
+      customerId: parentReceivable.customerId,
+      customerName: parentReceivable.customerName,
+      accountId: parentReceivable.accountId,
+      costCenterId: parentReceivable.costCenterId,
+      totalAmount: parentReceivable.totalAmount,
+      amountReceived: '0.00',
+      dueDate: nextDueDate.toISOString().split('T')[0],
+      issueDate: nextIssueDate.toISOString().split('T')[0],
+      status: 'pendente',
+      bankAccountId: parentReceivable.bankAccountId,
+      documentNumber: parentReceivable.documentNumber,
+      notes: parentReceivable.notes,
+      recurrenceType: 'unica',
+      recurrenceParentId: parentReceivable.id,
+    };
+
+    const [created] = await db.insert(accountsReceivable).values(nextReceivable).returning();
+
+    // Update parent recurrence next date
+    if (newNextDate) {
+      await this.updateAccountReceivable(parentReceivable.id, parentReceivable.userId, {
+        recurrenceNextDate: newNextDate.toISOString().split('T')[0]
+      });
+    }
+
+    return created;
+  }
+
+  async processRecurrences(userId: string): Promise<{ payablesGenerated: number; receivablesGenerated: number }> {
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Get all active recurrences for payables
+    const activePayables = await db
+      .select()
+      .from(accountsPayable)
+      .where(
+        and(
+          eq(accountsPayable.userId, userId),
+          eq(accountsPayable.recurrenceStatus, 'ativa'),
+          sql`${accountsPayable.recurrenceNextDate} <= ${today}`
+        )
+      );
+
+    // Get all active recurrences for receivables
+    const activeReceivables = await db
+      .select()
+      .from(accountsReceivable)
+      .where(
+        and(
+          eq(accountsReceivable.userId, userId),
+          eq(accountsReceivable.recurrenceStatus, 'ativa'),
+          sql`${accountsReceivable.recurrenceNextDate} <= ${today}`
+        )
+      );
+
+    let payablesGenerated = 0;
+    let receivablesGenerated = 0;
+
+    // Generate next payables
+    for (const payable of activePayables) {
+      const generated = await this.generateNextPayable(payable);
+      if (generated) {
+        payablesGenerated++;
+      }
+    }
+
+    // Generate next receivables
+    for (const receivable of activeReceivables) {
+      const generated = await this.generateNextReceivable(receivable);
+      if (generated) {
+        receivablesGenerated++;
+      }
+    }
+
+    return { payablesGenerated, receivablesGenerated };
+  }
 }
 
 export const storage = new DatabaseStorage();
