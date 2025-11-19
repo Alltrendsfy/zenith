@@ -16,6 +16,17 @@ import {
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Enums - Must be defined before tables that use them
+export const userRoleEnum = pgEnum('user_role', ['admin', 'gerente', 'financeiro', 'visualizador']);
+export const accountTypeEnum = pgEnum('account_type', ['receita', 'despesa', 'ativo', 'passivo']);
+export const accountNatureEnum = pgEnum('account_nature', ['analitica', 'sintetica']);
+export const transactionStatusEnum = pgEnum('transaction_status', ['pendente', 'pago', 'parcial', 'cancelado', 'vencido']);
+export const paymentIntervalEnum = pgEnum('payment_interval', ['mensal', 'quinzenal', 'semanal', 'personalizado']);
+export const transactionTypeEnum = pgEnum('transaction_type', ['payable', 'receivable']);
+export const personTypeEnum = pgEnum('person_type', ['fisica', 'juridica']);
+export const recurrenceTypeEnum = pgEnum('recurrence_type', ['unica', 'mensal', 'trimestral', 'anual']);
+export const recurrenceStatusEnum = pgEnum('recurrence_status', ['ativa', 'pausada', 'concluida']);
+
 // Session storage table - Required for Replit Auth
 export const sessions = pgTable(
   "sessions",
@@ -34,7 +45,7 @@ export const users = pgTable("users", {
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
-  role: varchar("role", { length: 50 }).default("user"),
+  role: userRoleEnum("role").default("visualizador").notNull(),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -42,16 +53,6 @@ export const users = pgTable("users", {
 
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
-
-// Enums
-export const accountTypeEnum = pgEnum('account_type', ['receita', 'despesa', 'ativo', 'passivo']);
-export const accountNatureEnum = pgEnum('account_nature', ['analitica', 'sintetica']);
-export const transactionStatusEnum = pgEnum('transaction_status', ['pendente', 'pago', 'parcial', 'cancelado', 'vencido']);
-export const paymentIntervalEnum = pgEnum('payment_interval', ['mensal', 'quinzenal', 'semanal', 'personalizado']);
-export const transactionTypeEnum = pgEnum('transaction_type', ['payable', 'receivable']);
-export const personTypeEnum = pgEnum('person_type', ['fisica', 'juridica']);
-export const recurrenceTypeEnum = pgEnum('recurrence_type', ['unica', 'mensal', 'trimestral', 'anual']);
-export const recurrenceStatusEnum = pgEnum('recurrence_status', ['ativa', 'pausada', 'concluida']);
 
 // Suppliers (Fornecedores)
 export const suppliers = pgTable("suppliers", {
