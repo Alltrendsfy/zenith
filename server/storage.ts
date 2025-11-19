@@ -75,7 +75,7 @@ export interface IStorage {
 
   // Bank Transfers
   getBankTransfers(userId: string): Promise<BankTransfer[]>;
-  createBankTransfer(transfer: InsertBankTransfer): Promise<BankTransfer>;
+  createBankTransfer(transfer: InsertBankTransfer & { userId: string }): Promise<BankTransfer>;
 
   // Cost Allocations
   getAllAllocations(userId: string): Promise<CostAllocation[]>;
@@ -273,9 +273,68 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(bankTransfers).where(eq(bankTransfers.userId, userId)).orderBy(desc(bankTransfers.transferDate));
   }
 
-  async createBankTransfer(transfer: InsertBankTransfer): Promise<BankTransfer> {
-    const [created] = await db.insert(bankTransfers).values(transfer).returning();
-    return created;
+  async createBankTransfer(transfer: InsertBankTransfer & { userId: string }): Promise<BankTransfer> {
+    // 1. Validate that accounts are different
+    if (transfer.fromAccountId === transfer.toAccountId) {
+      throw new Error("Contas de origem e destino devem ser diferentes");
+    }
+
+    // 2. Validate amount is positive
+    const amount = parseFloat(transfer.amount);
+    if (amount <= 0) {
+      throw new Error("Valor deve ser maior que zero");
+    }
+
+    // 3. Fetch both accounts and verify they exist and belong to the user
+    const [fromAccount] = await db
+      .select()
+      .from(bankAccounts)
+      .where(and(eq(bankAccounts.id, transfer.fromAccountId), eq(bankAccounts.userId, transfer.userId)));
+    
+    const [toAccount] = await db
+      .select()
+      .from(bankAccounts)
+      .where(and(eq(bankAccounts.id, transfer.toAccountId), eq(bankAccounts.userId, transfer.userId)));
+
+    if (!fromAccount) {
+      throw new Error("Conta de origem não encontrada");
+    }
+
+    if (!toAccount) {
+      throw new Error("Conta de destino não encontrada");
+    }
+
+    // 4. Verify sufficient balance
+    const currentBalance = parseFloat(fromAccount.balance);
+    if (currentBalance < amount) {
+      throw new Error("Saldo insuficiente na conta de origem");
+    }
+
+    // 5. Perform balance updates and create transfer
+    try {
+      // Update from account (debit)
+      const newFromBalance = (currentBalance - amount).toFixed(2);
+      await db
+        .update(bankAccounts)
+        .set({ balance: newFromBalance, updatedAt: new Date() })
+        .where(and(eq(bankAccounts.id, transfer.fromAccountId), eq(bankAccounts.userId, transfer.userId)));
+
+      // Update to account (credit)
+      const currentToBalance = parseFloat(toAccount.balance);
+      const newToBalance = (currentToBalance + amount).toFixed(2);
+      await db
+        .update(bankAccounts)
+        .set({ balance: newToBalance, updatedAt: new Date() })
+        .where(and(eq(bankAccounts.id, transfer.toAccountId), eq(bankAccounts.userId, transfer.userId)));
+
+      // Create transfer record
+      const [created] = await db.insert(bankTransfers).values(transfer).returning();
+      return created;
+    } catch (error) {
+      // If any update fails, throw error (in a real system, we'd use transactions)
+      console.error("Error during bank transfer:", error);
+      throw new Error("Erro ao processar transferência. Por favor, tente novamente.");
+    }
   }
 
   // Cost Allocations
