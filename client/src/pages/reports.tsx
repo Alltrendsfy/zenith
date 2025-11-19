@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/select"
 import { Calendar, FileText, Printer, Download } from "lucide-react"
 import { startOfMonth, endOfMonth, startOfYear, endOfYear, subMonths, format } from "date-fns"
-import type { DREReport } from "@shared/schema"
+import type { DREReport, CostCenter } from "@shared/schema"
 import {
   BarChart,
   Bar,
@@ -39,14 +39,22 @@ export default function Reports() {
   const [costCenterId, setCostCenterId] = useState<string>("")
 
   // Fetch cost centers for filter
-  const { data: costCenters = [] } = useQuery({
+  const { data: costCenters = [] } = useQuery<CostCenter[]>({
     queryKey: ["/api/cost-centers"],
     enabled: isAuthenticated,
   })
 
   // Fetch DRE report
+  const getDREQueryKey = () => {
+    const params = new URLSearchParams({ startDate, endDate })
+    if (costCenterId) {
+      params.append('costCenterId', costCenterId)
+    }
+    return [`/api/reports/dre?${params.toString()}`]
+  }
+
   const { data: dreReport, isLoading: isDRELoading, refetch } = useQuery<DREReport>({
-    queryKey: ["/api/reports/dre", { startDate, endDate, costCenterId }],
+    queryKey: getDREQueryKey(),
     enabled: isAuthenticated && !!startDate && !!endDate,
   })
 
@@ -158,15 +166,15 @@ export default function Reports() {
               <div className="space-y-2">
                 <Label htmlFor="cost-center">Centro de Custo</Label>
                 <Select
-                  value={costCenterId}
-                  onValueChange={setCostCenterId}
+                  value={costCenterId || "ALL"}
+                  onValueChange={(value) => setCostCenterId(value === "ALL" ? "" : value)}
                 >
                   <SelectTrigger id="cost-center" data-testid="select-cost-center">
                     <SelectValue placeholder="Todos" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todos</SelectItem>
-                    {costCenters.map((cc: any) => (
+                    <SelectItem value="ALL">Todos</SelectItem>
+                    {costCenters.map((cc) => (
                       <SelectItem key={cc.id} value={cc.id}>
                         {cc.code} - {cc.name}
                       </SelectItem>
