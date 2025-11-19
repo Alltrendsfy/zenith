@@ -1,0 +1,58 @@
+## 📝 Instruções PARA ATUALIZAÇÃO para o Sistema
+
+
+### I. ⚙️ Plano de Contas, Pagamentos e Recebimentos 
+
+* **Plano de Contas (Cadastro):** O plano de contas é utilizado no **cadastro** da conta, seja ela a pagar ou a receber.
+* **Banco e Forma de Pagamento (Baixa):** O banco e a forma de pagamento são utilizados na **baixa** (liquidação) do pagamento ou na baixa do recebimento.
+* **Geração da DRE:** A Demonstração do Resultado do Exercício (DRE) é gerada a partir dos **pagamentos e recebimentos**, conforme o plano de contas.
+
+---
+
+### II. 🆕 Cadastros Adicionais e Recorrência 
+
+#### A. Cadastro Moderno
+* Implementar um cadastro moderno (completo) para as seguintes entidades, incluindo campos como:
+    * Pessoa Física ou Pessoa Jurídica
+    * CNPJ/CPF
+    * Endereço
+    * Redes Sociais e etc.
+* **Entidades para Cadastro:**
+    1.  Fornecedores
+    2.  Clientes
+    3.  Multiusuários do Sistema
+
+#### B. Recorrência (Contas a Pagar e Receber)
+* No módulo Contas a Pagar e Contas a Receber, incluir as seguintes opções:
+    * Opção de **Recorrência**.
+    * Opção de **Prazos de Recorrência** (mensal, trimestral, anual, etc.).
+
+#### C. Funcionalidade de Recebimento no Contas a Pagar
+* No módulo Contas a Pagar, implementar a opção de **Recebimento** para dar baixa na conta cadastrada.
+* Esta baixa deve ser detalhada, exigindo:
+    * A **conta de destino** para qual o recebimento foi destinado (alimentação).
+    * A **modalidade de recebimento** (dinheiro, PIX, cartão, etc.).
+
+---
+
+### III. 📊 Relatórios e Demonstrações 
+#### A. Demonstração do Resultado do Exercício (DRE)
+* **Composição:** A DRE interliga os resultados do pagamento e do recebimento.
+    * Deve apresentar as contas e valores do período lançado.
+    * A ordem de apresentação é: primeiro os **créditos**, depois os **débitos**, e, por fim, o **resultado** (lucro ou prejuízo).
+* **Tipos de Relatórios da DRE:**
+    * **Relatório Geral:** Considerar **todos os centros de custo**.
+    * **Relatório Específico:** Permitir a emissão de relatório **por seleção de centro de custo** (ex: selecionando "Presidente Dutra" e o período).
+
+#### B. Outros Extratos
+* O sistema deve fornecer relatórios com base no período definido:
+    * **Extrato do Plano de Contas:** Um relatório dos lançamentos **por plano de contas**.
+    * **Extrato Bancário:** Um relatório dos lançamentos **por banco** (extrato de banco).
+
+---
+
+### IV. 🖼️ Funcionalidades Adicionais 
+
+* **Arquivamento de Imagens (Documentos):** Nas contas a pagar e a receber, deve haver a opção de **arquivar ou tirar uma foto** do documento que gerou o lançamento.
+    * **Finalidade:** Apenas para arquivamento, para manter a origem do débito/recebimento.
+    * **Obrigatoriedade:** A inclusão da imagem **não é obrigatória** para que o sistema acate a operação.
