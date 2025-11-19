@@ -274,6 +274,7 @@ export const accountsPayable = pgTable("accounts_payable", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
   description: varchar("description", { length: 500 }).notNull(),
+  supplierId: varchar("supplier_id").references(() => suppliers.id, { onDelete: 'set null' }),
   supplierName: varchar("supplier_name", { length: 255 }),
   accountId: varchar("account_id").references(() => chartOfAccounts.id),
   costCenterId: varchar("cost_center_id").references(() => costCenters.id),
@@ -293,6 +294,7 @@ export const accountsPayable = pgTable("accounts_payable", {
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("idx_accounts_payable_user_id").on(table.userId),
+  index("idx_accounts_payable_supplier_id").on(table.supplierId),
   index("idx_accounts_payable_due_date").on(table.dueDate),
   index("idx_accounts_payable_status").on(table.status),
 ]);
@@ -301,6 +303,10 @@ export const accountsPayableRelations = relations(accountsPayable, ({ one }) => 
   user: one(users, {
     fields: [accountsPayable.userId],
     references: [users.id],
+  }),
+  supplier: one(suppliers, {
+    fields: [accountsPayable.supplierId],
+    references: [suppliers.id],
   }),
   account: one(chartOfAccounts, {
     fields: [accountsPayable.accountId],
@@ -331,6 +337,7 @@ export const accountsReceivable = pgTable("accounts_receivable", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
   description: varchar("description", { length: 500 }).notNull(),
+  customerId: varchar("customer_id").references(() => customers.id, { onDelete: 'set null' }),
   customerName: varchar("customer_name", { length: 255 }),
   accountId: varchar("account_id").references(() => chartOfAccounts.id),
   costCenterId: varchar("cost_center_id").references(() => costCenters.id),
@@ -350,6 +357,7 @@ export const accountsReceivable = pgTable("accounts_receivable", {
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("idx_accounts_receivable_user_id").on(table.userId),
+  index("idx_accounts_receivable_customer_id").on(table.customerId),
   index("idx_accounts_receivable_due_date").on(table.dueDate),
   index("idx_accounts_receivable_status").on(table.status),
 ]);
@@ -358,6 +366,10 @@ export const accountsReceivableRelations = relations(accountsReceivable, ({ one 
   user: one(users, {
     fields: [accountsReceivable.userId],
     references: [users.id],
+  }),
+  customer: one(customers, {
+    fields: [accountsReceivable.customerId],
+    references: [customers.id],
   }),
   account: one(chartOfAccounts, {
     fields: [accountsReceivable.accountId],
