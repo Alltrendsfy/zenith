@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/sidebar"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useAuth } from "@/hooks/useAuth"
+import { usePermissions } from "@/hooks/usePermissions"
 import { Link, useLocation } from "wouter"
 import zenithLogo from "@assets/logo zenith erp_1763561150551.jpeg"
 
@@ -86,6 +87,7 @@ const cadastrosItems = [
 
 export function AppSidebar() {
   const { user } = useAuth()
+  const { isAdmin } = usePermissions()
   const [location] = useLocation()
 
   const getUserInitials = () => {
@@ -155,6 +157,28 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {isAdmin && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-xs font-medium uppercase tracking-wide">Administração</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location === "/user-management"}
+                    data-testid="link-user-management"
+                  >
+                    <Link href="/user-management">
+                      <User className="h-4 w-4" />
+                      <span>Gerenciar Usuários</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       <SidebarFooter className="p-4 border-t">

@@ -37,6 +37,9 @@ export interface IStorage {
   // User operations
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
+  getAllUsers(): Promise<User[]>;
+  updateUserRole(userId: string, role: 'admin' | 'gerente' | 'financeiro' | 'visualizador'): Promise<User | undefined>;
+  toggleUserStatus(userId: string, isActive: boolean): Promise<User | undefined>;
 
   // Bank Accounts
   getBankAccounts(userId: string): Promise<BankAccount[]>;
@@ -121,6 +124,28 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     return user;
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return await db.select().from(users).orderBy(desc(users.createdAt));
+  }
+
+  async updateUserRole(userId: string, role: 'admin' | 'gerente' | 'financeiro' | 'visualizador'): Promise<User | undefined> {
+    const [updated] = await db
+      .update(users)
+      .set({ role, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
+    return updated;
+  }
+
+  async toggleUserStatus(userId: string, isActive: boolean): Promise<User | undefined> {
+    const [updated] = await db
+      .update(users)
+      .set({ isActive, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
+    return updated;
   }
 
   // Bank Accounts
