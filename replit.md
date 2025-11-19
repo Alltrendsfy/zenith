@@ -6,7 +6,9 @@ ZENITH ERP is a web-based enterprise resource planning system focused on financi
 
 The system is built as a full-stack TypeScript application with a React frontend and Express backend, designed for multi-user access with secure authentication via Replit's OpenID Connect implementation.
 
-**Recent Update (November 2024)**: Implemented comprehensive cost allocation (rateio) system allowing proportional distribution of financial transactions across multiple cost centers with percentage-based allocation and automatic amount calculation.
+**Recent Updates:**
+- **November 2024 - Cost Allocation System**: Implemented comprehensive rateio system allowing proportional distribution of financial transactions across multiple cost centers with percentage-based allocation and automatic amount calculation.
+- **November 2024 - Brand Identity Overhaul**: Complete visual identity redesign based on Zenith logo with cyan (#00D4FF) primary color and deep blue (#0A1520) backgrounds. Dark mode set as default. All components updated with new color palette and logo integration via Vite asset pipeline.
 
 ## User Preferences
 

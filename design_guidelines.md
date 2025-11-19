@@ -40,11 +40,66 @@
 - **Warning:** Maintain existing yellow/orange tones
 
 ### Usage Guidelines
-- Primary actions: Use cyan primary with dark text
-- Hover effects: Add subtle cyan glow (8-15% opacity overlay)
-- Focus rings: Cyan primary at full saturation
-- Borders: Use muted blue tones, never pure black
-- Text: High contrast white/cyan on dark backgrounds
+
+**Interactive States:**
+- **Hover Effects:** Use the built-in `hover-elevate` utility class which applies 8% cyan overlay on hover
+  ```tsx
+  <Card className="hover-elevate">...</Card>
+  ```
+- **Active/Press States:** Use the built-in `active-elevate-2` utility class which applies 15% cyan overlay
+  ```tsx
+  <Button className="active-elevate-2">...</Button>
+  ```
+- **Focus Rings:** Always use cyan primary at full saturation (ring-primary)
+  ```tsx
+  <Input className="focus-visible:ring-primary" />
+  ```
+
+**Button & Action Colors:**
+- Primary actions: Use `variant="default"` which applies cyan background with dark text
+- Secondary actions: Use `variant="outline"` for ghost-style buttons with cyan borders
+- Destructive actions: Use `variant="destructive"` which maintains red tones
+- Never manually override Button hover/active states - components handle this automatically
+
+**Text Gradients:**
+- **Hero/Landing Text Only:** Gradients are permitted exclusively for large hero headings
+  ```tsx
+  <h1 className="bg-gradient-to-r from-primary to-accent-foreground bg-clip-text text-transparent">
+    ZENITH ERP
+  </h1>
+  ```
+- **Prohibited:** Gradients on body text, navigation, forms, tables, or any functional UI elements
+- **Rationale:** Gradients reduce readability and should be decorative accent only
+
+**Borders & Dividers:**
+- Use muted blue tones from palette (HSL 207 40% 18% in dark mode)
+- Never use pure black (#000000) or pure gray borders
+- Prefer subtle borders that match the theme's blue undertones
+
+**Text Hierarchy:**
+- Primary text: High contrast white/cyan (foreground color)
+- Secondary text: Muted cyan (muted-foreground)
+- Tertiary/placeholder: Even more muted (HSL 190 20% 65%)
+- All text must maintain WCAG AA contrast ratios against backgrounds
+
+**Asset Handling:**
+- **Logo Import:** Always import logo through Vite asset pipeline
+  ```tsx
+  import zenithLogo from "@assets/logo zenith erp_1763561150551.jpeg"
+  <img src={zenithLogo} alt="Zenith ERP" />
+  ```
+- **Never use absolute paths** like `/attached_assets/...` as they break in production builds
+- **Logo Sizes:**
+  - Landing page hero: `h-32` (128px)
+  - Sidebar header: `h-10` (40px)
+  - Mobile header: `h-8` (32px)
+- **Alt text:** Always provide descriptive alt text for accessibility
+
+**Chart Colors:**
+- Use chart palette variables (chart-1 through chart-5)
+- Primary chart color (chart-1) matches cyan brand color
+- Additional colors provide contrast while harmonizing with palette
+- Avoid pure saturated colors that clash with cyan/blue theme
 
 ---
 
@@ -307,3 +362,51 @@ Use Tailwind units: **2, 4, 6, 8, 12, 16** as the core spacing set.
 - Company logo: Header area (auto height, max 40px)
 - Empty states: Simple illustrations (optional, 200x200px)
 - Icons: Lucide React library throughout (16px-24px)
+
+---
+
+## Production Release Checklist
+
+Before deploying to production, verify:
+
+**1. Asset Verification:**
+- [ ] All logo imports use Vite asset pipeline (`import logo from "@assets/..."`)
+- [ ] No absolute paths to `/attached_assets/...` exist in codebase
+- [ ] Execute `npm run build` successfully
+- [ ] Verify logo asset appears in `dist/public/assets/` after build
+
+**2. Visual Consistency:**
+- [ ] All pages use cyan/blue color palette from index.css
+- [ ] No legacy color classes (old primary colors) remain
+- [ ] Dark mode is default theme
+- [ ] Theme toggle works correctly
+
+**3. Responsive Design:**
+- [ ] Logo displays correctly on mobile (header) and desktop (sidebar)
+- [ ] All pages are mobile-responsive
+- [ ] Mobile bottom navigation works
+- [ ] Touch targets are appropriately sized
+
+**4. Browser Testing:**
+- [ ] Test in Chrome/Edge (Chromium)
+- [ ] Test in Firefox
+- [ ] Test in Safari (if applicable)
+- [ ] Verify no console errors
+
+**5. Production Build:**
+- [ ] Execute `npm run build` without errors
+- [ ] Check bundle size warnings (currently ~900KB gzipped to ~260KB)
+- [ ] Consider code-splitting if needed for performance
+- [ ] Test production build locally before deployment
+
+**6. Performance:**
+- [ ] Lighthouse score > 90 for performance
+- [ ] First Contentful Paint < 1.5s
+- [ ] Time to Interactive < 3.0s
+- [ ] No unnecessary re-renders in React DevTools
+
+**7. Accessibility:**
+- [ ] All interactive elements have proper ARIA labels
+- [ ] Keyboard navigation works throughout
+- [ ] Color contrast meets WCAG AA standards
+- [ ] Screen reader compatibility verified

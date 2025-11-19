@@ -22,6 +22,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useAuth } from "@/hooks/useAuth"
 import { Link, useLocation } from "wouter"
+import zenithLogo from "@assets/logo zenith erp_1763561150551.jpeg"
 
 const menuItems = [
   {
@@ -72,7 +73,7 @@ export function AppSidebar() {
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-3">
           <img 
-            src="/attached_assets/logo zenith erp_1763561150551.jpeg" 
+            src={zenithLogo} 
             alt="Zenith ERP" 
             className="h-10 w-auto"
           />

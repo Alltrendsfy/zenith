@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button"
 import { Building2, BarChart3, Wallet, FileText, Shield, Zap } from "lucide-react"
+import zenithLogo from "@assets/logo zenith erp_1763561150551.jpeg"
 
 export default function Landing() {
   return (
@@ -8,7 +9,7 @@ export default function Landing() {
         <div className="flex flex-col items-center justify-center text-center space-y-8">
           <div className="flex flex-col items-center gap-6 mb-4">
             <img 
-              src="/attached_assets/logo zenith erp_1763561150551.jpeg" 
+              src={zenithLogo} 
               alt="Zenith ERP" 
               className="h-32 w-auto"
             />

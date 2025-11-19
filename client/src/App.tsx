@@ -17,6 +17,7 @@ import BankAccounts from "@/pages/bank-accounts";
 import ChartOfAccountsPage from "@/pages/chart-of-accounts";
 import CostCenters from "@/pages/cost-centers";
 import NotFound from "@/pages/not-found";
+import zenithLogo from "@assets/logo zenith erp_1763561150551.jpeg";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -40,7 +41,7 @@ function Router() {
                   <SidebarTrigger data-testid="button-sidebar-toggle" />
                   <div className="flex items-center gap-2 lg:hidden">
                     <img 
-                      src="/attached_assets/logo zenith erp_1763561150551.jpeg" 
+                      src={zenithLogo} 
                       alt="Zenith ERP" 
                       className="h-8 w-auto"
                     />
