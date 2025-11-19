@@ -16,6 +16,19 @@ import {
 import { Calendar, FileText, Printer, Download } from "lucide-react"
 import { startOfMonth, endOfMonth, startOfYear, endOfYear, subMonths, format } from "date-fns"
 import type { DREReport } from "@shared/schema"
+import {
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts"
 
 export default function Reports() {
   const { isAuthenticated } = useAuth()
@@ -308,6 +321,101 @@ export default function Reports() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Charts Section */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 print:hidden">
+              {/* Revenue vs Expenses Bar Chart */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Receitas x Despesas</CardTitle>
+                  <CardDescription>Comparativo do período</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart
+                      data={[
+                        {
+                          name: "Total",
+                          Receitas: dreReport.revenues.total,
+                          Despesas: dreReport.expenses.total,
+                          Resultado: dreReport.result.grossProfit,
+                        },
+                      ]}
+                      margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis dataKey="name" className="text-xs" />
+                      <YAxis className="text-xs" />
+                      <Tooltip
+                        formatter={(value: number) =>
+                          `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                        }
+                        contentStyle={{
+                          backgroundColor: 'hsl(var(--card))',
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '6px',
+                        }}
+                      />
+                      <Legend />
+                      <Bar dataKey="Receitas" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
+                      <Bar dataKey="Despesas" fill="hsl(var(--destructive))" radius={[8, 8, 0, 0]} />
+                      <Bar
+                        dataKey="Resultado"
+                        fill={dreReport.result.grossProfit >= 0 ? "hsl(var(--primary))" : "hsl(var(--destructive))"}
+                        radius={[8, 8, 0, 0]}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              {/* Expense Distribution Pie Chart */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Distribuição de Despesas</CardTitle>
+                  <CardDescription>Por categoria</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {dreReport.expenses.items.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={300}>
+                      <PieChart>
+                        <Pie
+                          data={dreReport.expenses.items}
+                          dataKey="amount"
+                          nameKey="accountName"
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={100}
+                          label={(entry) => `${entry.accountCode}: ${entry.percentage?.toFixed(0)}%`}
+                          labelLine={true}
+                        >
+                          {dreReport.expenses.items.map((entry, index) => (
+                            <Cell
+                              key={`cell-${index}`}
+                              fill={`hsl(${(index * 360) / dreReport.expenses.items.length}, 70%, 50%)`}
+                            />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          formatter={(value: number) =>
+                            `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                          }
+                          contentStyle={{
+                            backgroundColor: 'hsl(var(--card))',
+                            border: '1px solid hsl(var(--border))',
+                            borderRadius: '6px',
+                          }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                      Nenhuma despesa para exibir
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </div>
         ) : (
           <Card>
