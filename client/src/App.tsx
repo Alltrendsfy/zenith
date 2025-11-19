@@ -38,6 +38,13 @@ function Router() {
               <div className="flex-1 flex flex-col overflow-hidden">
                 <header className="flex h-14 items-center gap-4 border-b bg-background px-4 lg:h-16 lg:px-6">
                   <SidebarTrigger data-testid="button-sidebar-toggle" />
+                  <div className="flex items-center gap-2 lg:hidden">
+                    <img 
+                      src="/attached_assets/logo zenith erp_1763561150551.jpeg" 
+                      alt="Zenith ERP" 
+                      className="h-8 w-auto"
+                    />
+                  </div>
                   <div className="flex-1" />
                   <ThemeToggle />
                 </header>
@@ -66,7 +73,7 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider defaultTheme="light" storageKey="zenith-erp-theme">
+      <ThemeProvider defaultTheme="dark" storageKey="zenith-erp-theme">
         <TooltipProvider>
           <Toaster />
           <Router />

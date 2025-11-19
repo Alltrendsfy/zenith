@@ -1,14 +1,50 @@
 # ZENITH ERP - Design Guidelines
 
+## Brand Identity
+**Logo:** Modern triangular design in cyan/blue tones representing growth and precision
+**Core Colors:** Cyan primary (#00D4FF / HSL 190 100% 50%), Deep blue background (#0A1520 / HSL 207 50% 9%)
+**Visual Style:** Technology-forward with glowing accents, dark-first design
+
 ## Design Approach
-**System:** Material Design 3 + Fluent Design principles for enterprise applications
-**Rationale:** ERP systems require information-dense layouts with clear data hierarchy, efficient workflows, and professional aesthetics. These systems excel at structured data presentation and form-heavy interfaces.
+**System:** Material Design 3 + Fluent Design principles adapted for ERP with Zenith branding
+**Rationale:** ERP systems require information-dense layouts with clear data hierarchy, efficient workflows, and professional aesthetics. The Zenith visual identity adds modern, technology-forward styling with cyan accents and dark mode optimization.
 
 ## Core Design Principles
 1. **Information Clarity First:** Every UI element serves the purpose of presenting or collecting business data efficiently
 2. **Workflow Optimization:** Minimize clicks, maximize context visibility
-3. **Professional Restraint:** Clean, uncluttered interfaces that project competence and reliability
+3. **Professional Restraint:** Clean interfaces with strategic cyan accents that project competence and innovation
 4. **Consistent Patterns:** Reusable components across all modules for rapid learning
+5. **Dark-First Design:** Optimized for dark mode with light mode as optional alternative
+
+---
+
+## Color Palette
+
+### Primary Colors
+- **Cyan Primary:** HSL(190 100% 50%) - #00D4FF
+  - Used for: Primary buttons, links, active states, brand accents
+  - Creates signature "glow" effect in dark mode
+  
+- **Deep Blue Background:** HSL(207 50% 9%) - #0A1520
+  - Used for: Main background in dark mode
+  - Creates depth and modern tech aesthetic
+
+### Secondary Colors
+- **Blue Medium:** HSL(207 45% 12%) - Cards and elevated surfaces
+- **Cyan Accent:** HSL(190 80% 20%) - Subtle highlights and hover states
+- **Muted Cyan:** HSL(190 20% 65%) - Secondary text and disabled states
+
+### Semantic Colors
+- **Success:** Maintain existing green tones
+- **Destructive:** HSL(0 84% 45%) - Adjusted for dark backgrounds
+- **Warning:** Maintain existing yellow/orange tones
+
+### Usage Guidelines
+- Primary actions: Use cyan primary with dark text
+- Hover effects: Add subtle cyan glow (8-15% opacity overlay)
+- Focus rings: Cyan primary at full saturation
+- Borders: Use muted blue tones, never pure black
+- Text: High contrast white/cyan on dark backgrounds
 
 ---
 

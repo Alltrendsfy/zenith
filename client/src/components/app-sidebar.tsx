@@ -70,10 +70,12 @@ export function AppSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="p-4">
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded bg-primary text-primary-foreground">
-            <Building2 className="h-5 w-5" />
-          </div>
+        <div className="flex items-center gap-3">
+          <img 
+            src="/attached_assets/logo zenith erp_1763561150551.jpeg" 
+            alt="Zenith ERP" 
+            className="h-10 w-auto"
+          />
           <div className="flex flex-col">
             <span className="text-sm font-semibold">ZENITH ERP</span>
             <span className="text-xs text-muted-foreground">Gestão Empresarial</span>
