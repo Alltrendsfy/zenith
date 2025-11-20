@@ -24,6 +24,7 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/hooks/useAuth"
 import { usePermissions } from "@/hooks/usePermissions"
 import { Link, useLocation } from "wouter"
@@ -87,7 +88,7 @@ const cadastrosItems = [
 
 export function AppSidebar() {
   const { user } = useAuth()
-  const { isAdmin } = usePermissions()
+  const { isAdmin, role } = usePermissions()
   const [location] = useLocation()
 
   const getUserInitials = () => {
@@ -95,6 +96,26 @@ export function AppSidebar() {
       return `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
     }
     return user?.email?.[0].toUpperCase() || "U"
+  }
+
+  const getRoleLabel = () => {
+    switch (role) {
+      case 'admin': return 'Administrador'
+      case 'gerente': return 'Gerente'
+      case 'financeiro': return 'Financeiro'
+      case 'visualizador': return 'Visualizador'
+      default: return 'Visualizador'
+    }
+  }
+
+  const getRoleBadgeVariant = () => {
+    switch (role) {
+      case 'admin': return 'destructive' as const
+      case 'gerente': return 'default' as const
+      case 'financeiro': return 'secondary' as const
+      case 'visualizador': return 'outline' as const
+      default: return 'outline' as const
+    }
   }
 
   return (
@@ -182,7 +203,7 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="p-4 border-t">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 mb-3">
           <Avatar className="h-8 w-8">
             <AvatarImage src={user?.profileImageUrl || undefined} className="object-cover" />
             <AvatarFallback className="text-xs">{getUserInitials()}</AvatarFallback>
@@ -203,6 +224,12 @@ export function AppSidebar() {
           >
             <LogOut className="h-4 w-4" />
           </a>
+        </div>
+        <div className="flex items-center justify-between px-2">
+          <span className="text-xs text-muted-foreground">Perfil de Acesso:</span>
+          <Badge variant={getRoleBadgeVariant()} className="text-xs" data-testid="badge-user-role">
+            {getRoleLabel()}
+          </Badge>
         </div>
       </SidebarFooter>
     </Sidebar>
