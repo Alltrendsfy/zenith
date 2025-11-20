@@ -9,6 +9,7 @@ Key capabilities include:
 - Detailed Income Statement (DRE) reporting with period and cost center filtering.
 - Advanced cost allocation system for proportional distribution of transactions across cost centers.
 - An in-progress recurring payment functionality for Accounts Payable/Receivable.
+- **Agenda module** for tracking business and personal activities with daily/weekly/monthly views, priority management, and status toggles.
 
 ## User Preferences
 
@@ -39,7 +40,7 @@ The backend utilizes **Node.js** with **Express.js** and **TypeScript** (ES modu
 
 The data layer uses **Drizzle ORM** with **PostgreSQL** dialect via **Neon serverless** driver.
 - **Schema**: Centralized schema definitions in `shared/schema.ts` with type inference.
-- **Database Tables**: `sessions`, `users`, `bank_accounts`, `accounts_payable`, `accounts_receivable`, `chart_of_accounts`, `cost_centers`, `bank_transfers`, and `cost_allocations`.
+- **Database Tables**: `sessions`, `users`, `bank_accounts`, `accounts_payable`, `accounts_receivable`, `chart_of_accounts`, `cost_centers`, `bank_transfers`, `cost_allocations`, and `activities`.
 - **Schema Patterns**: PostgreSQL enums, `createdAt`/`updatedAt` timestamps, UUID primary keys, Drizzle-Zod integration, hierarchical structures via `parentId`, and decimal types for financial amounts.
 - **Key Design Decisions**: Drizzle for type-safe SQL, shared schema for consistency, hierarchical structures, and decimal types.
 
