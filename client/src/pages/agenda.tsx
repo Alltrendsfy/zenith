@@ -119,8 +119,16 @@ export default function Agenda() {
             <div className="flex items-center gap-4 text-xs text-muted-foreground">
               <div className="flex items-center gap-1">
                 <Clock className="w-3 h-3" />
-                {format(new Date(activity.startAt), "HH:mm", { locale: ptBR })}
-                {activity.endAt && ` - ${format(new Date(activity.endAt), "HH:mm", { locale: ptBR })}`}
+                {format(
+                  typeof activity.startAt === 'string' ? parseISO(activity.startAt) : activity.startAt,
+                  "HH:mm",
+                  { locale: ptBR }
+                )}
+                {activity.endAt && ` - ${format(
+                  typeof activity.endAt === 'string' ? parseISO(activity.endAt) : activity.endAt,
+                  "HH:mm",
+                  { locale: ptBR }
+                )}`}
               </div>
               
               <div className={`flex items-center gap-1 ${getPriorityColor(activity.priority)}`}>
@@ -136,7 +144,10 @@ export default function Agenda() {
 
   const renderDayView = () => {
     const dayActivities = activities.filter(a => 
-      isSameDay(new Date(a.startAt), selectedDate)
+      isSameDay(
+        typeof a.startAt === 'string' ? parseISO(a.startAt) : a.startAt,
+        selectedDate
+      )
     );
 
     return (
@@ -226,7 +237,12 @@ export default function Agenda() {
 
         <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
           {days.map((day) => {
-            const dayActivities = activities.filter(a => isSameDay(new Date(a.startAt), day));
+            const dayActivities = activities.filter(a => 
+              isSameDay(
+                typeof a.startAt === 'string' ? parseISO(a.startAt) : a.startAt,
+                day
+              )
+            );
             const isToday = isSameDay(day, new Date());
 
             return (
@@ -253,7 +269,12 @@ export default function Agenda() {
                         <span className="font-medium truncate">{activity.title}</span>
                       </div>
                       <div className="text-xs opacity-75">
-                        {format(parseISO(activity.startAt), "HH:mm")}
+                        {format(
+                          typeof activity.startAt === 'string' 
+                            ? parseISO(activity.startAt) 
+                            : activity.startAt, 
+                          "HH:mm"
+                        )}
                       </div>
                     </div>
                   ))}
@@ -326,7 +347,12 @@ export default function Agenda() {
           ))}
           
           {days.map((day) => {
-            const dayActivities = activities.filter(a => isSameDay(new Date(a.startAt), day));
+            const dayActivities = activities.filter(a => 
+              isSameDay(
+                typeof a.startAt === 'string' ? parseISO(a.startAt) : a.startAt,
+                day
+              )
+            );
             const isToday = isSameDay(day, new Date());
             const isCurrentMonth = day.getMonth() === selectedDate.getMonth();
 
@@ -390,7 +416,7 @@ export default function Agenda() {
             setSelectedActivity(null);
           }
         }}
-        activity={selectedActivity}
+        activity={selectedActivity ?? undefined}
       />
 
       <div className="flex gap-4 mb-6">

@@ -27,35 +27,37 @@ export function buildActivityPayload(data: {
   endAt?: string;
   allDay: boolean;
 }) {
+  const startDate = typeof data.startAt === 'string' 
+    ? new Date(data.startAt) 
+    : data.startAt;
+  const endDate = data.endAt 
+    ? (typeof data.endAt === 'string' ? new Date(data.endAt) : data.endAt)
+    : null;
+  
   return {
     title: data.title,
     description: data.description || "",
     scope: data.scope,
     status: data.status,
     priority: data.priority,
-    startAt: new Date(data.startAt).toISOString(),
-    endAt: data.endAt ? new Date(data.endAt).toISOString() : null,
+    startAt: startDate.toISOString(),
+    endAt: endDate ? endDate.toISOString() : null,
     allDay: data.allDay,
   };
 }
 
-// Invalidate all activity queries - handles both array and string keys
+// Invalidate all activity queries
 export function invalidateActivityQueries(queryClient: QueryClient) {
   queryClient.invalidateQueries({
     predicate: (query) => {
       const queryKey = query.queryKey;
       
-      // Handle array keys
+      // Query keys are always arrays in TanStack Query v5
       if (Array.isArray(queryKey) && queryKey.length > 0) {
         const firstKey = queryKey[0];
         if (typeof firstKey === 'string' && firstKey.startsWith('/api/activities')) {
           return true;
         }
-      }
-      
-      // Handle plain string keys (defensive) - TypeScript check
-      if (typeof queryKey === 'string') {
-        return queryKey.startsWith('/api/activities');
       }
       
       return false;

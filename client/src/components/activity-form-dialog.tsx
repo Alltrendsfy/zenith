@@ -68,16 +68,25 @@ const getCreateDefaults = (): FormData => ({
 });
 
 // Helper to get form defaults for edit mode
-const getEditDefaults = (activity: Activity): FormData => ({
-  title: activity.title,
-  description: activity.description || "",
-  scope: activity.scope,
-  status: activity.status,
-  priority: activity.priority,
-  startAt: new Date(activity.startAt).toISOString().slice(0, 16),
-  endAt: activity.endAt ? new Date(activity.endAt).toISOString().slice(0, 16) : "",
-  allDay: activity.allDay || false,
-});
+const getEditDefaults = (activity: Activity): FormData => {
+  const startDate = typeof activity.startAt === 'string' 
+    ? new Date(activity.startAt) 
+    : activity.startAt;
+  const endDate = activity.endAt 
+    ? (typeof activity.endAt === 'string' ? new Date(activity.endAt) : activity.endAt)
+    : null;
+  
+  return {
+    title: activity.title,
+    description: activity.description || "",
+    scope: activity.scope,
+    status: activity.status,
+    priority: activity.priority,
+    startAt: startDate.toISOString().slice(0, 16),
+    endAt: endDate ? endDate.toISOString().slice(0, 16) : "",
+    allDay: activity.allDay || false,
+  };
+};
 
 export function ActivityFormDialog({ open, onOpenChange, activity }: ActivityFormDialogProps) {
   const { toast } = useToast();
@@ -155,7 +164,7 @@ export function ActivityFormDialog({ open, onOpenChange, activity }: ActivityFor
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{activity ? "Editar Atividade" : "Nova Atividade"}</DialogTitle>
           <DialogDescription>
