@@ -13,6 +13,8 @@ import {
   insertCostAllocationSchema,
   insertSupplierSchema,
   insertCustomerSchema,
+  insertActivitySchema,
+  updateActivitySchema,
 } from "@shared/schema";
 import { validateAllocations, calculateAmounts } from "@shared/allocationUtils";
 import { z } from "zod";
@@ -813,6 +815,116 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting customer:", error);
       res.status(500).json({ message: "Failed to delete customer" });
+    }
+  });
+
+  // Activities
+  app.get('/api/activities', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { startDate, endDate, scope, status } = req.query;
+      
+      const activities = await storage.getActivities(userId, {
+        startDate: startDate as string,
+        endDate: endDate as string,
+        scope: scope as string,
+        status: status as string,
+      });
+      
+      res.json(activities);
+    } catch (error) {
+      console.error("Error fetching activities:", error);
+      res.status(500).json({ message: "Failed to fetch activities" });
+    }
+  });
+
+  app.get('/api/activities/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      const activity = await storage.getActivity(id, userId);
+      
+      if (!activity) {
+        return res.status(404).json({ message: "Activity not found" });
+      }
+      
+      res.json(activity);
+    } catch (error) {
+      console.error("Error fetching activity:", error);
+      res.status(500).json({ message: "Failed to fetch activity" });
+    }
+  });
+
+  app.post('/api/activities', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const validated = insertActivitySchema.parse(req.body);
+      const activity = await storage.createActivity({
+        ...validated,
+        userId,
+      });
+      res.json(activity);
+    } catch (error: any) {
+      console.error("Error creating activity:", error);
+      res.status(400).json({ message: error.message || "Failed to create activity" });
+    }
+  });
+
+  app.patch('/api/activities/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      
+      // Ensure at least one field is provided
+      if (!req.body || Object.keys(req.body).length === 0) {
+        return res.status(400).json({ message: "At least one field is required for update" });
+      }
+      
+      const validated = updateActivitySchema.parse(req.body);
+      const activity = await storage.updateActivity(id, userId, validated);
+      
+      if (!activity) {
+        return res.status(404).json({ message: "Activity not found" });
+      }
+      
+      res.json(activity);
+    } catch (error: any) {
+      console.error("Error updating activity:", error);
+      res.status(400).json({ message: error.message || "Failed to update activity" });
+    }
+  });
+
+  app.patch('/api/activities/:id/toggle', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      const activity = await storage.toggleActivityStatus(id, userId);
+      
+      if (!activity) {
+        return res.status(404).json({ message: "Activity not found" });
+      }
+      
+      res.json(activity);
+    } catch (error) {
+      console.error("Error toggling activity status:", error);
+      res.status(500).json({ message: "Failed to toggle activity status" });
+    }
+  });
+
+  app.delete('/api/activities/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      const deleted = await storage.deleteActivity(id, userId);
+      
+      if (!deleted) {
+        return res.status(404).json({ message: "Activity not found" });
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting activity:", error);
+      res.status(500).json({ message: "Failed to delete activity" });
     }
   });
 

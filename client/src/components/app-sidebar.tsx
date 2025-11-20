@@ -9,7 +9,8 @@ import {
   BarChart3,
   Users,
   Truck,
-  ArrowLeftRight
+  ArrowLeftRight,
+  Calendar
 } from "lucide-react"
 import {
   Sidebar,
@@ -70,6 +71,11 @@ const menuItems = [
     title: "Relatórios",
     url: "/reports",
     icon: BarChart3,
+  },
+  {
+    title: "Agenda",
+    url: "/agenda",
+    icon: Calendar,
   },
 ]
 

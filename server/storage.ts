@@ -20,6 +20,8 @@ import {
   type InsertSupplier,
   type Customer,
   type InsertCustomer,
+  type Activity,
+  type InsertActivity,
   bankAccounts,
   accountsPayable,
   accountsReceivable,
@@ -29,6 +31,7 @@ import {
   costAllocations,
   suppliers,
   customers,
+  activities,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql } from "drizzle-orm";
@@ -102,6 +105,14 @@ export interface IStorage {
   createCustomer(customer: InsertCustomer): Promise<Customer>;
   updateCustomer(id: string, userId: string, data: Partial<InsertCustomer>): Promise<Customer | undefined>;
   deleteCustomer(id: string, userId: string): Promise<boolean>;
+
+  // Activities
+  getActivities(userId: string, filters?: { startDate?: string; endDate?: string; scope?: string; status?: string }): Promise<Activity[]>;
+  getActivity(id: string, userId: string): Promise<Activity | undefined>;
+  createActivity(activity: InsertActivity): Promise<Activity>;
+  updateActivity(id: string, userId: string, data: Partial<InsertActivity>): Promise<Activity | undefined>;
+  toggleActivityStatus(id: string, userId: string): Promise<Activity | undefined>;
+  deleteActivity(id: string, userId: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -728,6 +739,69 @@ export class DatabaseStorage implements IStorage {
     }
 
     return { payablesGenerated, receivablesGenerated };
+  }
+
+  // Activities operations
+  async getActivities(userId: string, filters?: { startDate?: string; endDate?: string; scope?: string; status?: string }): Promise<Activity[]> {
+    const conditions = [eq(activities.userId, userId)];
+
+    if (filters?.startDate && filters?.endDate) {
+      conditions.push(
+        sql`${activities.startAt} >= ${filters.startDate}::timestamp`,
+        sql`${activities.startAt} <= ${filters.endDate}::timestamp`
+      );
+    }
+
+    if (filters?.scope) {
+      conditions.push(eq(activities.scope, filters.scope as any));
+    }
+
+    if (filters?.status) {
+      conditions.push(eq(activities.status, filters.status as any));
+    }
+
+    return await db
+      .select()
+      .from(activities)
+      .where(and(...conditions))
+      .orderBy(desc(activities.startAt));
+  }
+
+  async getActivity(id: string, userId: string): Promise<Activity | undefined> {
+    const [activity] = await db
+      .select()
+      .from(activities)
+      .where(and(eq(activities.id, id), eq(activities.userId, userId)));
+    return activity;
+  }
+
+  async createActivity(activity: InsertActivity): Promise<Activity> {
+    const [created] = await db.insert(activities).values(activity).returning();
+    return created;
+  }
+
+  async updateActivity(id: string, userId: string, data: Partial<InsertActivity>): Promise<Activity | undefined> {
+    const [updated] = await db
+      .update(activities)
+      .set({ ...data, updatedAt: new Date() })
+      .where(and(eq(activities.id, id), eq(activities.userId, userId)))
+      .returning();
+    return updated;
+  }
+
+  async toggleActivityStatus(id: string, userId: string): Promise<Activity | undefined> {
+    const activity = await this.getActivity(id, userId);
+    if (!activity) return undefined;
+
+    const newStatus = activity.status === 'pendente' ? 'concluida' : 'pendente';
+    return await this.updateActivity(id, userId, { status: newStatus });
+  }
+
+  async deleteActivity(id: string, userId: string): Promise<boolean> {
+    const result = await db
+      .delete(activities)
+      .where(and(eq(activities.id, id), eq(activities.userId, userId)));
+    return result.rowCount ? result.rowCount > 0 : false;
   }
 }
 

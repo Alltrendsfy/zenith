@@ -21,6 +21,7 @@ import Reports from "@/pages/reports";
 import Suppliers from "@/pages/suppliers";
 import Customers from "@/pages/customers";
 import UserManagement from "@/pages/user-management";
+import Agenda from "@/pages/agenda";
 import NotFound from "@/pages/not-found";
 import zenithLogo from "@assets/logo zenith erp_1763561150551.jpeg";
 
@@ -66,6 +67,7 @@ function Router() {
                     <Route path="/reports" component={Reports} />
                     <Route path="/suppliers" component={Suppliers} />
                     <Route path="/customers" component={Customers} />
+                    <Route path="/agenda" component={Agenda} />
                     <Route path="/user-management" component={UserManagement} />
                     <Route component={NotFound} />
                   </Switch>

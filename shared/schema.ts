@@ -26,6 +26,9 @@ export const transactionTypeEnum = pgEnum('transaction_type', ['payable', 'recei
 export const personTypeEnum = pgEnum('person_type', ['fisica', 'juridica']);
 export const recurrenceTypeEnum = pgEnum('recurrence_type', ['unica', 'mensal', 'trimestral', 'anual']);
 export const recurrenceStatusEnum = pgEnum('recurrence_status', ['ativa', 'pausada', 'concluida']);
+export const activityScopeEnum = pgEnum('activity_scope', ['empresarial', 'pessoal']);
+export const activityStatusEnum = pgEnum('activity_status', ['pendente', 'concluida']);
+export const activityPriorityEnum = pgEnum('activity_priority', ['baixa', 'media', 'alta']);
 
 // Session storage table - Required for Replit Auth
 export const sessions = pgTable(
@@ -53,6 +56,53 @@ export const users = pgTable("users", {
 
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
+
+// Activities (Atividades/Agenda)
+export const activities = pgTable("activities", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description"),
+  scope: activityScopeEnum("scope").notNull().default('pessoal'),
+  status: activityStatusEnum("status").notNull().default('pendente'),
+  priority: activityPriorityEnum("priority").notNull().default('media'),
+  startAt: timestamp("start_at").notNull(),
+  endAt: timestamp("end_at"),
+  allDay: boolean("all_day").default(false),
+  relatedEntityType: varchar("related_entity_type", { length: 50 }),
+  relatedEntityId: varchar("related_entity_id"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_activities_user_id").on(table.userId),
+  index("idx_activities_start_at").on(table.startAt),
+  index("idx_activities_status").on(table.status),
+]);
+
+export const activitiesRelations = relations(activities, ({ one }) => ({
+  user: one(users, {
+    fields: [activities.userId],
+    references: [users.id],
+  }),
+}));
+
+export const insertActivitySchema = createInsertSchema(activities).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  startAt: z.string().or(z.date()).transform(val => typeof val === 'string' ? new Date(val) : val),
+  endAt: z.string().or(z.date()).nullable().transform(val => {
+    if (!val) return null;
+    return typeof val === 'string' ? new Date(val) : val;
+  }),
+});
+
+export const updateActivitySchema = insertActivitySchema.partial();
+
+export type Activity = typeof activities.$inferSelect;
+export type InsertActivity = z.infer<typeof insertActivitySchema>;
 
 // Suppliers (Fornecedores)
 export const suppliers = pgTable("suppliers", {
