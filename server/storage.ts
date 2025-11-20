@@ -32,6 +32,8 @@ import {
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql } from "drizzle-orm";
+import { readFileSync } from "fs";
+import { join } from "path";
 
 export interface IStorage {
   // User operations
@@ -68,6 +70,7 @@ export interface IStorage {
   createChartAccount(account: InsertChartOfAccounts): Promise<ChartOfAccounts>;
   updateChartAccount(id: string, userId: string, data: Partial<InsertChartOfAccounts>): Promise<ChartOfAccounts | undefined>;
   deleteChartAccount(id: string, userId: string): Promise<boolean>;
+  importChartOfAccounts(userId: string): Promise<{ created: number; skipped: number; accounts: ChartOfAccounts[] }>;
 
   // Cost Centers
   getCostCenters(userId: string): Promise<CostCenter[]>;
@@ -262,6 +265,60 @@ export class DatabaseStorage implements IStorage {
   async deleteChartAccount(id: string, userId: string): Promise<boolean> {
     const result = await db.delete(chartOfAccounts).where(and(eq(chartOfAccounts.id, id), eq(chartOfAccounts.userId, userId)));
     return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  async importChartOfAccounts(userId: string): Promise<{ created: number; skipped: number; accounts: ChartOfAccounts[] }> {
+    const seedPath = join(process.cwd(), 'server', 'dre-seed.json');
+    const seedData = JSON.parse(readFileSync(seedPath, 'utf-8'));
+    
+    const existingAccounts = await this.getChartOfAccounts(userId);
+    const existingCodes = new Set(existingAccounts.map(a => a.code));
+    
+    const codeToIdMap = new Map<string, string>();
+    existingAccounts.forEach(acc => codeToIdMap.set(acc.code, acc.id));
+    
+    const parentCodes = new Set(
+      seedData.accounts
+        .map((a: any) => a.parentCode)
+        .filter((code: string | undefined) => code !== undefined)
+    );
+    
+    const createdAccounts: ChartOfAccounts[] = [];
+    let created = 0;
+    let skipped = 0;
+    
+    for (const seedAccount of seedData.accounts) {
+      if (existingCodes.has(seedAccount.code)) {
+        skipped++;
+        continue;
+      }
+      
+      let parentId: string | null = null;
+      if (seedAccount.parentCode) {
+        parentId = codeToIdMap.get(seedAccount.parentCode) || null;
+        if (!parentId) {
+          console.warn(`Parent account ${seedAccount.parentCode} not found for ${seedAccount.code}`);
+        }
+      }
+      
+      const isParent = parentCodes.has(seedAccount.code);
+      const nature = isParent ? 'sintetica' : 'analitica';
+      
+      const newAccount = await this.createChartAccount({
+        userId,
+        code: seedAccount.code,
+        name: seedAccount.name,
+        type: seedAccount.type as 'receita' | 'despesa' | 'ativo' | 'passivo',
+        nature: nature as 'analitica' | 'sintetica',
+        parentId,
+      });
+      
+      codeToIdMap.set(newAccount.code, newAccount.id);
+      createdAccounts.push(newAccount);
+      created++;
+    }
+    
+    return { created, skipped, accounts: createdAccounts };
   }
 
   // Cost Centers

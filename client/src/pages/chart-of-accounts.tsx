@@ -21,7 +21,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus, FileText, Search, ChevronRight } from "lucide-react"
+import { Plus, FileText, Search, ChevronRight, Download } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -114,6 +114,38 @@ export default function ChartOfAccountsPage() {
     },
   })
 
+  const importMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/chart-of-accounts/import", {})
+      return await response.json() as { created: number; skipped: number; accounts: any[] }
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/chart-of-accounts"] })
+      toast({
+        title: "Importação concluída",
+        description: `${result.created} contas criadas, ${result.skipped} já existiam`,
+      })
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error as Error)) {
+        toast({
+          title: "Não autorizado",
+          description: "Você precisa fazer login novamente...",
+          variant: "destructive",
+        })
+        setTimeout(() => {
+          window.location.href = "/api/login"
+        }, 500)
+        return
+      }
+      toast({
+        title: "Erro",
+        description: "Falha ao importar plano de contas DRE",
+        variant: "destructive",
+      })
+    },
+  })
+
   const onSubmit = (data: z.infer<typeof formSchema>) => {
     createMutation.mutate(data)
   }
@@ -154,7 +186,22 @@ export default function ChartOfAccountsPage() {
             />
           </div>
 
-          <Dialog open={open} onOpenChange={setOpen}>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              disabled={!canCreate || importMutation.isPending}
+              onClick={() => {
+                if (confirm("Importar Plano de Contas DRE padrão? Contas existentes serão mantidas.")) {
+                  importMutation.mutate()
+                }
+              }}
+              data-testid="button-import-dre"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              {importMutation.isPending ? "Importando..." : "Importar DRE"}
+            </Button>
+
+            <Dialog open={open} onOpenChange={setOpen}>
                 <DialogTrigger asChild>
                   <Button disabled={!canCreate} data-testid="button-add-account">
                     <Plus className="h-4 w-4 mr-2" />
@@ -283,6 +330,7 @@ export default function ChartOfAccountsPage() {
                   </Form>
                 </DialogContent>
           </Dialog>
+          </div>
         </div>
 
         <Card>

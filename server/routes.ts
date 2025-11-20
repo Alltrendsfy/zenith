@@ -342,6 +342,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post('/api/chart-of-accounts/import', isAuthenticated, requireManager, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const result = await storage.importChartOfAccounts(userId);
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error importing chart of accounts:", error);
+      res.status(500).json({ message: error.message || "Failed to import chart of accounts" });
+    }
+  });
+
   // Cost Centers
   app.get('/api/cost-centers', isAuthenticated, async (req: any, res) => {
     try {
