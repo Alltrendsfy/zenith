@@ -82,16 +82,32 @@ Authentication is handled via **Replit OpenID Connect (OIDC)** using **Passport.
   - Contact information: email, phone, website
   - Address fields: CEP, street, number, complement, neighborhood, city, state
   - Logo URL storage
-  - Accessible only to admin users
+  - **Access**: Available to admin and gerente roles
 - **Technical Details**:
   - Frontend: `CompanySettings` page using shared `insertCompanySchema` with UI extensions for optional URL/email validation
   - Schema Pattern: Optional URL/email fields accept empty strings, transformed to undefined before submission
-  - Backend: API routes validate with `insertCompanySchema`, add userId from session
+  - Backend: API routes validate with `insertCompanySchema` and `requireManager` middleware, add userId from session
   - Storage: `getCompany`, `upsertCompany` methods with unique constraint handling
-  - API Routes: `GET /api/company`, `POST /api/company`
+  - API Routes: `GET /api/company`, `POST /api/company` (protected by `requireManager`)
   - Navigation: Integrated in Administration section of sidebar (Settings icon)
 - **Bug Fixes**: Fixed `upsertUser` method to prevent unique constraint violations during login by checking for existing user ID before insert
 - **Testing**: End-to-end tested with create/update workflows, empty optional fields, and URL field validation.
+
+### Manager Role Permissions Update
+- **Implementation Date**: November 20, 2025
+- **Changes Made**:
+  - Extended gerente (manager) role permissions to match admin capabilities for administrative functions
+  - **canManageUsers**: Changed from `false` to `true` for gerente role in both frontend (`usePermissions.ts`) and backend (`permissions.ts`)
+  - Updated sidebar visibility: ADMINISTRAÇÃO section now visible to both admin and gerente (`isManager` check)
+  - Updated API route protection: All company and user management routes now use `requireManager` middleware instead of `requireAdmin`
+- **Affected Functionality**:
+  - **Dados da Empresa (Company Settings)**: Now accessible to gerente users
+  - **Gerenciar Usuários (User Management)**: Now accessible to gerente users for full CRUD operations on user roles and status
+- **Technical Details**:
+  - Frontend: `app-sidebar.tsx` uses `isManager` (admin OR gerente) instead of `isAdmin`
+  - Backend Routes: `GET/POST /api/company`, `GET /api/users`, `PATCH /api/users/:id/role`, `PATCH /api/users/:id/status` protected by `requireManager`
+  - Permission Helper: `isManager` returns true for both admin and gerente roles
+- **Testing**: End-to-end tested with gerente user login, verified sidebar visibility, company settings access/edit, and user management access/operations.
 
 ## External Dependencies
 
