@@ -30,6 +30,7 @@ import { Badge } from "@/components/ui/badge"
 import { MobileFormActions } from "@/components/mobile-form-actions"
 import { apiRequest, queryClient } from "@/lib/queryClient"
 import type { ChartOfAccounts } from "@shared/schema"
+import { ImportDreDialog } from "@/components/import-dre-dialog"
 
 const formSchema = z.object({
   code: z.string().min(1, "Código é obrigatório"),
@@ -46,6 +47,7 @@ export default function ChartOfAccountsPage() {
   const { isAuthenticated, isLoading: authLoading } = useAuth()
   const { canCreate, canUpdate, canDelete } = usePermissions()
   const [open, setOpen] = useState(false)
+  const [importDialogOpen, setImportDialogOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
 
   useEffect(() => {
@@ -115,12 +117,13 @@ export default function ChartOfAccountsPage() {
   })
 
   const importMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/chart-of-accounts/import", {})
+    mutationFn: async (types: string[]) => {
+      const response = await apiRequest("POST", "/api/chart-of-accounts/import", { types })
       return await response.json() as { created: number; skipped: number; accounts: any[] }
     },
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["/api/chart-of-accounts"] })
+      setImportDialogOpen(false)
       toast({
         title: "Importação concluída",
         description: `${result.created} contas criadas, ${result.skipped} já existiam`,
@@ -189,16 +192,12 @@ export default function ChartOfAccountsPage() {
           <div className="flex gap-2">
             <Button
               variant="outline"
-              disabled={!canCreate || importMutation.isPending}
-              onClick={() => {
-                if (confirm("Importar Plano de Contas DRE padrão? Contas existentes serão mantidas.")) {
-                  importMutation.mutate()
-                }
-              }}
+              disabled={!canCreate}
+              onClick={() => setImportDialogOpen(true)}
               data-testid="button-import-dre"
             >
               <Download className="h-4 w-4 mr-2" />
-              {importMutation.isPending ? "Importando..." : "Importar DRE"}
+              Importar DRE
             </Button>
 
             <Dialog open={open} onOpenChange={setOpen}>
@@ -396,6 +395,13 @@ export default function ChartOfAccountsPage() {
           </CardContent>
         </Card>
       </div>
+
+      <ImportDreDialog
+        open={importDialogOpen}
+        onOpenChange={setImportDialogOpen}
+        onConfirm={(types) => importMutation.mutate(types)}
+        isPending={importMutation.isPending}
+      />
     </PageContainer>
   )
 }

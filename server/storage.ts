@@ -70,7 +70,7 @@ export interface IStorage {
   createChartAccount(account: InsertChartOfAccounts): Promise<ChartOfAccounts>;
   updateChartAccount(id: string, userId: string, data: Partial<InsertChartOfAccounts>): Promise<ChartOfAccounts | undefined>;
   deleteChartAccount(id: string, userId: string): Promise<boolean>;
-  importChartOfAccounts(userId: string): Promise<{ created: number; skipped: number; accounts: ChartOfAccounts[] }>;
+  importChartOfAccounts(userId: string, types?: string[]): Promise<{ created: number; skipped: number; accounts: ChartOfAccounts[] }>;
 
   // Cost Centers
   getCostCenters(userId: string): Promise<CostCenter[]>;
@@ -267,9 +267,14 @@ export class DatabaseStorage implements IStorage {
     return result.rowCount ? result.rowCount > 0 : false;
   }
 
-  async importChartOfAccounts(userId: string): Promise<{ created: number; skipped: number; accounts: ChartOfAccounts[] }> {
+  async importChartOfAccounts(userId: string, types?: string[]): Promise<{ created: number; skipped: number; accounts: ChartOfAccounts[] }> {
     const seedPath = join(process.cwd(), 'server', 'dre-seed.json');
     const seedData = JSON.parse(readFileSync(seedPath, 'utf-8'));
+    
+    let accountsToImport = seedData.accounts;
+    if (types && types.length > 0) {
+      accountsToImport = seedData.accounts.filter((a: any) => types.includes(a.type));
+    }
     
     const existingAccounts = await this.getChartOfAccounts(userId);
     const existingCodes = new Set(existingAccounts.map(a => a.code));
@@ -278,7 +283,7 @@ export class DatabaseStorage implements IStorage {
     existingAccounts.forEach(acc => codeToIdMap.set(acc.code, acc.id));
     
     const parentCodes = new Set(
-      seedData.accounts
+      accountsToImport
         .map((a: any) => a.parentCode)
         .filter((code: string | undefined) => code !== undefined)
     );
@@ -287,7 +292,7 @@ export class DatabaseStorage implements IStorage {
     let created = 0;
     let skipped = 0;
     
-    for (const seedAccount of seedData.accounts) {
+    for (const seedAccount of accountsToImport) {
       if (existingCodes.has(seedAccount.code)) {
         skipped++;
         continue;

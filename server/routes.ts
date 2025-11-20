@@ -345,7 +345,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/chart-of-accounts/import', isAuthenticated, requireManager, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const result = await storage.importChartOfAccounts(userId);
+      
+      const importSchema = z.object({
+        types: z.array(z.enum(['receita', 'despesa'])).optional(),
+      });
+      
+      const validation = importSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ 
+          message: "Parâmetros inválidos",
+          errors: validation.error.errors 
+        });
+      }
+      
+      const { types } = validation.data;
+      const result = await storage.importChartOfAccounts(userId, types);
       res.json(result);
     } catch (error: any) {
       console.error("Error importing chart of accounts:", error);
