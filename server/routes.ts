@@ -35,8 +35,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // User Management (Admin only)
-  app.get('/api/users', isAuthenticated, requireAdmin, async (req: any, res) => {
+  // User Management (Admin and Manager)
+  app.get('/api/users', isAuthenticated, requireManager, async (req: any, res) => {
     try {
       const users = await storage.getAllUsers();
       res.json(users);
@@ -46,7 +46,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/users/:id/role', isAuthenticated, requireAdmin, async (req: any, res) => {
+  app.patch('/api/users/:id/role', isAuthenticated, requireManager, async (req: any, res) => {
     try {
       const { id } = req.params;
       const { role } = req.body;
@@ -68,7 +68,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/users/:id/status', isAuthenticated, requireAdmin, async (req: any, res) => {
+  app.patch('/api/users/:id/status', isAuthenticated, requireManager, async (req: any, res) => {
     try {
       const { id } = req.params;
       const { isActive } = req.body;
@@ -1021,8 +1021,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Company routes
-  app.get('/api/company', isAuthenticated, async (req: any, res) => {
+  // Company routes (Admin and Manager)
+  app.get('/api/company', isAuthenticated, requireManager, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const company = await storage.getCompany(userId);
@@ -1033,7 +1033,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/company', isAuthenticated, async (req: any, res) => {
+  app.post('/api/company', isAuthenticated, requireManager, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       

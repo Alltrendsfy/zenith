@@ -16,7 +16,7 @@ const ROLE_PERMISSIONS = {
     canCreate: true,
     canUpdate: true,
     canDelete: true,
-    canManageUsers: false,
+    canManageUsers: true,
     canBackup: false,
   },
   financeiro: {
