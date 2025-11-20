@@ -18,6 +18,7 @@ import BankTransfers from "@/pages/bank-transfers";
 import ChartOfAccountsPage from "@/pages/chart-of-accounts";
 import CostCenters from "@/pages/cost-centers";
 import Reports from "@/pages/reports";
+import BankStatement from "@/pages/bank-statement";
 import Suppliers from "@/pages/suppliers";
 import Customers from "@/pages/customers";
 import UserManagement from "@/pages/user-management";
@@ -66,6 +67,7 @@ function Router() {
                     <Route path="/chart-of-accounts" component={ChartOfAccountsPage} />
                     <Route path="/cost-centers" component={CostCenters} />
                     <Route path="/reports" component={Reports} />
+                    <Route path="/bank-statement" component={BankStatement} />
                     <Route path="/suppliers" component={Suppliers} />
                     <Route path="/customers" component={Customers} />
                     <Route path="/agenda" component={Agenda} />

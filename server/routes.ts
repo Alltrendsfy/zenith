@@ -703,6 +703,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Reports - Bank Statement
+  app.get('/api/reports/bank-statement', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Validate query parameters with Zod
+      const querySchema = z.object({
+        bankAccountId: z.string().uuid({ message: "bankAccountId must be a valid UUID" }),
+        startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, { message: "startDate must be in YYYY-MM-DD format" }),
+        endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, { message: "endDate must be in YYYY-MM-DD format" }),
+      });
+
+      const validation = querySchema.safeParse(req.query);
+      
+      if (!validation.success) {
+        return res.status(400).json({ 
+          message: "Invalid query parameters",
+          errors: validation.error.errors 
+        });
+      }
+
+      const { bankAccountId, startDate, endDate } = validation.data;
+
+      // Validate date ordering
+      if (new Date(startDate) > new Date(endDate)) {
+        return res.status(400).json({ 
+          message: "startDate must be before or equal to endDate" 
+        });
+      }
+
+      // Verify bank account ownership
+      const bankAccount = await storage.getBankAccount(userId, bankAccountId);
+      if (!bankAccount) {
+        return res.status(404).json({ 
+          message: "Bank account not found or access denied" 
+        });
+      }
+
+      const statement = await storage.getBankStatement(
+        userId,
+        bankAccountId,
+        startDate,
+        endDate
+      );
+
+      res.json(statement);
+    } catch (error: any) {
+      console.error("Error generating bank statement:", error);
+      res.status(500).json({ message: error.message || "Failed to generate bank statement" });
+    }
+  });
+
   // Suppliers
   app.get('/api/suppliers', isAuthenticated, async (req: any, res) => {
     try {

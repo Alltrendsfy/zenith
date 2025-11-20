@@ -11,7 +11,8 @@ import {
   Truck,
   ArrowLeftRight,
   Calendar,
-  Settings
+  Settings,
+  TrendingUp
 } from "lucide-react"
 import {
   Sidebar,
@@ -69,14 +70,22 @@ const menuItems = [
     icon: CreditCard,
   },
   {
-    title: "Relatórios",
+    title: "Agenda",
+    url: "/agenda",
+    icon: Calendar,
+  },
+]
+
+const relatoriosItems = [
+  {
+    title: "DRE",
     url: "/reports",
     icon: BarChart3,
   },
   {
-    title: "Agenda",
-    url: "/agenda",
-    icon: Calendar,
+    title: "Extrato Bancário",
+    url: "/bank-statement",
+    icon: TrendingUp,
   },
 ]
 
@@ -169,6 +178,28 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {cadastrosItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location === item.url}
+                    data-testid={`link-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
+                  >
+                    <Link href={item.url}>
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-xs font-medium uppercase tracking-wide" data-testid="sidebar-group-relatorios">Relatórios</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {relatoriosItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild

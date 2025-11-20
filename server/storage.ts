@@ -130,6 +130,25 @@ export interface IStorage {
   // Company
   getCompany(userId: string): Promise<Company | undefined>;
   upsertCompany(company: InsertCompany & { userId: string }): Promise<Company>;
+
+  // Bank Statement
+  getBankStatement(userId: string, bankAccountId: string, startDate: string, endDate: string): Promise<BankStatementEntry[]>;
+}
+
+export interface BankStatementEntry {
+  date: string;
+  type: 'C' | 'D'; // Crédito ou Débito
+  description: string;
+  entityName: string | null; // Fornecedor/Cliente
+  accountCode: string | null; // Código da conta contábil
+  accountName: string | null; // Nome da conta contábil
+  costCenterCode: string | null;
+  costCenterName: string | null;
+  documentNumber: string | null;
+  amount: string;
+  balance: string; // Saldo após a transação
+  transactionId: string; // Para referência/rastreamento
+  transactionType: 'payment_out' | 'payment_in' | 'transfer_out' | 'transfer_in';
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1017,6 +1036,132 @@ export class DatabaseStorage implements IStorage {
         .returning();
       return created;
     }
+  }
+
+  // Bank Statement - Aggregates all bank transactions (payments + transfers)
+  async getBankStatement(userId: string, bankAccountId: string, startDate: string, endDate: string): Promise<BankStatementEntry[]> {
+    const entries: BankStatementEntry[] = [];
+
+    // Get bank account initial balance
+    const [bankAccount] = await db.select().from(bankAccounts)
+      .where(and(eq(bankAccounts.id, bankAccountId), eq(bankAccounts.userId, userId)));
+    
+    if (!bankAccount) {
+      return [];
+    }
+
+    // 1. Fetch all payments for this bank account
+    const paymentsData = await db.select({
+      payment: payments,
+      payable: accountsPayable,
+      receivable: accountsReceivable,
+      supplier: suppliers,
+      customer: customers,
+      chartAccount: chartOfAccounts,
+      costCenter: costCenters,
+    })
+    .from(payments)
+    .leftJoin(accountsPayable, and(
+      eq(payments.transactionType, sql`'payable'`),
+      eq(payments.transactionId, accountsPayable.id)
+    ))
+    .leftJoin(accountsReceivable, and(
+      eq(payments.transactionType, sql`'receivable'`),
+      eq(payments.transactionId, accountsReceivable.id)
+    ))
+    .leftJoin(suppliers, eq(accountsPayable.supplierId, suppliers.id))
+    .leftJoin(customers, eq(accountsReceivable.customerId, customers.id))
+    .leftJoin(chartOfAccounts, sql`${chartOfAccounts.id} = COALESCE(${accountsPayable.accountId}, ${accountsReceivable.accountId})`)
+    .leftJoin(costCenters, sql`${costCenters.id} = COALESCE(${accountsPayable.costCenterId}, ${accountsReceivable.costCenterId})`)
+    .where(and(
+      eq(payments.userId, userId),
+      eq(payments.bankAccountId, bankAccountId),
+      sql`${payments.paymentDate} >= ${startDate}`,
+      sql`${payments.paymentDate} <= ${endDate}`
+    ));
+
+    // Process payments
+    for (const row of paymentsData) {
+      const payment = row.payment;
+      const transaction = row.payable || row.receivable;
+      const entity = row.supplier || row.customer;
+      
+      if (!transaction) continue;
+
+      entries.push({
+        date: payment.paymentDate,
+        type: payment.transactionType === 'payable' ? 'D' : 'C',
+        description: transaction.description || 'Pagamento/Recebimento',
+        entityName: entity?.razaoSocial || null,
+        accountCode: row.chartAccount?.code || null,
+        accountName: row.chartAccount?.name || null,
+        costCenterCode: row.costCenter?.code || null,
+        costCenterName: row.costCenter?.name || null,
+        documentNumber: transaction.documentNumber || null,
+        amount: payment.amount,
+        balance: '0', // Will calculate later
+        transactionId: payment.id,
+        transactionType: payment.transactionType === 'payable' ? 'payment_out' : 'payment_in',
+      });
+    }
+
+    // 2. Fetch all transfers involving this bank account
+    const transfersData = await db.select({
+      transfer: bankTransfers,
+      fromAccount: {
+        id: bankAccounts.id,
+        name: bankAccounts.name,
+      },
+      toAccount: sql`to_acc`.as('toAccount'),
+    })
+    .from(bankTransfers)
+    .leftJoin(bankAccounts, eq(bankTransfers.fromAccountId, bankAccounts.id))
+    .leftJoin(sql`${bankAccounts} as to_acc`, sql`${bankTransfers.toAccountId} = to_acc.id`)
+    .where(and(
+      eq(bankTransfers.userId, userId),
+      sql`(${bankTransfers.fromAccountId} = ${bankAccountId} OR ${bankTransfers.toAccountId} = ${bankAccountId})`,
+      sql`${bankTransfers.transferDate} >= ${startDate}`,
+      sql`${bankTransfers.transferDate} <= ${endDate}`
+    ));
+
+    // Process transfers
+    for (const row of transfersData) {
+      const transfer = row.transfer;
+      const isOutgoing = transfer.fromAccountId === bankAccountId;
+      
+      entries.push({
+        date: transfer.transferDate,
+        type: isOutgoing ? 'D' : 'C',
+        description: transfer.description || (isOutgoing ? 'Transferência enviada' : 'Transferência recebida'),
+        entityName: null,
+        accountCode: null,
+        accountName: null,
+        costCenterCode: null,
+        costCenterName: null,
+        documentNumber: null,
+        amount: transfer.amount,
+        balance: '0', // Will calculate later
+        transactionId: transfer.id,
+        transactionType: isOutgoing ? 'transfer_out' : 'transfer_in',
+      });
+    }
+
+    // 3. Sort by date
+    entries.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    // 4. Calculate progressive balance
+    let runningBalance = parseFloat(bankAccount.initialBalance || '0');
+    for (const entry of entries) {
+      const amount = parseFloat(entry.amount);
+      if (entry.type === 'C') {
+        runningBalance += amount;
+      } else {
+        runningBalance -= amount;
+      }
+      entry.balance = runningBalance.toFixed(2);
+    }
+
+    return entries;
   }
 }
 
