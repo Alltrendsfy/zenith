@@ -8,7 +8,8 @@ Key capabilities include:
 - Comprehensive modules for Suppliers and Customers (Cadastros).
 - Detailed Income Statement (DRE) reporting with period and cost center filtering.
 - Advanced cost allocation system for proportional distribution of transactions across cost centers.
-- An in-progress recurring payment functionality for Accounts Payable/Receivable.
+- Recurring payment functionality for Accounts Payable/Receivable.
+- **Payment Settlement System (Baixa)**: Complete payment tracking with partial/full payments, multiple payment methods (PIX, cash, cards, bank transfer, boleto, cheque), optional bank account association, and automatic status updates.
 - **Agenda module** for tracking business and personal activities with daily/weekly/monthly views, priority management, and status toggles.
 
 ## User Preferences
@@ -40,9 +41,11 @@ The backend utilizes **Node.js** with **Express.js** and **TypeScript** (ES modu
 
 The data layer uses **Drizzle ORM** with **PostgreSQL** dialect via **Neon serverless** driver.
 - **Schema**: Centralized schema definitions in `shared/schema.ts` with type inference.
-- **Database Tables**: `sessions`, `users`, `bank_accounts`, `accounts_payable`, `accounts_receivable`, `chart_of_accounts`, `cost_centers`, `bank_transfers`, `cost_allocations`, and `activities`.
+- **Database Tables**: `sessions`, `users`, `bank_accounts`, `accounts_payable`, `accounts_receivable`, `chart_of_accounts`, `cost_centers`, `bank_transfers`, `cost_allocations`, `payments`, and `activities`.
+- **Payment Methods Enum**: PIX, dinheiro (cash), cartao_credito, cartao_debito, transferencia, boleto, cheque, outros.
 - **Schema Patterns**: PostgreSQL enums, `createdAt`/`updatedAt` timestamps, UUID primary keys, Drizzle-Zod integration, hierarchical structures via `parentId`, and decimal types for financial amounts.
-- **Key Design Decisions**: Drizzle for type-safe SQL, shared schema for consistency, hierarchical structures, and decimal types.
+- **Key Design Decisions**: Drizzle for type-safe SQL, shared schema for consistency, hierarchical structures, decimal types, and Zod transformations for nullable fields.
+- **Data Validation**: Zod schemas with `.transform()` to convert empty strings to `undefined` for optional fields, preventing FK constraint violations.
 
 ### Authentication & Authorization
 
@@ -50,7 +53,26 @@ Authentication is handled via **Replit OpenID Connect (OIDC)** using **Passport.
 - **Session Management**: Express sessions with PostgreSQL storage via `connect-pg-simple`, 7-day TTL, HTTP-only, secure cookies.
 - **User Flow**: Redirection to `/api/login`, OIDC flow, user claims stored in session, profile synced to `users` table.
 - **Authorization**: `isAuthenticated` middleware for protected routes, user ID from session claims for data isolation.
+- **User Roles**: Default role set to 'admin' for initial setup and testing convenience.
 - **Key Design Decisions**: Session-based auth for simplicity, PostgreSQL session store, memoized OIDC config, and token refresh.
+
+## Recent Changes (November 2025)
+
+### Payment Settlement System (Baixa)
+- **Implementation Date**: November 20, 2025
+- **Tables Added**: `payments` table with FK to `bank_accounts`, `accounts_payable`, and `accounts_receivable`
+- **Features**:
+  - Partial and full payment recording
+  - Eight payment methods supported
+  - Optional bank account association
+  - Automatic status calculation: "Pendente" → "Parcial" → "Pago"
+  - Amount validation and remaining balance calculation
+- **Technical Details**:
+  - Frontend: `PaymentSettlementDialog` component with React Hook Form + Zod validation
+  - Backend: Zod schema validation with empty string transformation
+  - Storage: `createPayment`, `processPayableBaixa`, `processReceivableBaixa` methods
+  - API Routes: `POST /api/accounts-payable/:id/baixa` and `POST /api/accounts-receivable/:id/baixa`
+- **Testing**: End-to-end tested with partial payment (R$300) and final payment (R$500), verifying status transitions and optional bank account handling.
 
 ## External Dependencies
 

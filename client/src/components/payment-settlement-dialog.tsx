@@ -49,7 +49,11 @@ const paymentSchema = z.object({
   amount: z.string().min(1, "Valor é obrigatório"),
   paymentDate: z.string().min(1, "Data de pagamento é obrigatória"),
   notes: z.string().optional(),
-});
+}).transform((data) => ({
+  ...data,
+  bankAccountId: data.bankAccountId === '' ? undefined : data.bankAccountId,
+  notes: data.notes === '' ? undefined : data.notes,
+}));
 
 type PaymentFormData = z.infer<typeof paymentSchema>;
 
@@ -82,10 +86,8 @@ export function PaymentSettlementDialog({
     resolver: zodResolver(paymentSchema),
     defaultValues: {
       paymentMethod: "",
-      bankAccountId: "",
       amount: remainingAmount,
       paymentDate: format(new Date(), 'yyyy-MM-dd'),
-      notes: "",
     },
   });
 
@@ -98,10 +100,8 @@ export function PaymentSettlementDialog({
     const newRemainingAmount = (parseFloat(totalAmount) - parseFloat(amountPaid)).toFixed(2);
     form.reset({
       paymentMethod: "",
-      bankAccountId: "",
       amount: newRemainingAmount,
       paymentDate: format(new Date(), 'yyyy-MM-dd'),
-      notes: "",
     });
   }, [transactionId, totalAmount, amountPaid, form]);
 
