@@ -10,7 +10,8 @@ import {
   Users,
   Truck,
   ArrowLeftRight,
-  Calendar
+  Calendar,
+  Settings
 } from "lucide-react"
 import {
   Sidebar,
@@ -190,6 +191,18 @@ export function AppSidebar() {
             <SidebarGroupLabel className="text-xs font-medium uppercase tracking-wide">Administração</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location === "/company-settings"}
+                    data-testid="link-company-settings"
+                  >
+                    <Link href="/company-settings">
+                      <Settings className="h-4 w-4" />
+                      <span>Dados da Empresa</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     asChild
