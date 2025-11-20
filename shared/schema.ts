@@ -597,6 +597,51 @@ export const insertPaymentSchema = createInsertSchema(payments).omit({
 export type Payment = typeof payments.$inferSelect;
 export type InsertPayment = z.infer<typeof insertPaymentSchema>;
 
+// Companies (Empresas)
+export const companies = pgTable("companies", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  razaoSocial: varchar("razao_social", { length: 255 }).notNull(),
+  nomeFantasia: varchar("nome_fantasia", { length: 255 }),
+  cnpj: varchar("cnpj", { length: 18 }),
+  inscricaoEstadual: varchar("inscricao_estadual", { length: 50 }),
+  inscricaoMunicipal: varchar("inscricao_municipal", { length: 50 }),
+  email: varchar("email", { length: 255 }),
+  telefone: varchar("telefone", { length: 20 }),
+  website: varchar("website", { length: 255 }),
+  cep: varchar("cep", { length: 10 }),
+  endereco: varchar("endereco", { length: 500 }),
+  numero: varchar("numero", { length: 20 }),
+  complemento: varchar("complemento", { length: 100 }),
+  bairro: varchar("bairro", { length: 100 }),
+  cidade: varchar("cidade", { length: 100 }),
+  estado: varchar("estado", { length: 2 }),
+  logoUrl: varchar("logo_url", { length: 500 }),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_companies_user_id").on(table.userId),
+]);
+
+export const companiesRelations = relations(companies, ({ one }) => ({
+  user: one(users, {
+    fields: [companies.userId],
+    references: [users.id],
+  }),
+}));
+
+export const insertCompanySchema = createInsertSchema(companies).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const updateCompanySchema = insertCompanySchema.partial();
+
+export type Company = typeof companies.$inferSelect;
+export type InsertCompany = z.infer<typeof insertCompanySchema>;
+
 // DRE (Demonstração de Resultado do Exercício) Types
 export interface DRELineItem {
   accountId?: string;
