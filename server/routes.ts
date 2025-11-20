@@ -928,6 +928,95 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Payment validation schema
+  const paymentBaixaSchema = z.object({
+    paymentMethod: z.enum(['dinheiro', 'pix', 'cartao_credito', 'cartao_debito', 'boleto', 'transferencia', 'cheque', 'outros']),
+    bankAccountId: z.string().optional(),
+    amount: z.string()
+      .min(1, "Valor é obrigatório")
+      .refine((val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0, {
+        message: "Valor deve ser um número positivo"
+      }),
+    paymentDate: z.string().min(1, "Data de pagamento é obrigatória"),
+    notes: z.string().optional(),
+  });
+
+  // Payment routes (Baixas)
+  app.get('/api/payments', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { transactionType, transactionId } = req.query;
+      
+      const filters: any = {};
+      if (transactionType) filters.transactionType = transactionType;
+      if (transactionId) filters.transactionId = transactionId;
+      
+      const payments = await storage.getPayments(userId, filters);
+      res.json(payments);
+    } catch (error) {
+      console.error("Error fetching payments:", error);
+      res.status(500).json({ message: "Failed to fetch payments" });
+    }
+  });
+
+  app.post('/api/accounts-payable/:id/baixa', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      
+      // Validate request body with Zod
+      const validated = paymentBaixaSchema.parse(req.body);
+
+      const result = await storage.processPayableBaixa(id, userId, {
+        paymentMethod: validated.paymentMethod,
+        bankAccountId: validated.bankAccountId,
+        amount: validated.amount,
+        paymentDate: validated.paymentDate,
+        notes: validated.notes,
+      });
+
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error processing payable baixa:", error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ 
+          message: "Dados de pagamento inválidos", 
+          errors: error.errors 
+        });
+      }
+      res.status(400).json({ message: error.message || "Failed to process payment" });
+    }
+  });
+
+  app.post('/api/accounts-receivable/:id/baixa', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      
+      // Validate request body with Zod
+      const validated = paymentBaixaSchema.parse(req.body);
+
+      const result = await storage.processReceivableBaixa(id, userId, {
+        paymentMethod: validated.paymentMethod,
+        bankAccountId: validated.bankAccountId,
+        amount: validated.amount,
+        paymentDate: validated.paymentDate,
+        notes: validated.notes,
+      });
+
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error processing receivable baixa:", error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ 
+          message: "Dados de pagamento inválidos", 
+          errors: error.errors 
+        });
+      }
+      res.status(400).json({ message: error.message || "Failed to process payment" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

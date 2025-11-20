@@ -21,7 +21,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, FileText, Search } from "lucide-react"
+import { Plus, FileText, Search, DollarSign } from "lucide-react"
+import { PaymentSettlementDialog } from "@/components/payment-settlement-dialog"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -65,6 +66,8 @@ export default function AccountsReceivable() {
   const [open, setOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [allocations, setAllocations] = useState<AllocationInput[]>([])
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
+  const [selectedReceivable, setSelectedReceivable] = useState<AccountsReceivable | null>(null)
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -571,6 +574,7 @@ export default function AccountsReceivable() {
                         <TableHead className="text-right">Valor</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>Recorrência</TableHead>
+                        <TableHead className="text-right">Ações</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -596,6 +600,21 @@ export default function AccountsReceivable() {
                               <span className="text-muted-foreground text-xs">-</span>
                             )}
                           </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setSelectedReceivable(receivable)
+                                setPaymentDialogOpen(true)
+                              }}
+                              disabled={receivable.status === 'pago' || receivable.status === 'cancelado'}
+                              data-testid={`button-baixa-${receivable.id}`}
+                            >
+                              <DollarSign className="h-4 w-4 mr-1" />
+                              Baixar
+                            </Button>
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -606,6 +625,21 @@ export default function AccountsReceivable() {
           </CardContent>
         </Card>
       </div>
+
+      {selectedReceivable && (
+        <PaymentSettlementDialog
+          open={paymentDialogOpen}
+          onOpenChange={setPaymentDialogOpen}
+          transactionId={selectedReceivable.id}
+          transactionType="receivable"
+          description={selectedReceivable.description}
+          totalAmount={selectedReceivable.totalAmount}
+          amountPaid={selectedReceivable.amountReceived || "0"}
+          onSuccess={() => {
+            setSelectedReceivable(null)
+          }}
+        />
+      )}
     </PageContainer>
   )
 }

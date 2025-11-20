@@ -22,6 +22,8 @@ import {
   type InsertCustomer,
   type Activity,
   type InsertActivity,
+  type Payment,
+  type InsertPayment,
   bankAccounts,
   accountsPayable,
   accountsReceivable,
@@ -32,6 +34,7 @@ import {
   suppliers,
   customers,
   activities,
+  payments,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql } from "drizzle-orm";
@@ -113,6 +116,13 @@ export interface IStorage {
   updateActivity(id: string, userId: string, data: Partial<InsertActivity>): Promise<Activity | undefined>;
   toggleActivityStatus(id: string, userId: string): Promise<Activity | undefined>;
   deleteActivity(id: string, userId: string): Promise<boolean>;
+
+  // Payments (Baixas)
+  getPayments(userId: string, filters?: { transactionType?: 'payable' | 'receivable'; transactionId?: string }): Promise<Payment[]>;
+  getPayment(id: string, userId: string): Promise<Payment | undefined>;
+  createPayment(payment: InsertPayment & { userId: string }): Promise<Payment>;
+  processPayableBaixa(payableId: string, userId: string, payment: { paymentMethod: string; bankAccountId?: string; amount: string; paymentDate: string; notes?: string }): Promise<{ payment: Payment; payable: AccountsPayable }>;
+  processReceivableBaixa(receivableId: string, userId: string, payment: { paymentMethod: string; bankAccountId?: string; amount: string; paymentDate: string; notes?: string }): Promise<{ payment: Payment; receivable: AccountsReceivable }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -802,6 +812,162 @@ export class DatabaseStorage implements IStorage {
       .delete(activities)
       .where(and(eq(activities.id, id), eq(activities.userId, userId)));
     return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  // Payment operations
+  async getPayments(userId: string, filters?: { transactionType?: 'payable' | 'receivable'; transactionId?: string }): Promise<Payment[]> {
+    const conditions = [eq(payments.userId, userId)];
+
+    if (filters?.transactionType) {
+      conditions.push(eq(payments.transactionType, filters.transactionType));
+    }
+
+    if (filters?.transactionId) {
+      conditions.push(eq(payments.transactionId, filters.transactionId));
+    }
+
+    return await db
+      .select()
+      .from(payments)
+      .where(and(...conditions))
+      .orderBy(desc(payments.paymentDate));
+  }
+
+  async getPayment(id: string, userId: string): Promise<Payment | undefined> {
+    const [payment] = await db
+      .select()
+      .from(payments)
+      .where(and(eq(payments.id, id), eq(payments.userId, userId)));
+    return payment;
+  }
+
+  async createPayment(payment: InsertPayment & { userId: string }): Promise<Payment> {
+    const [created] = await db.insert(payments).values(payment).returning();
+    return created;
+  }
+
+  async processPayableBaixa(
+    payableId: string,
+    userId: string,
+    paymentData: { paymentMethod: string; bankAccountId?: string; amount: string; paymentDate: string; notes?: string }
+  ): Promise<{ payment: Payment; payable: AccountsPayable }> {
+    // Get the payable
+    const payable = await this.getAccountPayable(payableId, userId);
+    if (!payable) {
+      throw new Error('Conta a pagar não encontrada');
+    }
+
+    // Create payment record
+    const payment = await this.createPayment({
+      userId,
+      transactionType: 'payable',
+      transactionId: payableId,
+      paymentMethod: paymentData.paymentMethod as any,
+      bankAccountId: paymentData.bankAccountId,
+      amount: paymentData.amount,
+      paymentDate: paymentData.paymentDate,
+      notes: paymentData.notes,
+    });
+
+    // Update payable's amountPaid
+    const currentPaid = parseFloat(payable.amountPaid || '0');
+    const paymentAmount = parseFloat(paymentData.amount);
+    const totalAmount = parseFloat(payable.totalAmount);
+    const newAmountPaid = currentPaid + paymentAmount;
+
+    // Determine new status
+    let newStatus: 'pendente' | 'pago' | 'parcial' | 'cancelado' | 'vencido' = 'pendente';
+    if (newAmountPaid >= totalAmount) {
+      newStatus = 'pago';
+    } else if (newAmountPaid > 0) {
+      newStatus = 'parcial';
+    }
+
+    // Update payable
+    const updatedPayable = await this.updateAccountPayable(payableId, userId, {
+      amountPaid: newAmountPaid.toFixed(2),
+      status: newStatus,
+    });
+
+    if (!updatedPayable) {
+      throw new Error('Erro ao atualizar conta a pagar');
+    }
+
+    // Update bank account balance if bankAccountId is provided
+    if (paymentData.bankAccountId) {
+      const bankAccount = await this.getBankAccount(paymentData.bankAccountId, userId);
+      if (bankAccount) {
+        const currentBalance = parseFloat(bankAccount.balance);
+        const newBalance = currentBalance - paymentAmount;
+        await this.updateBankAccount(paymentData.bankAccountId, userId, {
+          balance: newBalance.toFixed(2),
+        });
+      }
+    }
+
+    return { payment, payable: updatedPayable };
+  }
+
+  async processReceivableBaixa(
+    receivableId: string,
+    userId: string,
+    paymentData: { paymentMethod: string; bankAccountId?: string; amount: string; paymentDate: string; notes?: string }
+  ): Promise<{ payment: Payment; receivable: AccountsReceivable }> {
+    // Get the receivable
+    const receivable = await this.getAccountReceivable(receivableId, userId);
+    if (!receivable) {
+      throw new Error('Conta a receber não encontrada');
+    }
+
+    // Create payment record
+    const payment = await this.createPayment({
+      userId,
+      transactionType: 'receivable',
+      transactionId: receivableId,
+      paymentMethod: paymentData.paymentMethod as any,
+      bankAccountId: paymentData.bankAccountId,
+      amount: paymentData.amount,
+      paymentDate: paymentData.paymentDate,
+      notes: paymentData.notes,
+    });
+
+    // Update receivable's amountReceived
+    const currentReceived = parseFloat(receivable.amountReceived || '0');
+    const paymentAmount = parseFloat(paymentData.amount);
+    const totalAmount = parseFloat(receivable.totalAmount);
+    const newAmountReceived = currentReceived + paymentAmount;
+
+    // Determine new status
+    let newStatus: 'pendente' | 'pago' | 'parcial' | 'cancelado' | 'vencido' = 'pendente';
+    if (newAmountReceived >= totalAmount) {
+      newStatus = 'pago';
+    } else if (newAmountReceived > 0) {
+      newStatus = 'parcial';
+    }
+
+    // Update receivable
+    const updatedReceivable = await this.updateAccountReceivable(receivableId, userId, {
+      amountReceived: newAmountReceived.toFixed(2),
+      status: newStatus,
+    });
+
+    if (!updatedReceivable) {
+      throw new Error('Erro ao atualizar conta a receber');
+    }
+
+    // Update bank account balance if bankAccountId is provided
+    if (paymentData.bankAccountId) {
+      const bankAccount = await this.getBankAccount(paymentData.bankAccountId, userId);
+      if (bankAccount) {
+        const currentBalance = parseFloat(bankAccount.balance);
+        const newBalance = currentBalance + paymentAmount;
+        await this.updateBankAccount(paymentData.bankAccountId, userId, {
+          balance: newBalance.toFixed(2),
+        });
+      }
+    }
+
+    return { payment, receivable: updatedReceivable };
   }
 }
 

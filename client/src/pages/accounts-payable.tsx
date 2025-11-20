@@ -22,7 +22,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus, Receipt, Search } from "lucide-react"
+import { Plus, Receipt, Search, DollarSign } from "lucide-react"
+import { PaymentSettlementDialog } from "@/components/payment-settlement-dialog"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -68,6 +69,8 @@ export default function AccountsPayable() {
   const [open, setOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [allocations, setAllocations] = useState<AllocationInput[]>([])
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
+  const [selectedPayable, setSelectedPayable] = useState<AccountsPayable | null>(null)
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -574,6 +577,7 @@ export default function AccountsPayable() {
                         <TableHead className="text-right">Valor</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>Recorrência</TableHead>
+                        <TableHead className="text-right">Ações</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -599,6 +603,21 @@ export default function AccountsPayable() {
                               <span className="text-muted-foreground text-xs">-</span>
                             )}
                           </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setSelectedPayable(payable)
+                                setPaymentDialogOpen(true)
+                              }}
+                              disabled={payable.status === 'pago' || payable.status === 'cancelado'}
+                              data-testid={`button-baixa-${payable.id}`}
+                            >
+                              <DollarSign className="h-4 w-4 mr-1" />
+                              Baixar
+                            </Button>
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -609,6 +628,21 @@ export default function AccountsPayable() {
           </CardContent>
         </Card>
       </div>
+
+      {selectedPayable && (
+        <PaymentSettlementDialog
+          open={paymentDialogOpen}
+          onOpenChange={setPaymentDialogOpen}
+          transactionId={selectedPayable.id}
+          transactionType="payable"
+          description={selectedPayable.description}
+          totalAmount={selectedPayable.totalAmount}
+          amountPaid={selectedPayable.amountPaid || "0"}
+          onSuccess={() => {
+            setSelectedPayable(null)
+          }}
+        />
+      )}
     </PageContainer>
   )
 }

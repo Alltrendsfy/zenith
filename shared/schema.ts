@@ -29,6 +29,7 @@ export const recurrenceStatusEnum = pgEnum('recurrence_status', ['ativa', 'pausa
 export const activityScopeEnum = pgEnum('activity_scope', ['empresarial', 'pessoal']);
 export const activityStatusEnum = pgEnum('activity_status', ['pendente', 'concluida']);
 export const activityPriorityEnum = pgEnum('activity_priority', ['baixa', 'media', 'alta']);
+export const paymentMethodEnum = pgEnum('payment_method', ['dinheiro', 'pix', 'cartao_credito', 'cartao_debito', 'boleto', 'transferencia', 'cheque', 'outros']);
 
 // Session storage table - Required for Replit Auth
 export const sessions = pgTable(
@@ -544,6 +545,47 @@ export const insertCostAllocationSchema = createInsertSchema(costAllocations).om
 
 export type CostAllocation = typeof costAllocations.$inferSelect;
 export type InsertCostAllocation = z.infer<typeof insertCostAllocationSchema>;
+
+// Payments (Pagamentos/Baixas) - Registro de liquidação de contas a pagar/receber
+export const payments = pgTable("payments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  transactionType: transactionTypeEnum("transaction_type").notNull(),
+  transactionId: varchar("transaction_id").notNull(),
+  paymentMethod: paymentMethodEnum("payment_method").notNull(),
+  bankAccountId: varchar("bank_account_id").references(() => bankAccounts.id),
+  amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
+  paymentDate: date("payment_date").notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_payments_user_id").on(table.userId),
+  index("idx_payments_transaction").on(table.transactionType, table.transactionId),
+  index("idx_payments_bank_account").on(table.bankAccountId),
+  index("idx_payments_date").on(table.paymentDate),
+]);
+
+export const paymentsRelations = relations(payments, ({ one }) => ({
+  user: one(users, {
+    fields: [payments.userId],
+    references: [users.id],
+  }),
+  bankAccount: one(bankAccounts, {
+    fields: [payments.bankAccountId],
+    references: [bankAccounts.id],
+  }),
+}));
+
+export const insertPaymentSchema = createInsertSchema(payments).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type Payment = typeof payments.$inferSelect;
+export type InsertPayment = z.infer<typeof insertPaymentSchema>;
 
 // DRE (Demonstração de Resultado do Exercício) Types
 export interface DRELineItem {
