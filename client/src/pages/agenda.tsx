@@ -22,6 +22,7 @@ export default function Agenda() {
   const [scopeFilter, setScopeFilter] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
   const { toast } = useToast();
 
   // Calculate date range based on view mode
@@ -83,12 +84,21 @@ export default function Agenda() {
   };
 
   const renderActivityCard = (activity: Activity) => (
-    <Card key={activity.id} className="mb-3 hover-elevate">
+    <Card 
+      key={activity.id} 
+      className="mb-3 hover-elevate cursor-pointer" 
+      onClick={() => {
+        setSelectedActivity(activity);
+        setIsDialogOpen(true);
+      }}
+      data-testid={`card-activity-${activity.id}`}
+    >
       <CardContent className="p-4">
         <div className="flex items-start gap-3">
           <Checkbox
             checked={activity.status === "concluida"}
             onCheckedChange={() => toggleMutation.mutate(activity.id)}
+            onClick={(e) => e.stopPropagation()}
             data-testid={`toggle-activity-${activity.id}`}
             className="mt-1"
           />
@@ -360,7 +370,13 @@ export default function Agenda() {
           <h1 className="text-3xl font-bold mb-2">Agenda</h1>
           <p className="text-muted-foreground">Gerencie suas atividades e compromissos</p>
         </div>
-        <Button onClick={() => setIsDialogOpen(true)} data-testid="button-add-activity">
+        <Button 
+          onClick={() => {
+            setSelectedActivity(null);
+            setIsDialogOpen(true);
+          }} 
+          data-testid="button-add-activity"
+        >
           <Plus className="w-4 h-4 mr-2" />
           Nova Atividade
         </Button>
@@ -368,7 +384,13 @@ export default function Agenda() {
 
       <ActivityFormDialog
         open={isDialogOpen}
-        onOpenChange={setIsDialogOpen}
+        onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (!open) {
+            setSelectedActivity(null);
+          }
+        }}
+        activity={selectedActivity}
       />
 
       <div className="flex gap-4 mb-6">
