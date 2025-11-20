@@ -95,7 +95,7 @@ const cadastrosItems = [
 
 export function AppSidebar() {
   const { user } = useAuth()
-  const { isAdmin, role } = usePermissions()
+  const { isAdmin, isManager, role } = usePermissions()
   const [location] = useLocation()
 
   const getUserInitials = () => {
@@ -186,7 +186,7 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {isAdmin && (
+        {isManager && (
           <SidebarGroup>
             <SidebarGroupLabel className="text-xs font-medium uppercase tracking-wide">Administração</SidebarGroupLabel>
             <SidebarGroupContent>
