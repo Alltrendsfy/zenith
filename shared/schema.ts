@@ -49,7 +49,7 @@ export const users = pgTable("users", {
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
-  role: userRoleEnum("role").default("visualizador").notNull(),
+  role: userRoleEnum("role").default("admin").notNull(),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -389,7 +389,12 @@ export const insertAccountsPayableSchema = createInsertSchema(accountsPayable).o
   userId: true,
   createdAt: true,
   updatedAt: true,
-});
+}).transform((data) => ({
+  ...data,
+  recurrenceStartDate: data.recurrenceStartDate === '' ? null : data.recurrenceStartDate,
+  recurrenceEndDate: data.recurrenceEndDate === '' ? null : data.recurrenceEndDate,
+  recurrenceNextDate: data.recurrenceNextDate === '' ? null : data.recurrenceNextDate,
+}));
 
 export type AccountsPayable = typeof accountsPayable.$inferSelect;
 export type InsertAccountsPayable = z.infer<typeof insertAccountsPayableSchema>;
@@ -460,7 +465,12 @@ export const insertAccountsReceivableSchema = createInsertSchema(accountsReceiva
   userId: true,
   createdAt: true,
   updatedAt: true,
-});
+}).transform((data) => ({
+  ...data,
+  recurrenceStartDate: data.recurrenceStartDate === '' ? null : data.recurrenceStartDate,
+  recurrenceEndDate: data.recurrenceEndDate === '' ? null : data.recurrenceEndDate,
+  recurrenceNextDate: data.recurrenceNextDate === '' ? null : data.recurrenceNextDate,
+}));
 
 export type AccountsReceivable = typeof accountsReceivable.$inferSelect;
 export type InsertAccountsReceivable = z.infer<typeof insertAccountsReceivableSchema>;

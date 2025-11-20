@@ -111,10 +111,7 @@ export function PaymentSettlementDialog({
         ? `/api/accounts-payable/${transactionId}/baixa`
         : `/api/accounts-receivable/${transactionId}/baixa`;
       
-      return await apiRequest(endpoint, {
-        method: 'POST',
-        body: JSON.stringify(data),
-      });
+      return await apiRequest('POST', endpoint, data);
     },
     onSuccess: () => {
       toast({
@@ -208,19 +205,24 @@ export function PaymentSettlementDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Conta Bancária (opcional)</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value || undefined}>
                     <FormControl>
                       <SelectTrigger data-testid="select-bank-account">
-                        <SelectValue placeholder="Selecione a conta" />
+                        <SelectValue placeholder="Nenhuma" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="">Nenhuma</SelectItem>
-                      {bankAccounts.map((account: any) => (
-                        <SelectItem key={account.id} value={account.id}>
-                          {account.name}
+                      {bankAccounts.length > 0 ? (
+                        bankAccounts.map((account: any) => (
+                          <SelectItem key={account.id} value={account.id}>
+                            {account.name}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="no-accounts" disabled>
+                          Nenhuma conta cadastrada
                         </SelectItem>
-                      ))}
+                      )}
                     </SelectContent>
                   </Select>
                   <FormMessage />

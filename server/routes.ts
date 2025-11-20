@@ -939,7 +939,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }),
     paymentDate: z.string().min(1, "Data de pagamento é obrigatória"),
     notes: z.string().optional(),
-  });
+  }).transform((data) => ({
+    ...data,
+    bankAccountId: data.bankAccountId === '' ? undefined : data.bankAccountId,
+  }));
 
   // Payment routes (Baixas)
   app.get('/api/payments', isAuthenticated, async (req: any, res) => {
