@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import { requireAdmin, requirePermission } from "./permissions";
+import { requireAdmin, requirePermission, requireManager } from "./permissions";
 import {
   insertBankAccountSchema,
   insertAccountsPayableSchema,
@@ -136,7 +136,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Bank Accounts
+  // Bank Accounts (all authenticated users can view)
   app.get('/api/bank-accounts', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -148,7 +148,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/bank-accounts', isAuthenticated, async (req: any, res) => {
+  app.post('/api/bank-accounts', isAuthenticated, requirePermission('canCreate'), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       console.log("[POST /api/bank-accounts] Request body:", JSON.stringify(req.body, null, 2));
@@ -183,7 +183,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/bank-transfers', isAuthenticated, async (req: any, res) => {
+  app.post('/api/bank-transfers', isAuthenticated, requirePermission('canCreate'), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const validated = insertBankTransferSchema.parse(req.body);
@@ -215,7 +215,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/accounts-payable', isAuthenticated, async (req: any, res) => {
+  app.post('/api/accounts-payable', isAuthenticated, requirePermission('canCreate'), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const validated = insertAccountsPayableSchema.parse(req.body);
@@ -244,7 +244,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/accounts-receivable', isAuthenticated, async (req: any, res) => {
+  app.post('/api/accounts-receivable', isAuthenticated, requirePermission('canCreate'), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const validated = insertAccountsReceivableSchema.parse(req.body);
@@ -260,7 +260,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Recurrence Management
-  app.patch('/api/accounts-payable/:id/recurrence', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/accounts-payable/:id/recurrence', isAuthenticated, requirePermission('canUpdate'), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { id } = req.params;
@@ -282,7 +282,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/accounts-receivable/:id/recurrence', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/accounts-receivable/:id/recurrence', isAuthenticated, requirePermission('canUpdate'), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { id } = req.params;
@@ -304,7 +304,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/recurrences/process', isAuthenticated, async (req: any, res) => {
+  app.post('/api/recurrences/process', isAuthenticated, requirePermission('canCreate'), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const result = await storage.processRecurrences(userId);
@@ -327,7 +327,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/chart-of-accounts', isAuthenticated, async (req: any, res) => {
+  app.post('/api/chart-of-accounts', isAuthenticated, requireManager, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const validated = insertChartOfAccountsSchema.parse(req.body);
@@ -354,7 +354,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/cost-centers', isAuthenticated, async (req: any, res) => {
+  app.post('/api/cost-centers', isAuthenticated, requireManager, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const validated = insertCostCenterSchema.parse(req.body);
@@ -382,7 +382,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/accounts-payable/:id/allocations', isAuthenticated, async (req: any, res) => {
+  app.post('/api/accounts-payable/:id/allocations', isAuthenticated, requirePermission('canCreate'), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { id } = req.params;
@@ -423,7 +423,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/accounts-payable/:id/allocations', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/accounts-payable/:id/allocations', isAuthenticated, requirePermission('canDelete'), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { id } = req.params;
@@ -448,7 +448,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/accounts-receivable/:id/allocations', isAuthenticated, async (req: any, res) => {
+  app.post('/api/accounts-receivable/:id/allocations', isAuthenticated, requirePermission('canCreate'), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { id } = req.params;
@@ -489,7 +489,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/accounts-receivable/:id/allocations', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/accounts-receivable/:id/allocations', isAuthenticated, requirePermission('canDelete'), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { id } = req.params;
@@ -687,7 +687,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/suppliers', isAuthenticated, async (req: any, res) => {
+  app.post('/api/suppliers', isAuthenticated, requirePermission('canCreate'), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const validated = insertSupplierSchema.parse(req.body);
@@ -702,7 +702,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/suppliers/:id', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/suppliers/:id', isAuthenticated, requirePermission('canUpdate'), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { id } = req.params;
@@ -718,7 +718,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/suppliers/:id', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/suppliers/:id', isAuthenticated, requirePermission('canDelete'), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { id } = req.params;
@@ -745,7 +745,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/customers', isAuthenticated, async (req: any, res) => {
+  app.post('/api/customers', isAuthenticated, requirePermission('canCreate'), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const validated = insertCustomerSchema.parse(req.body);
@@ -760,7 +760,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/customers/:id', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/customers/:id', isAuthenticated, requirePermission('canUpdate'), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { id } = req.params;
@@ -776,7 +776,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/customers/:id', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/customers/:id', isAuthenticated, requirePermission('canDelete'), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { id } = req.params;

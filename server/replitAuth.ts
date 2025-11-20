@@ -139,6 +139,16 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
 
   const now = Math.floor(Date.now() / 1000);
   if (now <= user.expires_at) {
+    // Fetch user from database to get role and status
+    const dbUser = await storage.getUser(user.claims.sub);
+    if (!dbUser) {
+      return res.status(401).json({ message: "User not found" });
+    }
+    if (!dbUser.isActive) {
+      return res.status(403).json({ message: "Conta desativada. Entre em contato com o administrador." });
+    }
+    user.role = dbUser.role;
+    user.isActive = dbUser.isActive;
     return next();
   }
 
@@ -152,6 +162,18 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
     const config = await getOidcConfig();
     const tokenResponse = await client.refreshTokenGrant(config, refreshToken);
     updateUserSession(user, tokenResponse);
+    
+    // Fetch user from database to get role and status
+    const dbUser = await storage.getUser(user.claims.sub);
+    if (!dbUser) {
+      return res.status(401).json({ message: "User not found" });
+    }
+    if (!dbUser.isActive) {
+      return res.status(403).json({ message: "Conta desativada. Entre em contato com o administrador." });
+    }
+    user.role = dbUser.role;
+    user.isActive = dbUser.isActive;
+    
     return next();
   } catch (error) {
     res.status(401).json({ message: "Unauthorized" });
