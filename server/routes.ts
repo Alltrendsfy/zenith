@@ -1020,6 +1020,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Company routes
+  app.get('/api/company', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const company = await storage.getCompany(userId);
+      res.json(company || null);
+    } catch (error) {
+      console.error("Error fetching company:", error);
+      res.status(500).json({ message: "Failed to fetch company data" });
+    }
+  });
+
+  app.post('/api/company', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const company = await storage.upsertCompany({ ...req.body, userId });
+      res.json(company);
+    } catch (error: any) {
+      console.error("Error upserting company:", error);
+      res.status(400).json({ message: error.message || "Failed to save company data" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

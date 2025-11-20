@@ -24,6 +24,8 @@ import {
   type InsertActivity,
   type Payment,
   type InsertPayment,
+  type Company,
+  type InsertCompany,
   bankAccounts,
   accountsPayable,
   accountsReceivable,
@@ -35,6 +37,7 @@ import {
   customers,
   activities,
   payments,
+  companies,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql } from "drizzle-orm";
@@ -123,6 +126,10 @@ export interface IStorage {
   createPayment(payment: InsertPayment & { userId: string }): Promise<Payment>;
   processPayableBaixa(payableId: string, userId: string, payment: { paymentMethod: string; bankAccountId?: string; amount: string; paymentDate: string; notes?: string }): Promise<{ payment: Payment; payable: AccountsPayable }>;
   processReceivableBaixa(receivableId: string, userId: string, payment: { paymentMethod: string; bankAccountId?: string; amount: string; paymentDate: string; notes?: string }): Promise<{ payment: Payment; receivable: AccountsReceivable }>;
+
+  // Company
+  getCompany(userId: string): Promise<Company | undefined>;
+  upsertCompany(company: InsertCompany & { userId: string }): Promise<Company>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -968,6 +975,41 @@ export class DatabaseStorage implements IStorage {
     }
 
     return { payment, receivable: updatedReceivable };
+  }
+
+  // Company operations
+  async getCompany(userId: string): Promise<Company | undefined> {
+    const [company] = await db
+      .select()
+      .from(companies)
+      .where(eq(companies.userId, userId))
+      .limit(1);
+    return company;
+  }
+
+  async upsertCompany(companyData: InsertCompany & { userId: string }): Promise<Company> {
+    // Check if company already exists for this user
+    const existing = await this.getCompany(companyData.userId);
+    
+    if (existing) {
+      // Update existing company
+      const [updated] = await db
+        .update(companies)
+        .set({
+          ...companyData,
+          updatedAt: new Date(),
+        })
+        .where(eq(companies.userId, companyData.userId))
+        .returning();
+      return updated;
+    } else {
+      // Create new company
+      const [created] = await db
+        .insert(companies)
+        .values(companyData)
+        .returning();
+      return created;
+    }
   }
 }
 
