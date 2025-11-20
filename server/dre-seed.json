@@ -1,0 +1,566 @@
+{
+  "accounts": [
+    {
+      "code": "3",
+      "name": "RECEITAS",
+      "type": "RECEITA"
+    },
+    {
+      "code": "3.01",
+      "name": "Receita Bruta Principal",
+      "type": "RECEITA",
+      "parentCode": "3"
+    },
+    {
+      "code": "3.01.01",
+      "name": "Venda de Produtos",
+      "type": "RECEITA",
+      "parentCode": "3.01"
+    },
+    {
+      "code": "3.01.01.001",
+      "name": "Venda de Produtos (Mercadorias/Revenda)",
+      "type": "RECEITA",
+      "parentCode": "3.01.01"
+    },
+    {
+      "code": "3.01.01.002",
+      "name": "Venda de Produtos de Fabricação Própria (CPV)",
+      "type": "RECEITA",
+      "parentCode": "3.01.01"
+    },
+    {
+      "code": "3.01.02",
+      "name": "Venda de Serviços",
+      "type": "RECEITA",
+      "parentCode": "3.01"
+    },
+    {
+      "code": "3.01.02.001",
+      "name": "Venda de Serviços (Mensalidades)",
+      "type": "RECEITA",
+      "parentCode": "3.01.02"
+    },
+    {
+      "code": "3.01.02.002",
+      "name": "Venda de Serviços (Consultoria, Projetos)",
+      "type": "RECEITA",
+      "parentCode": "3.01.02"
+    },
+    {
+      "code": "3.01.02.003",
+      "name": "Venda de Serviços Gerais",
+      "type": "RECEITA",
+      "parentCode": "3.01.02"
+    },
+    {
+      "code": "3.01.02.004",
+      "name": "Receita de Taxas de Adesão/Matrícula",
+      "type": "RECEITA",
+      "parentCode": "3.01.02"
+    },
+    {
+      "code": "3.01.03",
+      "name": "Venda de Parcerias",
+      "type": "RECEITA",
+      "parentCode": "3.01"
+    },
+    {
+      "code": "3.01.03.001",
+      "name": "Receita de Parcerias/B2B",
+      "type": "RECEITA",
+      "parentCode": "3.01.03"
+    },
+    {
+      "code": "3.01.03.002",
+      "name": "Receita de Franquias/Royalties/Licenças",
+      "type": "RECEITA",
+      "parentCode": "3.01.03"
+    },
+    {
+      "code": "3.01.06",
+      "name": "Outras Receitas",
+      "type": "RECEITA",
+      "parentCode": "3.01"
+    },
+    {
+      "code": "3.01.06.001",
+      "name": "Receitas Financeiras (Juros Ativos, Rendimentos)",
+      "type": "RECEITA",
+      "parentCode": "3.01.06"
+    },
+    {
+      "code": "3.01.06.002",
+      "name": "Baixa de Passivo para Receita",
+      "type": "RECEITA",
+      "parentCode": "3.01.06"
+    },
+    {
+      "code": "3.01.06.003",
+      "name": "Ganhos de Capital (Venda de Ativo)",
+      "type": "RECEITA",
+      "parentCode": "3.01.06"
+    },
+    {
+      "code": "3.01.06.004",
+      "name": "Aluguel Recebido",
+      "type": "RECEITA",
+      "parentCode": "3.01.06"
+    },
+    {
+      "code": "4",
+      "name": "CUSTOS E DESPESAS",
+      "type": "DESPESA"
+    },
+    {
+      "code": "4.01",
+      "name": "Custos da Venda (Diretos)",
+      "type": "DESPESA",
+      "parentCode": "4"
+    },
+    {
+      "code": "4.01.01",
+      "name": "Custo de Produto",
+      "type": "DESPESA",
+      "parentCode": "4.01"
+    },
+    {
+      "code": "4.01.01.001",
+      "name": "Custo da Mercadoria Vendida (CMV)",
+      "type": "DESPESA",
+      "parentCode": "4.01.01"
+    },
+    {
+      "code": "4.01.01.002",
+      "name": "Embalagens e Insumos",
+      "type": "DESPESA",
+      "parentCode": "4.01.01"
+    },
+    {
+      "code": "4.01.01.003",
+      "name": "Entregadores de Vendas",
+      "type": "DESPESA",
+      "parentCode": "4.01.01"
+    },
+    {
+      "code": "4.01.01.004",
+      "name": "Taxas de Plataformas",
+      "type": "DESPESA",
+      "parentCode": "4.01.01"
+    },
+    {
+      "code": "4.01.01.005",
+      "name": "Fretes na Compra",
+      "type": "DESPESA",
+      "parentCode": "4.01.01"
+    },
+    {
+      "code": "4.01.01.006",
+      "name": "Gás",
+      "type": "DESPESA",
+      "parentCode": "4.01.01"
+    },
+    {
+      "code": "4.01.02",
+      "name": "Custo de Serviço",
+      "type": "DESPESA",
+      "parentCode": "4.01"
+    },
+    {
+      "code": "4.01.02.001",
+      "name": "Custo de Mão de Obra Direta (CSV)",
+      "type": "DESPESA",
+      "parentCode": "4.01.02"
+    },
+    {
+      "code": "4.01.02.002",
+      "name": "Custos de Insumos Diretos",
+      "type": "DESPESA",
+      "parentCode": "4.01.02"
+    },
+    {
+      "code": "4.01.03",
+      "name": "Despesas de Vendas",
+      "type": "DESPESA",
+      "parentCode": "4.01"
+    },
+    {
+      "code": "4.01.03.001",
+      "name": "Comissões de Vendas",
+      "type": "DESPESA",
+      "parentCode": "4.01.03"
+    },
+    {
+      "code": "4.01.03.002",
+      "name": "Taxas Cartões e Operadoras",
+      "type": "DESPESA",
+      "parentCode": "4.01.03"
+    },
+    {
+      "code": "4.01.03.003",
+      "name": "Simples Nacional",
+      "type": "DESPESA",
+      "parentCode": "4.01.03"
+    },
+    {
+      "code": "4.01.03.004",
+      "name": "PIS",
+      "type": "DESPESA",
+      "parentCode": "4.01.03"
+    },
+    {
+      "code": "4.01.03.005",
+      "name": "COFINS",
+      "type": "DESPESA",
+      "parentCode": "4.01.03"
+    },
+    {
+      "code": "4.01.03.006",
+      "name": "IRPJ/CSLL",
+      "type": "DESPESA",
+      "parentCode": "4.01.03"
+    },
+    {
+      "code": "4.01.03.007",
+      "name": "ICMS",
+      "type": "DESPESA",
+      "parentCode": "4.01.03"
+    },
+    {
+      "code": "4.01.03.008",
+      "name": "ISS",
+      "type": "DESPESA",
+      "parentCode": "4.01.03"
+    },
+    {
+      "code": "4.02",
+      "name": "Despesas Operacionais",
+      "type": "DESPESA",
+      "parentCode": "4"
+    },
+    {
+      "code": "4.02.01",
+      "name": "Despesas com Pessoal",
+      "type": "DESPESA",
+      "parentCode": "4.02"
+    },
+    {
+      "code": "4.02.01.001",
+      "name": "Salários (Operacional e Administrativo)",
+      "type": "DESPESA",
+      "parentCode": "4.02.01"
+    },
+    {
+      "code": "4.02.01.002",
+      "name": "Pró-labore dos Sócios",
+      "type": "DESPESA",
+      "parentCode": "4.02.01"
+    },
+    {
+      "code": "4.02.01.003",
+      "name": "Encargos Sociais (INSS, FGTS - Patronal)",
+      "type": "DESPESA",
+      "parentCode": "4.02.01"
+    },
+    {
+      "code": "4.02.01.004",
+      "name": "Vale Transporte",
+      "type": "DESPESA",
+      "parentCode": "4.02.01"
+    },
+    {
+      "code": "4.02.01.005",
+      "name": "Vale Alimentação",
+      "type": "DESPESA",
+      "parentCode": "4.02.01"
+    },
+    {
+      "code": "4.02.01.006",
+      "name": "Plano de Saúde",
+      "type": "DESPESA",
+      "parentCode": "4.02.01"
+    },
+    {
+      "code": "4.02.01.007",
+      "name": "13º Salário",
+      "type": "DESPESA",
+      "parentCode": "4.02.01"
+    },
+    {
+      "code": "4.02.01.008",
+      "name": "Férias e Adicionais",
+      "type": "DESPESA",
+      "parentCode": "4.02.01"
+    },
+    {
+      "code": "4.02.01.009",
+      "name": "Horas Extras",
+      "type": "DESPESA",
+      "parentCode": "4.02.01"
+    },
+    {
+      "code": "4.02.01.010",
+      "name": "Mão de Obra Temporária",
+      "type": "DESPESA",
+      "parentCode": "4.02.01"
+    },
+    {
+      "code": "4.02.01.011",
+      "name": "Rescisões",
+      "type": "DESPESA",
+      "parentCode": "4.02.01"
+    },
+    {
+      "code": "4.03",
+      "name": "Despesas Administrativas",
+      "type": "DESPESA",
+      "parentCode": "4"
+    },
+    {
+      "code": "4.03.01",
+      "name": "Despesas Administrativas (Fixas Gerais)",
+      "type": "DESPESA",
+      "parentCode": "4.03"
+    },
+    {
+      "code": "4.03.01.001",
+      "name": "Aluguel e Condomínio",
+      "type": "DESPESA",
+      "parentCode": "4.03.01"
+    },
+    {
+      "code": "4.03.01.002",
+      "name": "IPTU e Taxas Municipais",
+      "type": "DESPESA",
+      "parentCode": "4.03.01"
+    },
+    {
+      "code": "4.03.01.003",
+      "name": "Serviços de Contabilidade e Auditoria",
+      "type": "DESPESA",
+      "parentCode": "4.03.01"
+    },
+    {
+      "code": "4.03.01.004",
+      "name": "Serviços Jurídicos e Cartoriais",
+      "type": "DESPESA",
+      "parentCode": "4.03.01"
+    },
+    {
+      "code": "4.03.01.005",
+      "name": "Material de Escritório e Expediente",
+      "type": "DESPESA",
+      "parentCode": "4.03.01"
+    },
+    {
+      "code": "4.03.01.006",
+      "name": "Material de Limpeza e Higienização",
+      "type": "DESPESA",
+      "parentCode": "4.03.01"
+    },
+    {
+      "code": "4.03.01.007",
+      "name": "Correios e Entregas (Adm.)",
+      "type": "DESPESA",
+      "parentCode": "4.03.01"
+    },
+    {
+      "code": "4.03.01.008",
+      "name": "Despesas com Viagens (Administrativas)",
+      "type": "DESPESA",
+      "parentCode": "4.03.01"
+    },
+    {
+      "code": "4.03.01.009",
+      "name": "Seguros (Veículos, Patrimonial, Responsabilidade Civil)",
+      "type": "DESPESA",
+      "parentCode": "4.03.01"
+    },
+    {
+      "code": "4.03.01.010",
+      "name": "Taxas de Fiscalização e Alvarás (Anuais)",
+      "type": "DESPESA",
+      "parentCode": "4.03.01"
+    },
+    {
+      "code": "4.03.01.011",
+      "name": "Energia Elétrica",
+      "type": "DESPESA",
+      "parentCode": "4.03.01"
+    },
+    {
+      "code": "4.03.01.012",
+      "name": "Água e Esgotos",
+      "type": "DESPESA",
+      "parentCode": "4.03.01"
+    },
+    {
+      "code": "4.03.01.013",
+      "name": "Telefone Fixo e Celular",
+      "type": "DESPESA",
+      "parentCode": "4.03.01"
+    },
+    {
+      "code": "4.03.01.014",
+      "name": "Pequenos reparos",
+      "type": "DESPESA",
+      "parentCode": "4.03.01"
+    },
+    {
+      "code": "4.03.01.015",
+      "name": "Manutenção Predial",
+      "type": "DESPESA",
+      "parentCode": "4.03.01"
+    },
+    {
+      "code": "4.03.01.016",
+      "name": "Manutenção Veículos",
+      "type": "DESPESA",
+      "parentCode": "4.03.01"
+    },
+    {
+      "code": "4.03.01.017",
+      "name": "Combustível e Lubrificantes",
+      "type": "DESPESA",
+      "parentCode": "4.03.01"
+    },
+    {
+      "code": "4.03.01.018",
+      "name": "IPVA e Emplacamentos",
+      "type": "DESPESA",
+      "parentCode": "4.03.01"
+    },
+    {
+      "code": "4.04",
+      "name": "Despesas de Marketing",
+      "type": "DESPESA",
+      "parentCode": "4"
+    },
+    {
+      "code": "4.04.01",
+      "name": "Despesas de Marketing",
+      "type": "DESPESA",
+      "parentCode": "4.04"
+    },
+    {
+      "code": "4.04.01.001",
+      "name": "Tráfego Pago (Ads e Redes Sociais)",
+      "type": "DESPESA",
+      "parentCode": "4.04.01"
+    },
+    {
+      "code": "4.04.01.002",
+      "name": "Influencers de Redes Sociais",
+      "type": "DESPESA",
+      "parentCode": "4.04.01"
+    },
+    {
+      "code": "4.04.01.003",
+      "name": "Publicidade Rádio",
+      "type": "DESPESA",
+      "parentCode": "4.04.01"
+    },
+    {
+      "code": "4.04.01.004",
+      "name": "Publicidade Televisão",
+      "type": "DESPESA",
+      "parentCode": "4.04.01"
+    },
+    {
+      "code": "4.04.01.005",
+      "name": "Publicidade Outdoors",
+      "type": "DESPESA",
+      "parentCode": "4.04.01"
+    },
+    {
+      "code": "4.04.01.006",
+      "name": "Publicidade Eventos e Feiras",
+      "type": "DESPESA",
+      "parentCode": "4.04.01"
+    },
+    {
+      "code": "4.06",
+      "name": "Despesas Financeiras",
+      "type": "DESPESA",
+      "parentCode": "4"
+    },
+    {
+      "code": "4.06.01",
+      "name": "Despesas Financeiras",
+      "type": "DESPESA",
+      "parentCode": "4.06"
+    },
+    {
+      "code": "4.06.01.001",
+      "name": "Empréstimos e Amortização de Dívidas",
+      "type": "DESPESA",
+      "parentCode": "4.06.01"
+    },
+    {
+      "code": "4.06.01.002",
+      "name": "Taxas e Tarifas Bancárias",
+      "type": "DESPESA",
+      "parentCode": "4.06.01"
+    },
+    {
+      "code": "4.06.01.003",
+      "name": "Perdas e Danos",
+      "type": "DESPESA",
+      "parentCode": "4.06.01"
+    },
+    {
+      "code": "4.06.01.004",
+      "name": "Doações e Esmolas",
+      "type": "DESPESA",
+      "parentCode": "4.06.01"
+    },
+    {
+      "code": "4.09",
+      "name": "Despesas Operacionais (Gerais)",
+      "type": "DESPESA",
+      "parentCode": "4"
+    },
+    {
+      "code": "4.09.01",
+      "name": "Despesas Operacionais (Gerais)",
+      "type": "DESPESA",
+      "parentCode": "4.09"
+    },
+    {
+      "code": "4.09.01.001",
+      "name": "Despesas de TI e Software (Mensalidades)",
+      "type": "DESPESA",
+      "parentCode": "4.09.01"
+    },
+    {
+      "code": "4.09.01.002",
+      "name": "Custos de Hospedagem e Servidores (Cloud)",
+      "type": "DESPESA",
+      "parentCode": "4.09.01"
+    },
+    {
+      "code": "4.09.01.003",
+      "name": "Internet",
+      "type": "DESPESA",
+      "parentCode": "4.09.01"
+    },
+    {
+      "code": "4.10",
+      "name": "Obrigações Financeiras e Impostos",
+      "type": "DESPESA",
+      "parentCode": "4"
+    },
+    {
+      "code": "4.10.01",
+      "name": "Obrigações Financeiras e Impostos",
+      "type": "DESPESA",
+      "parentCode": "4.10"
+    },
+    {
+      "code": "4.10.01.001",
+      "name": "Parcela Negociação Impostos Atrasados",
+      "type": "DESPESA",
+      "parentCode": "4.10.01"
+    }
+  ]
+}
