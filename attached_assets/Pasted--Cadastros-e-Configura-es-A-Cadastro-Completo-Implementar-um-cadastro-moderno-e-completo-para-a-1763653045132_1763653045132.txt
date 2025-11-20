@@ -1,0 +1,93 @@
+( Cadastros e Configurações
+A. Cadastro Completo
+Implementar um cadastro moderno e completo para as seguintes entidades, incluindo campos como:
+
+Pessoa Física ou Pessoa Jurídica
+
+CNPJ/CPF
+
+Endereço
+
+Redes Sociais e etc.
+
+Entidades para Cadastro:
+
+Fornecedores
+
+Clientes
+
+Multiusuários do Sistema
+
+B. Cadastro da Empresa do Usuário
+O sistema precisa do cadastro da empresa do usuário (para fins de relatórios e documentação).
+
+C. Plano de Contas
+O Plano de Contas é utilizado no cadastro do lançamento da conta (a pagar ou a receber).
+
+É obrigatória a seleção do Plano de Contas no lançamento (cadastro) da Contas a Pagar e Contas a Receber.
+
+II. 💰 Lançamentos e Liquidação de Contas (Pagar e Receber)
+A. Funcionalidades Básicas
+As operações de Editar ou Excluir lançamentos devem ser implementadas.
+
+B. Recorrência
+No módulo Contas a Pagar e Contas a Receber, incluir as seguintes opções:
+
+Opção de Recorrência.
+
+Opção de Prazos de Recorrência (mensal, trimestral, anual, etc.).
+
+C. Baixa (Pagamento e Recebimento)
+A Baixa é o momento de liquidar o pagamento ou recebimento.
+
+Nos módulos Contas a Pagar e Contas a Receber, implementar a opção de Baixa (Pagamento ou Recebimento).
+
+Detalhes Obrigatórios na Baixa:
+
+A conta bancária de onde saiu o dinheiro (para Pagamento) ou para onde entrou o dinheiro (para Recebimento).
+
+A modalidade de pagamento/recebimento (Dinheiro, PIX, Cartão, etc.).
+
+A Data do Pagamento ou Recebimento.
+
+III. 📊 Relatórios e Demonstrações
+A. Demonstração do Resultado do Exercício (DRE)
+A DRE é gerada a partir dos pagamentos e recebimentos, conforme o plano de contas.
+
+Composição:
+
+A DRE deve mostrar as contas e os valores do período lançado.
+
+A ordem de apresentação é: primeiro os créditos, depois os débitos, e, por fim, o resultado (lucro ou prejuízo).
+
+Tipos de Relatórios da DRE:
+
+Relatório Geral: Considerar todos os centros de custo.
+
+Relatório Específico: Permitir a emissão de relatório por seleção de centro de custo e período.
+
+B. Extratos e Rastreamento
+Extrato do Plano de Contas: Um relatório dos lançamentos por plano de contas dentro de um período.
+
+Extrato Bancário Detalhado:
+
+Um relatório dos lançamentos por banco (extrato de banco) dentro de um período.
+
+Deve incluir a coluna SALDO.
+
+As colunas obrigatórias para rastreio são: Crédito (C) / Débito (D), Descrição, Fornecedor/Cliente, Conta Contábil, Centro de Custo (CC), Número do Documento, Data e Valor.
+
+Relatório de Contas a Pagar e Receber:
+
+Deve ser possível gerar um relatório com filtros por:
+
+Período de Data.
+
+Centro de Custo: Com opção de seleção para centro de custo individual ou todos os centros de custos.
+
+IV. 🖼️ Funcionalidades Adicionais (Arquivamento)
+Arquivamento de Imagens: Nas contas a pagar e a receber, deve haver a opção de fazer upload da imagem do documento que gerou o lançamento.
+
+A inclusão da imagem não é obrigatória para que o sistema acate a operação.
+
+A finalidade é apenas para arquivamento e para manter a origem do débito/recebimento.) Faça uma auditoria do que ja está consolidado no sistema e implemente os itens faltantes.
