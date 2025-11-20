@@ -15,6 +15,7 @@ import {
   insertCustomerSchema,
   insertActivitySchema,
   updateActivitySchema,
+  insertCompanySchema,
 } from "@shared/schema";
 import { validateAllocations, calculateAmounts } from "@shared/allocationUtils";
 import { z } from "zod";
@@ -1035,10 +1036,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/company', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const company = await storage.upsertCompany({ ...req.body, userId });
+      
+      // Validate request body (insertCompanySchema already omits userId)
+      const validated = insertCompanySchema.parse(req.body);
+      
+      // Add userId to the validated data
+      const company = await storage.upsertCompany({ ...validated, userId });
       res.json(company);
     } catch (error: any) {
       console.error("Error upserting company:", error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ 
+          message: "Dados da empresa inválidos", 
+          errors: error.errors 
+        });
+      }
       res.status(400).json({ message: error.message || "Failed to save company data" });
     }
   });

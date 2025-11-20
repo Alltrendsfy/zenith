@@ -41,7 +41,7 @@ The backend utilizes **Node.js** with **Express.js** and **TypeScript** (ES modu
 
 The data layer uses **Drizzle ORM** with **PostgreSQL** dialect via **Neon serverless** driver.
 - **Schema**: Centralized schema definitions in `shared/schema.ts` with type inference.
-- **Database Tables**: `sessions`, `users`, `bank_accounts`, `accounts_payable`, `accounts_receivable`, `chart_of_accounts`, `cost_centers`, `bank_transfers`, `cost_allocations`, `payments`, and `activities`.
+- **Database Tables**: `sessions`, `users`, `bank_accounts`, `accounts_payable`, `accounts_receivable`, `chart_of_accounts`, `cost_centers`, `bank_transfers`, `cost_allocations`, `payments`, `activities`, and `companies`.
 - **Payment Methods Enum**: PIX, dinheiro (cash), cartao_credito, cartao_debito, transferencia, boleto, cheque, outros.
 - **Schema Patterns**: PostgreSQL enums, `createdAt`/`updatedAt` timestamps, UUID primary keys, Drizzle-Zod integration, hierarchical structures via `parentId`, and decimal types for financial amounts.
 - **Key Design Decisions**: Drizzle for type-safe SQL, shared schema for consistency, hierarchical structures, decimal types, and Zod transformations for nullable fields.
@@ -73,6 +73,25 @@ Authentication is handled via **Replit OpenID Connect (OIDC)** using **Passport.
   - Storage: `createPayment`, `processPayableBaixa`, `processReceivableBaixa` methods
   - API Routes: `POST /api/accounts-payable/:id/baixa` and `POST /api/accounts-receivable/:id/baixa`
 - **Testing**: End-to-end tested with partial payment (R$300) and final payment (R$500), verifying status transitions and optional bank account handling.
+
+### Company Settings Module
+- **Implementation Date**: November 20, 2025
+- **Tables Added**: `companies` table with unique constraint on `userId` (one-to-one with users)
+- **Features**:
+  - Complete company registration: Razão Social, Nome Fantasia, CNPJ, tax IDs
+  - Contact information: email, phone, website
+  - Address fields: CEP, street, number, complement, neighborhood, city, state
+  - Logo URL storage
+  - Accessible only to admin users
+- **Technical Details**:
+  - Frontend: `CompanySettings` page using shared `insertCompanySchema` with UI extensions for optional URL/email validation
+  - Schema Pattern: Optional URL/email fields accept empty strings, transformed to undefined before submission
+  - Backend: API routes validate with `insertCompanySchema`, add userId from session
+  - Storage: `getCompany`, `upsertCompany` methods with unique constraint handling
+  - API Routes: `GET /api/company`, `POST /api/company`
+  - Navigation: Integrated in Administration section of sidebar (Settings icon)
+- **Bug Fixes**: Fixed `upsertUser` method to prevent unique constraint violations during login by checking for existing user ID before insert
+- **Testing**: End-to-end tested with create/update workflows, empty optional fields, and URL field validation.
 
 ## External Dependencies
 

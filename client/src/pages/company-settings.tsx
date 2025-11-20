@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -17,28 +16,21 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Building2, Save } from "lucide-react";
-import type { Company } from "@shared/schema";
+import { insertCompanySchema, type Company, type InsertCompany } from "@shared/schema";
+import { z } from "zod";
 
-const companySchema = z.object({
-  razaoSocial: z.string().min(1, "Razão Social é obrigatória"),
-  nomeFantasia: z.string().optional(),
-  cnpj: z.string().optional(),
-  inscricaoEstadual: z.string().optional(),
-  inscricaoMunicipal: z.string().optional(),
+const companyFormSchema = insertCompanySchema.extend({
   email: z.string().email("Email inválido").optional().or(z.literal("")),
-  telefone: z.string().optional(),
   website: z.string().url("URL inválida").optional().or(z.literal("")),
-  cep: z.string().optional(),
-  endereco: z.string().optional(),
-  numero: z.string().optional(),
-  complemento: z.string().optional(),
-  bairro: z.string().optional(),
-  cidade: z.string().optional(),
-  estado: z.string().optional(),
   logoUrl: z.string().url("URL inválida").optional().or(z.literal("")),
-});
+}).transform((data) => ({
+  ...data,
+  email: data.email === '' ? undefined : data.email,
+  website: data.website === '' ? undefined : data.website,
+  logoUrl: data.logoUrl === '' ? undefined : data.logoUrl,
+}));
 
-type CompanyFormData = z.infer<typeof companySchema>;
+type CompanyFormData = z.infer<typeof companyFormSchema>;
 
 export default function CompanySettings() {
   const { toast } = useToast();
@@ -49,7 +41,7 @@ export default function CompanySettings() {
   });
 
   const form = useForm<CompanyFormData>({
-    resolver: zodResolver(companySchema),
+    resolver: zodResolver(companyFormSchema),
     defaultValues: {
       razaoSocial: "",
       nomeFantasia: "",
@@ -123,12 +115,12 @@ export default function CompanySettings() {
     return (
       <div className="container mx-auto p-6">
         <div className="flex items-center gap-2 mb-6">
-          <Building2 className="h-6 w-6" />
-          <h1 className="text-2xl font-semibold">Configurações da Empresa</h1>
+          <Building2 className="h-6 w-6" data-testid="icon-building" />
+          <h1 className="text-2xl font-semibold" data-testid="text-page-title">Configurações da Empresa</h1>
         </div>
         <Card>
           <CardContent className="p-6">
-            <p className="text-muted-foreground">Carregando...</p>
+            <p className="text-muted-foreground" data-testid="text-loading">Carregando...</p>
           </CardContent>
         </Card>
       </div>
@@ -138,15 +130,15 @@ export default function CompanySettings() {
   return (
     <div className="container mx-auto p-6">
       <div className="flex items-center gap-2 mb-6">
-        <Building2 className="h-6 w-6" />
-        <h1 className="text-2xl font-semibold">Configurações da Empresa</h1>
+        <Building2 className="h-6 w-6" data-testid="icon-building" />
+        <h1 className="text-2xl font-semibold" data-testid="text-page-title">Configurações da Empresa</h1>
       </div>
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          <Card>
+          <Card data-testid="card-dados-gerais">
             <CardHeader>
-              <CardTitle>Dados Gerais</CardTitle>
+              <CardTitle data-testid="text-section-dados-gerais">Dados Gerais</CardTitle>
               <CardDescription>
                 Informações básicas da sua empresa
               </CardDescription>
@@ -248,9 +240,9 @@ export default function CompanySettings() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card data-testid="card-contato">
             <CardHeader>
-              <CardTitle>Contato</CardTitle>
+              <CardTitle data-testid="text-section-contato">Contato</CardTitle>
               <CardDescription>
                 Informações de contato da empresa
               </CardDescription>
@@ -316,9 +308,9 @@ export default function CompanySettings() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card data-testid="card-endereco">
             <CardHeader>
-              <CardTitle>Endereço</CardTitle>
+              <CardTitle data-testid="text-section-endereco">Endereço</CardTitle>
               <CardDescription>
                 Localização da empresa
               </CardDescription>
