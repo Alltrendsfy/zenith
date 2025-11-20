@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react"
 import { useQuery, useMutation } from "@tanstack/react-query"
 import { useAuth } from "@/hooks/useAuth"
+import { usePermissions } from "@/hooks/usePermissions"
 import { useToast } from "@/hooks/use-toast"
 import { isUnauthorizedError } from "@/lib/authUtils"
 import { PageHeader } from "@/components/page-header"
@@ -45,6 +46,7 @@ const formSchema = z.object({
 export default function BankTransfers() {
   const { toast } = useToast()
   const { isAuthenticated, isLoading: authLoading } = useAuth()
+  const { canCreate, canUpdate, canDelete } = usePermissions()
   const [open, setOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
 
@@ -159,7 +161,7 @@ export default function BankTransfers() {
 
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button data-testid="button-new-transfer">
+              <Button disabled={!canCreate} data-testid="button-new-transfer">
                 <Plus className="h-4 w-4 mr-2" />
                 Nova Transferência
               </Button>

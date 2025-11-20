@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { usePermissions } from "@/hooks/usePermissions";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -40,6 +41,7 @@ export default function SuppliersPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
   const { toast } = useToast();
+  const { canCreate, canUpdate, canDelete } = usePermissions();
 
   const { data: suppliers = [], isLoading } = useQuery<Supplier[]>({
     queryKey: ["/api/suppliers"],
@@ -152,7 +154,7 @@ export default function SuppliersPage() {
           <h1 className="text-3xl font-bold">Fornecedores</h1>
           <p className="text-muted-foreground">Gerencie seus fornecedores</p>
         </div>
-        <Button onClick={handleOpenDialog} data-testid="button-add-supplier">
+        <Button disabled={!canCreate} onClick={handleOpenDialog} data-testid="button-add-supplier">
           <Plus className="mr-2 h-4 w-4" />
           Novo Fornecedor
         </Button>
@@ -204,6 +206,7 @@ export default function SuppliersPage() {
                       <Button
                         variant="ghost"
                         size="icon"
+                        disabled={!canUpdate}
                         onClick={() => handleEdit(supplier)}
                         data-testid={`button-edit-supplier-${supplier.id}`}
                       >
@@ -212,6 +215,7 @@ export default function SuppliersPage() {
                       <Button
                         variant="ghost"
                         size="icon"
+                        disabled={!canDelete}
                         onClick={() => handleDelete(supplier.id)}
                         data-testid={`button-delete-supplier-${supplier.id}`}
                       >

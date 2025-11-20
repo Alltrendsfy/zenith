@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { usePermissions } from "@/hooks/usePermissions";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -39,6 +40,7 @@ export default function CustomersPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const { toast } = useToast();
+  const { canCreate, canUpdate, canDelete } = usePermissions();
 
   const { data: customers = [], isLoading } = useQuery<Customer[]>({
     queryKey: ["/api/customers"],
@@ -151,7 +153,7 @@ export default function CustomersPage() {
           <h1 className="text-3xl font-bold">Clientes</h1>
           <p className="text-muted-foreground">Gerencie seus clientes</p>
         </div>
-        <Button onClick={handleOpenDialog} data-testid="button-add-customer">
+        <Button disabled={!canCreate} onClick={handleOpenDialog} data-testid="button-add-customer">
           <Plus className="mr-2 h-4 w-4" />
           Novo Cliente
         </Button>
@@ -201,6 +203,7 @@ export default function CustomersPage() {
                       <Button
                         variant="ghost"
                         size="icon"
+                        disabled={!canUpdate}
                         onClick={() => handleEdit(customer)}
                         data-testid={`button-edit-customer-${customer.id}`}
                       >
@@ -209,6 +212,7 @@ export default function CustomersPage() {
                       <Button
                         variant="ghost"
                         size="icon"
+                        disabled={!canDelete}
                         onClick={() => handleDelete(customer.id)}
                         data-testid={`button-delete-customer-${customer.id}`}
                       >

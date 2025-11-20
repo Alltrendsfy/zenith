@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react"
 import { useQuery, useMutation } from "@tanstack/react-query"
 import { useAuth } from "@/hooks/useAuth"
+import { usePermissions } from "@/hooks/usePermissions"
 import { useToast } from "@/hooks/use-toast"
 import { isUnauthorizedError } from "@/lib/authUtils"
 import { PageHeader } from "@/components/page-header"
@@ -39,6 +40,7 @@ const formSchema = z.object({
 export default function CostCenters() {
   const { toast } = useToast()
   const { isAuthenticated, isLoading: authLoading } = useAuth()
+  const { canCreate, canUpdate, canDelete } = usePermissions()
   const [open, setOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
 
@@ -139,7 +141,7 @@ export default function CostCenters() {
 
           <Dialog open={open} onOpenChange={setOpen}>
                 <DialogTrigger asChild>
-                  <Button data-testid="button-add-cost-center">
+                  <Button disabled={!canCreate} data-testid="button-add-cost-center">
                     <Plus className="h-4 w-4 mr-2" />
                     Novo Centro de Custo
                   </Button>
