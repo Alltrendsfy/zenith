@@ -120,7 +120,7 @@ export default function CostCenters() {
       setOpen(false)
       form.reset()
     },
-    onError: (error) => {
+    onError: (error: any) => {
       if (isUnauthorizedError(error as Error)) {
         toast({
           title: "Não autorizado",
@@ -134,7 +134,7 @@ export default function CostCenters() {
       }
       toast({
         title: "Erro",
-        description: "Falha ao criar centro de custo",
+        description: error.message || "Falha ao criar centro de custo",
         variant: "destructive",
       })
     },
@@ -159,7 +159,7 @@ export default function CostCenters() {
       setEditingCenter(null)
       form.reset()
     },
-    onError: (error) => {
+    onError: (error: any) => {
       if (isUnauthorizedError(error as Error)) {
         toast({
           title: "Não autorizado",
@@ -173,7 +173,7 @@ export default function CostCenters() {
       }
       toast({
         title: "Erro",
-        description: "Falha ao atualizar centro de custo",
+        description: error.message || "Falha ao atualizar centro de custo",
         variant: "destructive",
       })
     },

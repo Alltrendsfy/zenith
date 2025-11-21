@@ -469,12 +469,61 @@ export class DatabaseStorage implements IStorage {
     return center;
   }
 
+  // Helper to check if creating a parent relationship would create a cycle
+  private async wouldCreateCycle(centerId: string, proposedParentId: string, userId: string): Promise<boolean> {
+    // Self-reference check
+    if (centerId === proposedParentId) {
+      return true;
+    }
+    
+    // Walk up the parent chain from proposedParentId
+    let currentId: string | null = proposedParentId;
+    const visited = new Set<string>();
+    
+    while (currentId) {
+      // Prevent infinite loops
+      if (visited.has(currentId)) {
+        return true;
+      }
+      visited.add(currentId);
+      
+      // If we reach the center we're trying to update, we have a cycle
+      if (currentId === centerId) {
+        return true;
+      }
+      
+      // Get parent of current node
+      const [current] = await db
+        .select({ parentId: costCenters.parentId })
+        .from(costCenters)
+        .where(and(eq(costCenters.id, currentId), eq(costCenters.userId, userId)));
+      
+      if (!current) {
+        break; // Parent not found, no cycle
+      }
+      
+      currentId = current.parentId;
+    }
+    
+    return false;
+  }
+
   async createCostCenter(center: InsertCostCenter): Promise<CostCenter> {
+    // Note: For creation, we generate the ID after insert, so we can't check cycles beforehand
+    // The database structure naturally prevents self-reference on creation
     const [created] = await db.insert(costCenters).values(center).returning();
     return created;
   }
 
   async updateCostCenter(id: string, userId: string, data: Partial<InsertCostCenter>): Promise<CostCenter | undefined> {
+    // If updating parentId, check for circular reference
+    if (data.parentId !== undefined && data.parentId !== null) {
+      const wouldCycle = await this.wouldCreateCycle(id, data.parentId, userId);
+      if (wouldCycle) {
+        throw new Error("Não é possível definir este centro de custo como pai porque criaria uma referência circular na hierarquia.");
+      }
+    }
+    
     const [updated] = await db
       .update(costCenters)
       .set({ ...data, updatedAt: new Date() })
@@ -493,24 +542,30 @@ export class DatabaseStorage implements IStorage {
       throw new Error(`Não é possível excluir este centro de custo porque ele possui ${children.count} centro(s) de custo filho(s). Remova ou reatribua os centros filhos antes de excluir.`);
     }
     
-    // Check if the cost center has any associated transactions or allocations
-    const [payables] = await db.select({ count: sql<number>`count(*)::int` })
-      .from(accountsPayable)
-      .where(and(eq(accountsPayable.costCenterId, id), eq(accountsPayable.userId, userId)));
-    
-    const [receivables] = await db.select({ count: sql<number>`count(*)::int` })
-      .from(accountsReceivable)
-      .where(and(eq(accountsReceivable.costCenterId, id), eq(accountsReceivable.userId, userId)));
-    
     // Check cost allocations (rateio) - these are the main way cost centers are used
     const [allocations] = await db.select({ count: sql<number>`count(*)::int` })
       .from(costAllocations)
       .where(and(eq(costAllocations.costCenterId, id), eq(costAllocations.userId, userId)));
     
-    const totalTransactions = (payables?.count || 0) + (receivables?.count || 0) + (allocations?.count || 0);
+    if ((allocations?.count || 0) > 0) {
+      throw new Error(`Não é possível excluir este centro de custo porque ele possui ${allocations.count} rateio(s) de custo associado(s). Remova os rateios antes de excluir o centro de custo.`);
+    }
     
-    if (totalTransactions > 0) {
-      throw new Error(`Não é possível excluir este centro de custo porque ele possui ${totalTransactions} transação(ões) associada(s). Remova as transações antes de excluir o centro de custo.`);
+    // Check if the cost center has any associated payables or receivables
+    const [payables] = await db.select({ count: sql<number>`count(*)::int` })
+      .from(accountsPayable)
+      .where(and(eq(accountsPayable.costCenterId, id), eq(accountsPayable.userId, userId)));
+    
+    if ((payables?.count || 0) > 0) {
+      throw new Error(`Não é possível excluir este centro de custo porque ele possui ${payables.count} conta(s) a pagar associada(s). Remova as contas antes de excluir o centro de custo.`);
+    }
+    
+    const [receivables] = await db.select({ count: sql<number>`count(*)::int` })
+      .from(accountsReceivable)
+      .where(and(eq(accountsReceivable.costCenterId, id), eq(accountsReceivable.userId, userId)));
+    
+    if ((receivables?.count || 0) > 0) {
+      throw new Error(`Não é possível excluir este centro de custo porque ele possui ${receivables.count} conta(s) a receber associada(s). Remova as contas antes de excluir o centro de custo.`);
     }
     
     const result = await db.delete(costCenters).where(and(eq(costCenters.id, id), eq(costCenters.userId, userId)));

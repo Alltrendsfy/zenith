@@ -518,7 +518,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/cost-centers', isAuthenticated, requireManager, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const validated = insertCostCenterSchema.parse(req.body);
+      
+      // Sanitize empty strings to null for optional fields
+      const sanitizedData = {
+        ...req.body,
+        parentId: req.body.parentId === '' || req.body.parentId === 'none' ? null : req.body.parentId,
+        description: req.body.description === '' ? null : req.body.description,
+      };
+      
+      const validated = insertCostCenterSchema.parse(sanitizedData);
       const center = await storage.createCostCenter({
         ...validated,
         userId,
@@ -535,10 +543,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const { id } = req.params;
       
-      // Convert empty strings to null for optional fields
+      // Convert empty strings and 'none' to null for optional fields
       const sanitizedData = {
         ...req.body,
-        parentId: req.body.parentId === '' ? null : req.body.parentId,
+        parentId: req.body.parentId === '' || req.body.parentId === 'none' ? null : req.body.parentId,
         description: req.body.description === '' ? null : req.body.description,
       };
       
