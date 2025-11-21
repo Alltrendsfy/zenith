@@ -281,6 +281,16 @@ export default function AccountsReceivable() {
     return receivable.customerName || "-"
   }
 
+  // Calculate display amount: for "parcial", show remaining balance; otherwise show total
+  const getDisplayAmount = (receivable: AccountsReceivable): number => {
+    if (receivable.status === 'parcial') {
+      const total = parseFloat(receivable.totalAmount);
+      const paid = parseFloat(receivable.amountPaid || '0');
+      return total - paid;
+    }
+    return parseFloat(receivable.totalAmount);
+  }
+
   const filteredReceivables = receivables?.filter(r =>
     r.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
     r.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -693,8 +703,8 @@ export default function AccountsReceivable() {
                           value: format(new Date(receivable.dueDate), 'dd/MM/yyyy'),
                         },
                         {
-                          label: "Valor Total",
-                          value: `R$ ${parseFloat(receivable.totalAmount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+                          label: "Valor",
+                          value: `R$ ${getDisplayAmount(receivable).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
                           className: "text-lg font-bold font-mono",
                         },
                         {
@@ -735,7 +745,7 @@ export default function AccountsReceivable() {
                           <TableCell>{getCustomerName(receivable)}</TableCell>
                           <TableCell>{format(new Date(receivable.dueDate), 'dd/MM/yyyy')}</TableCell>
                           <TableCell className="text-right font-mono">
-                            R$ {parseFloat(receivable.totalAmount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            R$ {getDisplayAmount(receivable).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                           </TableCell>
                           <TableCell>
                             <StatusBadge status={receivable.status || 'pendente'} />
