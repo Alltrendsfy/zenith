@@ -109,6 +109,26 @@ Authentication is handled via **Replit OpenID Connect (OIDC)** using **Passport.
   - Permission Helper: `isManager` returns true for both admin and gerente roles
 - **Testing**: End-to-end tested with gerente user login, verified sidebar visibility, company settings access/edit, and user management access/operations.
 
+### Bank Statement Report (Extrato Bancário)
+- **Implementation Date**: November 21, 2025
+- **Features**:
+  - Complete transaction history for bank accounts with progressive balance calculation
+  - **Filters**: Bank account selection, date range (start/end date)
+  - **Transaction Aggregation**: Combines payments from Accounts Payable (debits), Accounts Receivable (credits), and Bank Transfers
+  - **Detailed Columns**: Date, C/D (Credit/Debit indicator), Description, Entity (Supplier/Customer), Chart of Account, Cost Center, Document Number, Amount, Progressive Balance
+  - **Summary Totals**: Total Credits, Total Debits, Final Balance
+  - **Print Functionality**: Print-optimized view for physical records
+- **Technical Details**:
+  - Frontend: `bank-statement.tsx` page with responsive design, filters using Shadcn Select and date inputs
+  - Backend: `getBankStatement` storage method aggregating from `payments` and `bank_transfers` tables
+  - API Route: `GET /api/reports/bank-statement?bankAccountId=X&startDate=Y&endDate=Z` with Zod validation (`bankStatementFiltersSchema`)
+  - **Progressive Balance Logic**: Starts from initial bank account balance, chronologically sorts all transactions, subtracts debits, adds credits
+  - **Data Aggregation**: LEFT JOINs to suppliers, customers, chart_of_accounts, cost_centers; UNION of payable/receivable payments with transfers
+  - **Security**: Ownership verification via `getBankAccount(bankAccountId, userId)` ensures users only access their own data
+  - **Data-testid Attributes**: Complete coverage on filters, table rows/cells, summary totals for automated testing
+- **Bug Fixes**: Corrected `getBankAccount` parameter order in API route (was `userId, bankAccountId`, now correctly `bankAccountId, userId`)
+- **Testing**: End-to-end automated test validates transaction display, progressive balance calculation (R$ 5.000,00 → R$ 3.800,00 → R$ 2.950,00), summary totals (R$ 2.050,00 debits), and print button functionality.
+
 ## External Dependencies
 
 ### Third-Party Services
