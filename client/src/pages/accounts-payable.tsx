@@ -282,6 +282,16 @@ export default function AccountsPayable() {
     return payable.supplierName || "-"
   }
 
+  // Calculate display amount: for "parcial", show remaining balance; otherwise show total
+  const getDisplayAmount = (payable: AccountsPayable): number => {
+    if (payable.status === 'parcial') {
+      const total = parseFloat(payable.totalAmount);
+      const paid = parseFloat(payable.amountPaid || '0');
+      return total - paid;
+    }
+    return parseFloat(payable.totalAmount);
+  }
+
   const filteredPayables = payables?.filter(p =>
     p.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
     p.supplierName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -694,8 +704,8 @@ export default function AccountsPayable() {
                           value: format(new Date(payable.dueDate), 'dd/MM/yyyy'),
                         },
                         {
-                          label: "Valor Total",
-                          value: `R$ ${parseFloat(payable.totalAmount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+                          label: "Valor",
+                          value: `R$ ${getDisplayAmount(payable).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
                           className: "text-lg font-bold font-mono",
                         },
                         {
@@ -736,7 +746,7 @@ export default function AccountsPayable() {
                           <TableCell>{getSupplierName(payable)}</TableCell>
                           <TableCell>{format(new Date(payable.dueDate), 'dd/MM/yyyy')}</TableCell>
                           <TableCell className="text-right font-mono">
-                            R$ {parseFloat(payable.totalAmount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            R$ {getDisplayAmount(payable).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                           </TableCell>
                           <TableCell>
                             <StatusBadge status={payable.status || 'pendente'} />
