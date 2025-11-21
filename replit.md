@@ -129,6 +129,40 @@ Authentication is handled via **Replit OpenID Connect (OIDC)** using **Passport.
 - **Bug Fixes**: Corrected `getBankAccount` parameter order in API route (was `userId, bankAccountId`, now correctly `bankAccountId, userId`)
 - **Testing**: End-to-end automated test validates transaction display, progressive balance calculation (R$ 5.000,00 → R$ 3.800,00 → R$ 2.950,00), summary totals (R$ 2.050,00 debits), and print button functionality.
 
+### Sidebar Menu Reorganization
+- **Implementation Date**: November 21, 2025
+- **Changes Made**: Complete restructuring of sidebar navigation to improve user experience and logical grouping
+- **New Menu Structure**:
+  - **MENU PRINCIPAL**:
+    - Dashboard
+    - Contas a Pagar (expandable with submenus: Cadastro a Pagar, Relatórios)
+    - Contas a Receber (expandable with submenus: Cadastro a Receber, Relatórios)
+    - Transferências
+    - Relatórios (expandable with submenus: DRE, Extrato de Conta)
+    - Agenda
+  - **CADASTROS**:
+    - Fornecedores
+    - Clientes
+    - Centros de Custo
+    - Contas Bancárias
+    - Plano de Contas
+  - **ADMINISTRAÇÃO** (visible to admin and gerente roles):
+    - Dados da Empresa
+    - Gerenciar Usuários
+    - Configurações
+- **Technical Details**:
+  - Implemented using Shadcn Collapsible components for expandable menu items
+  - ChevronRight icons with rotation animation indicate expand/collapse state
+  - All submenus default to open (defaultOpen) for better UX
+  - Moved Centros de Custo, Contas Bancárias, and Plano de Contas from main menu to Cadastros section
+  - Added Configurações link to Administração section
+  - Updated all data-testid attributes to match new menu structure
+- **UX Improvements**:
+  - Logical grouping: Financial operations (Payable/Receivable) grouped with their reports
+  - Cadastros section now contains all master data management
+  - Cleaner main menu with expandable sections reducing visual clutter
+  - Consistent naming: "Extrato Bancário" renamed to "Extrato de Conta" in menu
+
 ## External Dependencies
 
 ### Third-Party Services
