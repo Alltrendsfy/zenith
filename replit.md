@@ -34,6 +34,7 @@ Authentication is managed via Replit OpenID Connect (OIDC) using Passport.js and
 *   **Bank Statement Report**: Provides a complete transaction history for bank accounts with progressive balance calculation, date range filtering, and print functionality, aggregating data from payments and transfers.
 *   **Sidebar Menu Reorganization**: Restructured navigation for improved UX, logical grouping of financial operations, master data management, and administration sections, utilizing Shadcn Collapsible components.
 *   **Chart of Accounts Integration**: Optional "Conta Contábil" (Chart of Accounts) field added to Accounts Payable and Receivable forms, filtering for analytical accounts.
+*   **Recurrence with Editable Preview**: User-defined quantity recurrence for monthly/quarterly/annual payments. RecurrencePreview component displays all installments in an editable table, allowing modification of individual due dates and amounts before saving. Batch creation endpoints (POST /api/accounts-payable/batch and /api/accounts-receivable/batch) create all installments atomically with proper parent-child linkage via recurrenceParentId/parentReceivableId.
 
 ## External Dependencies
 

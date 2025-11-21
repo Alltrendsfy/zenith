@@ -105,3 +105,36 @@ export function getRecurrenceStatusLabel(status: RecurrenceStatus): string {
 export function toISODateString(date: Date): string {
   return date.toISOString().split('T')[0];
 }
+
+/**
+ * Generate all installment dates for a recurrence
+ */
+export function generateInstallmentDates(
+  startDate: string,
+  recurrenceType: RecurrenceType,
+  count: number
+): string[] {
+  if (recurrenceType === 'unica' || count < 1 || !startDate) {
+    return [];
+  }
+
+  const currentDate = new Date(startDate + 'T00:00:00');
+  
+  // Validate date
+  if (isNaN(currentDate.getTime())) {
+    return [];
+  }
+
+  const dates: string[] = [];
+  let dateIterator = currentDate;
+  
+  for (let i = 0; i < count; i++) {
+    dates.push(toISODateString(dateIterator));
+    const nextDate = calculateNextRecurrenceDate(dateIterator, recurrenceType);
+    if (nextDate) {
+      dateIterator = nextDate;
+    }
+  }
+  
+  return dates;
+}

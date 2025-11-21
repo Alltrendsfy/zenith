@@ -63,6 +63,7 @@ export interface IStorage {
   getAccountsPayable(userId: string): Promise<AccountsPayable[]>;
   getAccountPayable(id: string, userId: string): Promise<AccountsPayable | undefined>;
   createAccountPayable(account: InsertAccountsPayable): Promise<AccountsPayable>;
+  createAccountsPayableBatch(accounts: InsertAccountsPayable[]): Promise<AccountsPayable[]>;
   updateAccountPayable(id: string, userId: string, data: Partial<InsertAccountsPayable>): Promise<AccountsPayable | undefined>;
   deleteAccountPayable(id: string, userId: string): Promise<boolean>;
 
@@ -70,6 +71,7 @@ export interface IStorage {
   getAccountsReceivable(userId: string): Promise<AccountsReceivable[]>;
   getAccountReceivable(id: string, userId: string): Promise<AccountsReceivable | undefined>;
   createAccountReceivable(account: InsertAccountsReceivable): Promise<AccountsReceivable>;
+  createAccountsReceivableBatch(accounts: InsertAccountsReceivable[]): Promise<AccountsReceivable[]>;
   updateAccountReceivable(id: string, userId: string, data: Partial<InsertAccountsReceivable>): Promise<AccountsReceivable | undefined>;
   deleteAccountReceivable(id: string, userId: string): Promise<boolean>;
 
@@ -249,6 +251,32 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
+  async createAccountsPayableBatch(accounts: InsertAccountsPayable[]): Promise<AccountsPayable[]> {
+    if (accounts.length === 0) {
+      return [];
+    }
+    
+    // Use transaction to ensure atomicity
+    return await db.transaction(async (tx) => {
+      // Insert first installment
+      const [firstAccount] = await tx.insert(accountsPayable).values(accounts[0]).returning();
+      const allCreated: AccountsPayable[] = [firstAccount];
+      
+      // Insert remaining installments with parent reference
+      if (accounts.length > 1) {
+        const remainingAccounts = accounts.slice(1).map(acc => ({
+          ...acc,
+          recurrenceParentId: firstAccount.id,
+        }));
+        
+        const remaining = await tx.insert(accountsPayable).values(remainingAccounts).returning();
+        allCreated.push(...remaining);
+      }
+      
+      return allCreated;
+    });
+  }
+
   async updateAccountPayable(id: string, userId: string, data: Partial<InsertAccountsPayable>): Promise<AccountsPayable | undefined> {
     const [updated] = await db
       .update(accountsPayable)
@@ -276,6 +304,32 @@ export class DatabaseStorage implements IStorage {
   async createAccountReceivable(account: InsertAccountsReceivable): Promise<AccountsReceivable> {
     const [created] = await db.insert(accountsReceivable).values(account).returning();
     return created;
+  }
+
+  async createAccountsReceivableBatch(accounts: InsertAccountsReceivable[]): Promise<AccountsReceivable[]> {
+    if (accounts.length === 0) {
+      return [];
+    }
+    
+    // Use transaction to ensure atomicity
+    return await db.transaction(async (tx) => {
+      // Insert first installment
+      const [firstAccount] = await tx.insert(accountsReceivable).values(accounts[0]).returning();
+      const allCreated: AccountsReceivable[] = [firstAccount];
+      
+      // Insert remaining installments with parent reference
+      if (accounts.length > 1) {
+        const remainingAccounts = accounts.slice(1).map(acc => ({
+          ...acc,
+          parentReceivableId: firstAccount.id,
+        }));
+        
+        const remaining = await tx.insert(accountsReceivable).values(remainingAccounts).returning();
+        allCreated.push(...remaining);
+      }
+      
+      return allCreated;
+    });
   }
 
   async updateAccountReceivable(id: string, userId: string, data: Partial<InsertAccountsReceivable>): Promise<AccountsReceivable | undefined> {

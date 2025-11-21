@@ -233,6 +233,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post('/api/accounts-payable/batch', isAuthenticated, requirePermission('canCreate'), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { installments } = req.body;
+      
+      if (!Array.isArray(installments) || installments.length === 0) {
+        return res.status(400).json({ message: "Installments array is required and cannot be empty" });
+      }
+      
+      // Validate each installment and add userId
+      const validatedInstallments = installments.map(inst => {
+        const validated = insertAccountsPayableSchema.parse(inst);
+        return {
+          ...validated,
+          userId,
+        };
+      });
+      
+      const accounts = await storage.createAccountsPayableBatch(validatedInstallments);
+      res.json(accounts);
+    } catch (error: any) {
+      console.error("Error creating accounts payable batch:", error);
+      res.status(400).json({ message: error.message || "Failed to create accounts payable batch" });
+    }
+  });
+
   // Accounts Receivable
   app.get('/api/accounts-receivable', isAuthenticated, async (req: any, res) => {
     try {
@@ -259,6 +285,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error creating account receivable:", error);
       res.status(400).json({ message: error.message || "Failed to create account receivable" });
+    }
+  });
+
+  app.post('/api/accounts-receivable/batch', isAuthenticated, requirePermission('canCreate'), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { installments } = req.body;
+      
+      if (!Array.isArray(installments) || installments.length === 0) {
+        return res.status(400).json({ message: "Installments array is required and cannot be empty" });
+      }
+      
+      // Validate each installment and add userId
+      const validatedInstallments = installments.map(inst => {
+        const validated = insertAccountsReceivableSchema.parse(inst);
+        return {
+          ...validated,
+          userId,
+        };
+      });
+      
+      const accounts = await storage.createAccountsReceivableBatch(validatedInstallments);
+      res.json(accounts);
+    } catch (error: any) {
+      console.error("Error creating accounts receivable batch:", error);
+      res.status(400).json({ message: error.message || "Failed to create accounts receivable batch" });
     }
   });
 

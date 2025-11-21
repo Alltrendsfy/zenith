@@ -31,6 +31,7 @@ import { EmptyState } from "@/components/empty-state"
 import { MobileCardList, type MobileCardProps } from "@/components/mobile-card-list"
 import { MobileFormActions } from "@/components/mobile-form-actions"
 import { AllocationManager, type AllocationInput } from "@/components/allocation-manager"
+import { RecurrencePreview, type RecurrenceInstallment } from "@/components/recurrence-preview"
 import { apiRequest, queryClient } from "@/lib/queryClient"
 import type { AccountsReceivable, Customer, ChartOfAccounts } from "@shared/schema"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -48,6 +49,7 @@ const formSchema = z.object({
   accountId: z.string().optional(),
   costCenterId: z.string().optional(),
   recurrenceType: z.enum(['unica', 'mensal', 'trimestral', 'anual']).default('unica'),
+  recurrenceCount: z.string().optional(),
   recurrenceStartDate: z.string().optional(),
   recurrenceEndDate: z.string().optional(),
 }).refine((data) => {
@@ -59,6 +61,15 @@ const formSchema = z.object({
 }, {
   message: "Data de início é obrigatória para recebimentos recorrentes",
   path: ["recurrenceStartDate"],
+}).refine((data) => {
+  // Se recorrência não for única, deve ter quantidade de parcelas
+  if (data.recurrenceType !== 'unica' && (!data.recurrenceCount || parseInt(data.recurrenceCount) < 1)) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Quantidade de parcelas deve ser no mínimo 1",
+  path: ["recurrenceCount"],
 })
 
 export default function AccountsReceivable() {
@@ -68,6 +79,7 @@ export default function AccountsReceivable() {
   const [open, setOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [allocations, setAllocations] = useState<AllocationInput[]>([])
+  const [recurrenceInstallments, setRecurrenceInstallments] = useState<RecurrenceInstallment[]>([])
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
   const [selectedReceivable, setSelectedReceivable] = useState<AccountsReceivable | null>(null)
 
@@ -113,6 +125,7 @@ export default function AccountsReceivable() {
       accountId: "",
       costCenterId: "",
       recurrenceType: "unica",
+      recurrenceCount: "",
       recurrenceStartDate: "",
       recurrenceEndDate: "",
     },
@@ -120,13 +133,50 @@ export default function AccountsReceivable() {
 
   const createMutation = useMutation({
     mutationFn: async (data: z.infer<typeof formSchema>) => {
-      // Prepare recurrence data
+      // Check if we have recurrence installments to create in batch
+      if (recurrenceInstallments.length > 0) {
+        // Create all installments in batch
+        const installments = recurrenceInstallments.map((inst, index) => ({
+          description: data.description,
+          customerId: data.customerId || null,
+          customerName: data.customerName || null,
+          totalAmount: inst.amount,
+          dueDate: inst.dueDate,
+          issueDate: data.issueDate,
+          documentNumber: data.documentNumber || null,
+          notes: data.notes || null,
+          accountId: data.accountId || null,
+          costCenterId: data.costCenterId || null,
+          recurrenceType: data.recurrenceType,
+          recurrenceStatus: 'ativa' as const,
+          recurrenceStartDate: data.recurrenceStartDate || null,
+          recurrenceEndDate: data.recurrenceEndDate || null,
+          recurrenceNextDate: null,
+          parentReceivableId: index === 0 ? null : undefined,
+        }));
+
+        const res = await apiRequest("POST", "/api/accounts-receivable/batch", {
+          installments,
+        });
+        const response = await res.json();
+        
+        // Save allocations for the first installment if configured
+        if (allocations.length > 0 && response.length > 0) {
+          await apiRequest("POST", `/api/accounts-receivable/${response[0].id}/allocations`, {
+            allocations,
+          });
+        }
+        
+        return response;
+      }
+
+      // Single account receivable (no recurrence or unica)
       const recurrenceData = data.recurrenceType !== 'unica' ? {
         recurrenceType: data.recurrenceType,
         recurrenceStatus: 'ativa' as const,
         recurrenceStartDate: data.recurrenceStartDate,
         recurrenceEndDate: data.recurrenceEndDate || null,
-        recurrenceNextDate: data.recurrenceStartDate, // First occurrence
+        recurrenceNextDate: data.recurrenceStartDate,
       } : {
         recurrenceType: 'unica' as const,
       };
@@ -154,16 +204,21 @@ export default function AccountsReceivable() {
       
       return response
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/accounts-receivable"] })
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] })
+      const isArray = Array.isArray(data);
+      const count = isArray ? data.length : 1;
       toast({
         title: "Sucesso",
-        description: "Conta a receber criada com sucesso",
+        description: isArray 
+          ? `${count} parcelas criadas com sucesso`
+          : "Conta a receber criada com sucesso",
       })
       setOpen(false)
       form.reset()
       setAllocations([])
+      setRecurrenceInstallments([])
     },
     onError: (error) => {
       if (isUnauthorizedError(error as Error)) {
@@ -407,15 +462,15 @@ export default function AccountsReceivable() {
                                 data-testid="select-recurrence-type"
                               >
                                 <FormControl>
-                                  <SelectTrigger>
+                                  <SelectTrigger data-testid="trigger-recurrence-type">
                                     <SelectValue placeholder="Selecione o tipo" />
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                  <SelectItem value="unica">Única (sem recorrência)</SelectItem>
-                                  <SelectItem value="mensal">Mensal</SelectItem>
-                                  <SelectItem value="trimestral">Trimestral</SelectItem>
-                                  <SelectItem value="anual">Anual</SelectItem>
+                                  <SelectItem value="unica" data-testid="select-recurrence-unica">Única (sem recorrência)</SelectItem>
+                                  <SelectItem value="mensal" data-testid="select-recurrence-mensal">Mensal</SelectItem>
+                                  <SelectItem value="trimestral" data-testid="select-recurrence-trimestral">Trimestral</SelectItem>
+                                  <SelectItem value="anual" data-testid="select-recurrence-anual">Anual</SelectItem>
                                 </SelectContent>
                               </Select>
                               <FormMessage />
@@ -425,6 +480,28 @@ export default function AccountsReceivable() {
 
                         {form.watch("recurrenceType") !== "unica" && (
                           <>
+                            <FormField
+                              control={form.control}
+                              name="recurrenceCount"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Quantidade de Parcelas *</FormLabel>
+                                  <FormControl>
+                                    <Input 
+                                      type="number"
+                                      min="1"
+                                      placeholder="Ex: 12"
+                                      {...field}
+                                      value={field.value || ''}
+                                      onChange={(e) => field.onChange(e.target.value)}
+                                      data-testid="input-recurrence-count" 
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+
                             <FormField
                               control={form.control}
                               name="recurrenceStartDate"
@@ -552,6 +629,18 @@ export default function AccountsReceivable() {
                           totalAmount={parseFloat(form.watch("totalAmount") || "0")}
                         />
                       </div>
+
+                      {form.watch("recurrenceType") !== "unica" && (
+                        <div className="pt-4">
+                          <RecurrencePreview
+                            recurrenceType={form.watch("recurrenceType")}
+                            recurrenceCount={form.watch("recurrenceCount") || ""}
+                            recurrenceStartDate={form.watch("recurrenceStartDate") || ""}
+                            baseAmount={form.watch("totalAmount") || ""}
+                            onInstallmentsChange={setRecurrenceInstallments}
+                          />
+                        </div>
+                      )}
 
                       <MobileFormActions>
                         <Button type="button" variant="outline" onClick={() => setOpen(false)}>
