@@ -45,13 +45,12 @@ const paymentMethodLabels: Record<string, string> = {
 
 const paymentSchema = z.object({
   paymentMethod: z.string().min(1, "Método de pagamento é obrigatório"),
-  bankAccountId: z.string().optional(),
+  bankAccountId: z.string().min(1, "Conta bancária é obrigatória"),
   amount: z.string().min(1, "Valor é obrigatório"),
   paymentDate: z.string().min(1, "Data de pagamento é obrigatória"),
   notes: z.string().optional(),
 }).transform((data) => ({
   ...data,
-  bankAccountId: data.bankAccountId === '' ? undefined : data.bankAccountId,
   notes: data.notes === '' ? undefined : data.notes,
 }));
 
@@ -204,11 +203,11 @@ export function PaymentSettlementDialog({
               name="bankAccountId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Conta Bancária (opcional)</FormLabel>
+                  <FormLabel>Conta Bancária *</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value || undefined}>
                     <FormControl>
                       <SelectTrigger data-testid="select-bank-account">
-                        <SelectValue placeholder="Nenhuma" />
+                        <SelectValue placeholder="Selecione uma conta" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
