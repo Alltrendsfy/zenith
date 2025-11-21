@@ -40,7 +40,7 @@ import {
   companies,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, or, desc, sql } from "drizzle-orm";
 import { readFileSync } from "fs";
 import { join } from "path";
 
@@ -232,6 +232,37 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteBankAccount(id: string, userId: string): Promise<boolean> {
+    console.log(`[deleteBankAccount] Checking for transactions for account ${id}, user ${userId}`);
+    
+    // Check if the account has any associated transactions
+    const [payables] = await db.select({ count: sql<number>`count(*)::int` })
+      .from(accountsPayable)
+      .where(and(eq(accountsPayable.bankAccountId, id), eq(accountsPayable.userId, userId)));
+    
+    const [receivables] = await db.select({ count: sql<number>`count(*)::int` })
+      .from(accountsReceivable)
+      .where(and(eq(accountsReceivable.bankAccountId, id), eq(accountsReceivable.userId, userId)));
+    
+    const [transfers] = await db.select({ count: sql<number>`count(*)::int` })
+      .from(bankTransfers)
+      .where(and(
+        or(
+          eq(bankTransfers.fromAccountId, id),
+          eq(bankTransfers.toAccountId, id)
+        ),
+        eq(bankTransfers.userId, userId)
+      ));
+    
+    console.log(`[deleteBankAccount] Transaction counts - Payables: ${payables?.count || 0}, Receivables: ${receivables?.count || 0}, Transfers: ${transfers?.count || 0}`);
+    
+    const totalTransactions = (payables?.count || 0) + (receivables?.count || 0) + (transfers?.count || 0);
+    
+    if (totalTransactions > 0) {
+      console.log(`[deleteBankAccount] Cannot delete - ${totalTransactions} transaction(s) found`);
+      throw new Error(`Não é possível excluir esta conta bancária porque ela possui ${totalTransactions} transação(ões) associada(s). Remova as transações antes de excluir a conta.`);
+    }
+    
+    console.log(`[deleteBankAccount] No transactions found, proceeding with delete`);
     const result = await db.delete(bankAccounts).where(and(eq(bankAccounts.id, id), eq(bankAccounts.userId, userId)));
     return result.rowCount ? result.rowCount > 0 : false;
   }

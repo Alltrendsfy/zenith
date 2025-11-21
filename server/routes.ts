@@ -5,6 +5,7 @@ import { setupAuth, isAuthenticated } from "./replitAuth";
 import { requireAdmin, requirePermission, requireManager } from "./permissions";
 import {
   insertBankAccountSchema,
+  updateBankAccountSchema,
   insertAccountsPayableSchema,
   insertAccountsReceivableSchema,
   insertChartOfAccountsSchema,
@@ -178,7 +179,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       const { id } = req.params;
-      const validated = insertBankAccountSchema.partial().parse(req.body);
+      
+      // Convert empty strings to null for optional fields
+      const sanitizedBody = Object.fromEntries(
+        Object.entries(req.body).map(([key, value]) => [key, value === "" ? null : value])
+      );
+      
+      const validated = updateBankAccountSchema.parse(sanitizedBody);
       
       const account = await storage.updateBankAccount(id, userId, validated);
       if (!account) {

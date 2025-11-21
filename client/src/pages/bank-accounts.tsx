@@ -9,10 +9,11 @@ import { PageContainer } from "@/components/page-container"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, Building2, ArrowLeftRight } from "lucide-react"
+import { Plus, Building2, Pencil, Trash2 } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -36,6 +37,8 @@ export default function BankAccounts() {
   const { isAuthenticated, isLoading: authLoading } = useAuth()
   const { canCreate, canUpdate, canDelete } = usePermissions()
   const [open, setOpen] = useState(false)
+  const [editingAccount, setEditingAccount] = useState<BankAccount | null>(null)
+  const [deletingAccount, setDeletingAccount] = useState<BankAccount | null>(null)
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -67,6 +70,21 @@ export default function BankAccounts() {
       description: "",
     },
   })
+
+  // Reset form when editing account changes
+  useEffect(() => {
+    if (editingAccount) {
+      form.reset({
+        name: editingAccount.name,
+        bankName: editingAccount.bankName || "",
+        bankCode: editingAccount.bankCode || "",
+        agency: editingAccount.agency || "",
+        accountNumber: editingAccount.accountNumber || "",
+        initialBalance: editingAccount.initialBalance || "0",
+        description: editingAccount.description || "",
+      })
+    }
+  }, [editingAccount, form])
 
   const createMutation = useMutation({
     mutationFn: async (data: z.infer<typeof formSchema>) => {
@@ -107,10 +125,99 @@ export default function BankAccounts() {
     },
   })
 
+  const updateMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof formSchema>) => {
+      if (!editingAccount) throw new Error("No account selected")
+      await apiRequest("PATCH", `/api/bank-accounts/${editingAccount.id}`, data)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/bank-accounts"] })
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] })
+      toast({
+        title: "Sucesso",
+        description: "Conta bancária atualizada com sucesso",
+      })
+      setEditingAccount(null)
+      form.reset()
+    },
+    onError: (error) => {
+      console.error("Update error:", error)
+      if (isUnauthorizedError(error as Error)) {
+        toast({
+          title: "Não autorizado",
+          description: "Você precisa fazer login novamente...",
+          variant: "destructive",
+        })
+        setTimeout(() => {
+          window.location.href = "/api/login"
+        }, 500)
+        return
+      }
+      toast({
+        title: "Erro",
+        description: error instanceof Error ? error.message : "Falha ao atualizar conta bancária",
+        variant: "destructive",
+      })
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/bank-accounts/${id}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/bank-accounts"] })
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] })
+      toast({
+        title: "Sucesso",
+        description: "Conta bancária excluída com sucesso",
+      })
+      setDeletingAccount(null)
+    },
+    onError: (error) => {
+      console.error("Delete error:", error)
+      if (isUnauthorizedError(error as Error)) {
+        toast({
+          title: "Não autorizado",
+          description: "Você precisa fazer login novamente...",
+          variant: "destructive",
+        })
+        setTimeout(() => {
+          window.location.href = "/api/login"
+        }, 500)
+        return
+      }
+      toast({
+        title: "Erro",
+        description: error instanceof Error ? error.message : "Falha ao excluir conta bancária",
+        variant: "destructive",
+      })
+    },
+  })
+
   const onSubmit = (data: z.infer<typeof formSchema>) => {
     console.log("Form submitted with data:", data)
     console.log("Form errors:", form.formState.errors)
-    createMutation.mutate(data)
+    
+    if (editingAccount) {
+      updateMutation.mutate(data)
+    } else {
+      createMutation.mutate(data)
+    }
+  }
+
+  const handleEdit = (account: BankAccount) => {
+    setEditingAccount(account)
+  }
+
+  const handleDelete = (account: BankAccount) => {
+    setDeletingAccount(account)
+  }
+
+  const confirmDelete = () => {
+    if (deletingAccount) {
+      deleteMutation.mutate(deletingAccount.id)
+    }
   }
 
   if (authLoading || !isAuthenticated) {
@@ -134,7 +241,13 @@ export default function BankAccounts() {
                 </p>
               </div>
 
-              <Dialog open={open} onOpenChange={setOpen}>
+              <Dialog open={open || !!editingAccount} onOpenChange={(isOpen) => {
+                if (!isOpen) {
+                  setOpen(false)
+                  setEditingAccount(null)
+                  form.reset()
+                }
+              }}>
                 <DialogTrigger asChild>
                   <Button disabled={!canCreate} data-testid="button-add-account">
                     <Plus className="h-4 w-4 mr-2" />
@@ -143,7 +256,7 @@ export default function BankAccounts() {
                 </DialogTrigger>
                 <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
-                    <DialogTitle>Nova Conta Bancária</DialogTitle>
+                    <DialogTitle>{editingAccount ? "Editar Conta Bancária" : "Nova Conta Bancária"}</DialogTitle>
                   </DialogHeader>
                   <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -231,10 +344,16 @@ export default function BankAccounts() {
                                   placeholder="0.00"
                                   className="font-mono text-right"
                                   {...field}
+                                  disabled={!!editingAccount}
                                   data-testid="input-initial-balance"
                                 />
                               </FormControl>
                               <FormMessage />
+                              {editingAccount && (
+                                <p className="text-xs text-muted-foreground">
+                                  O saldo inicial não pode ser alterado após a criação da conta
+                                </p>
+                              )}
                             </FormItem>
                           )}
                         />
@@ -255,17 +374,46 @@ export default function BankAccounts() {
                       </div>
 
                       <MobileFormActions>
-                        <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                        <Button type="button" variant="outline" onClick={() => {
+                          setOpen(false)
+                          setEditingAccount(null)
+                          form.reset()
+                        }}>
                           Cancelar
                         </Button>
-                        <Button type="submit" disabled={createMutation.isPending} data-testid="button-submit">
-                          {createMutation.isPending ? "Salvando..." : "Salvar"}
+                        <Button 
+                          type="submit" 
+                          disabled={createMutation.isPending || updateMutation.isPending} 
+                          data-testid="button-submit"
+                        >
+                          {(createMutation.isPending || updateMutation.isPending) ? "Salvando..." : "Salvar"}
                         </Button>
                       </MobileFormActions>
                     </form>
                   </Form>
                 </DialogContent>
               </Dialog>
+
+              <AlertDialog open={!!deletingAccount} onOpenChange={(isOpen) => !isOpen && setDeletingAccount(null)}>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Tem certeza que deseja excluir a conta "{deletingAccount?.name}"? Esta ação não pode ser desfeita.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel data-testid="button-cancel-delete">Cancelar</AlertDialogCancel>
+                    <AlertDialogAction 
+                      onClick={confirmDelete} 
+                      disabled={deleteMutation.isPending}
+                      data-testid="button-confirm-delete"
+                    >
+                      {deleteMutation.isPending ? "Excluindo..." : "Excluir"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
 
             {isLoading ? (
@@ -291,10 +439,32 @@ export default function BankAccounts() {
                 {accounts.map((account) => (
                   <Card key={account.id} className="hover-elevate">
                     <CardHeader>
-                      <CardTitle className="text-base font-medium flex items-center gap-2">
-                        <Building2 className="h-4 w-4 text-primary" />
-                        {account.name}
-                      </CardTitle>
+                      <div className="flex items-center justify-between gap-2">
+                        <CardTitle className="text-base font-medium flex items-center gap-2">
+                          <Building2 className="h-4 w-4 text-primary" />
+                          {account.name}
+                        </CardTitle>
+                        <div className="flex gap-1">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => handleEdit(account)}
+                            disabled={!canUpdate}
+                            data-testid={`button-edit-${account.id}`}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => handleDelete(account)}
+                            disabled={!canDelete}
+                            data-testid={`button-delete-${account.id}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
                     </CardHeader>
                     <CardContent className="space-y-3">
                       {account.bankName && (
@@ -312,7 +482,7 @@ export default function BankAccounts() {
                       )}
                       <div className="pt-2 border-t">
                         <p className="text-xs text-muted-foreground">Saldo Atual</p>
-                        <p className="text-2xl font-bold font-mono">
+                        <p className="text-2xl font-bold font-mono" data-testid={`text-balance-${account.id}`}>
                           R$ {parseFloat(account.balance || "0").toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                         </p>
                       </div>

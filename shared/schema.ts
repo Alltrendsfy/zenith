@@ -320,8 +320,18 @@ export const insertBankAccountSchema = createInsertSchema(bankAccounts).omit({
   updatedAt: true,
 });
 
+export const updateBankAccountSchema = createInsertSchema(bankAccounts).pick({
+  name: true,
+  bankName: true,
+  bankCode: true,
+  agency: true,
+  accountNumber: true,
+  description: true,
+}).partial();
+
 export type BankAccount = typeof bankAccounts.$inferSelect;
 export type InsertBankAccount = z.infer<typeof insertBankAccountSchema>;
+export type UpdateBankAccount = z.infer<typeof updateBankAccountSchema>;
 
 // Accounts Payable (Contas a Pagar)
 export const accountsPayable = pgTable("accounts_payable", {
