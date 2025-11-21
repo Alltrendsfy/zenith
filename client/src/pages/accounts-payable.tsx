@@ -712,7 +712,7 @@ export default function AccountsPayable() {
                           label: "Status",
                           value: payable.status || 'pendente',
                           isBadge: true,
-                          badgeVariant: payable.status === 'pago' ? 'default' : payable.status === 'atrasado' ? 'destructive' : 'secondary',
+                          badgeVariant: payable.status === 'pago' ? 'default' : payable.status === 'vencido' ? 'destructive' : 'secondary',
                         },
                         ...(payable.recurrenceType && payable.recurrenceType !== 'unica' ? [{
                           label: "Recorrência",

@@ -285,8 +285,8 @@ export default function AccountsReceivable() {
   const getDisplayAmount = (receivable: AccountsReceivable): number => {
     if (receivable.status === 'parcial') {
       const total = parseFloat(receivable.totalAmount);
-      const paid = parseFloat(receivable.amountPaid || '0');
-      return total - paid;
+      const received = parseFloat(receivable.amountReceived || '0');
+      return total - received;
     }
     return parseFloat(receivable.totalAmount);
   }
