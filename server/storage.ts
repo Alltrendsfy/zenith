@@ -232,8 +232,6 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteBankAccount(id: string, userId: string): Promise<boolean> {
-    console.log(`[deleteBankAccount] Checking for transactions for account ${id}, user ${userId}`);
-    
     // Check if the account has any associated transactions
     const [payables] = await db.select({ count: sql<number>`count(*)::int` })
       .from(accountsPayable)
@@ -253,16 +251,12 @@ export class DatabaseStorage implements IStorage {
         eq(bankTransfers.userId, userId)
       ));
     
-    console.log(`[deleteBankAccount] Transaction counts - Payables: ${payables?.count || 0}, Receivables: ${receivables?.count || 0}, Transfers: ${transfers?.count || 0}`);
-    
     const totalTransactions = (payables?.count || 0) + (receivables?.count || 0) + (transfers?.count || 0);
     
     if (totalTransactions > 0) {
-      console.log(`[deleteBankAccount] Cannot delete - ${totalTransactions} transaction(s) found`);
       throw new Error(`Não é possível excluir esta conta bancária porque ela possui ${totalTransactions} transação(ões) associada(s). Remova as transações antes de excluir a conta.`);
     }
     
-    console.log(`[deleteBankAccount] No transactions found, proceeding with delete`);
     const result = await db.delete(bankAccounts).where(and(eq(bankAccounts.id, id), eq(bankAccounts.userId, userId)));
     return result.rowCount ? result.rowCount > 0 : false;
   }

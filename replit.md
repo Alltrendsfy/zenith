@@ -35,6 +35,7 @@ Authentication is managed via Replit OpenID Connect (OIDC) using Passport.js and
 *   **Sidebar Menu Reorganization**: Restructured navigation for improved UX, logical grouping of financial operations, master data management, and administration sections, utilizing Shadcn Collapsible components.
 *   **Chart of Accounts Integration**: Optional "Conta Contábil" (Chart of Accounts) field added to Accounts Payable and Receivable forms, filtering for analytical accounts.
 *   **Recurrence with Editable Preview**: User-defined quantity recurrence for monthly/quarterly/annual payments. RecurrencePreview component displays all installments in an editable table, allowing modification of individual due dates and amounts before saving. Batch creation endpoints (POST /api/accounts-payable/batch and /api/accounts-receivable/batch) create all installments atomically with proper parent-child linkage via recurrenceParentId/parentReceivableId.
+*   **Bank Account Management**: Full edit and delete capabilities for bank accounts with data integrity protection. Edit functionality allows updating mutable fields (name, bank details, description) while preventing changes to financial balances. Delete validation prevents removal of accounts with associated transactions (payables, receivables, or transfers), displaying descriptive error messages in Portuguese. Dedicated `updateBankAccountSchema` ensures immutable fields cannot be modified post-creation.
 
 ## External Dependencies
 
