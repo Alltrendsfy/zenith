@@ -174,6 +174,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch('/api/bank-accounts/:id', isAuthenticated, requirePermission('canUpdate'), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      const validated = insertBankAccountSchema.partial().parse(req.body);
+      
+      const account = await storage.updateBankAccount(id, userId, validated);
+      if (!account) {
+        return res.status(404).json({ message: "Bank account not found" });
+      }
+      
+      res.json(account);
+    } catch (error: any) {
+      console.error("Error updating bank account:", error);
+      res.status(400).json({ message: error.message || "Failed to update bank account" });
+    }
+  });
+
+  app.delete('/api/bank-accounts/:id', isAuthenticated, requirePermission('canDelete'), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      
+      const success = await storage.deleteBankAccount(id, userId);
+      if (!success) {
+        return res.status(404).json({ message: "Bank account not found" });
+      }
+      
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error deleting bank account:", error);
+      res.status(400).json({ message: error.message || "Failed to delete bank account" });
+    }
+  });
+
   // Bank Transfers
   app.get('/api/bank-transfers', isAuthenticated, async (req: any, res) => {
     try {
