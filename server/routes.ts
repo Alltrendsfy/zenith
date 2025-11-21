@@ -734,7 +734,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Verify bank account ownership
-      const bankAccount = await storage.getBankAccount(userId, bankAccountId);
+      const bankAccount = await storage.getBankAccount(bankAccountId, userId);
       if (!bankAccount) {
         return res.status(404).json({ 
           message: "Bank account not found or access denied" 
