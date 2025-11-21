@@ -32,7 +32,7 @@ import { MobileCardList, type MobileCardProps } from "@/components/mobile-card-l
 import { MobileFormActions } from "@/components/mobile-form-actions"
 import { AllocationManager, type AllocationInput } from "@/components/allocation-manager"
 import { apiRequest, queryClient } from "@/lib/queryClient"
-import type { AccountsReceivable, Customer } from "@shared/schema"
+import type { AccountsReceivable, Customer, ChartOfAccounts } from "@shared/schema"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { format } from "date-fns"
 
@@ -45,6 +45,8 @@ const formSchema = z.object({
   issueDate: z.string().min(1, "Data de emissão é obrigatória"),
   documentNumber: z.string().optional(),
   notes: z.string().optional(),
+  accountId: z.string().optional(),
+  costCenterId: z.string().optional(),
   recurrenceType: z.enum(['unica', 'mensal', 'trimestral', 'anual']).default('unica'),
   recurrenceStartDate: z.string().optional(),
   recurrenceEndDate: z.string().optional(),
@@ -92,6 +94,11 @@ export default function AccountsReceivable() {
     enabled: isAuthenticated,
   })
 
+  const { data: chartOfAccounts, isLoading: isLoadingAccounts } = useQuery<ChartOfAccounts[]>({
+    queryKey: ["/api/chart-of-accounts"],
+    enabled: isAuthenticated,
+  })
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -103,6 +110,8 @@ export default function AccountsReceivable() {
       issueDate: "",
       documentNumber: "",
       notes: "",
+      accountId: "",
+      costCenterId: "",
       recurrenceType: "unica",
       recurrenceStartDate: "",
       recurrenceEndDate: "",
@@ -127,6 +136,10 @@ export default function AccountsReceivable() {
         // Convert empty strings to null for foreign keys
         customerId: data.customerId || null,
         customerName: data.customerName || null,
+        accountId: data.accountId || null,
+        costCenterId: data.costCenterId || null,
+        documentNumber: data.documentNumber || null,
+        notes: data.notes || null,
         totalAmount: data.totalAmount,
         ...recurrenceData,
       })
@@ -456,9 +469,58 @@ export default function AccountsReceivable() {
 
                         <FormField
                           control={form.control}
+                          name="accountId"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Conta Contábil</FormLabel>
+                              <Select
+                                onValueChange={(value) => field.onChange(value === "NONE" ? "" : value)}
+                                value={field.value || "NONE"}
+                                data-testid="select-account"
+                              >
+                                <FormControl>
+                                  <SelectTrigger data-testid="select-account-trigger">
+                                    <SelectValue placeholder="Selecione uma conta" data-testid="select-account-value" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {isLoadingAccounts ? (
+                                    <SelectItem value="LOADING" disabled data-testid="select-account-loading">
+                                      Carregando contas...
+                                    </SelectItem>
+                                  ) : (
+                                    <>
+                                      <SelectItem value="NONE" data-testid="select-account-none">
+                                        Nenhuma
+                                      </SelectItem>
+                                      {chartOfAccounts?.filter(acc => acc.nature === 'analitica').map((account) => (
+                                        <SelectItem 
+                                          key={account.id} 
+                                          value={account.id}
+                                          data-testid={`select-account-${account.id}`}
+                                        >
+                                          {account.code} - {account.name}
+                                        </SelectItem>
+                                      ))}
+                                      {chartOfAccounts?.filter(acc => acc.nature === 'analitica').length === 0 && (
+                                        <SelectItem value="EMPTY" disabled data-testid="select-account-empty">
+                                          Nenhuma conta analítica disponível
+                                        </SelectItem>
+                                      )}
+                                    </>
+                                  )}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
                           name="documentNumber"
                           render={({ field }) => (
-                            <FormItem className="md:col-span-2">
+                            <FormItem>
                               <FormLabel>Número do Documento</FormLabel>
                               <FormControl>
                                 <Input placeholder="Ex: NF-12345" {...field} data-testid="input-document" />
