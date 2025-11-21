@@ -37,6 +37,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
 import { Plus, CreditCard, Search, ChevronRight, Pencil, Trash2 } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -52,6 +53,7 @@ const formSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório"),
   parentId: z.string().optional(),
   description: z.string().optional(),
+  isActive: z.boolean().default(true),
 })
 
 export default function CostCenters() {
@@ -87,6 +89,7 @@ export default function CostCenters() {
       code: "",
       name: "",
       description: "",
+      isActive: true,
     },
   })
 
@@ -97,6 +100,7 @@ export default function CostCenters() {
         name: editingCenter.name,
         description: editingCenter.description || "",
         parentId: editingCenter.parentId || undefined,
+        isActive: editingCenter.isActive ?? true,
       })
       setOpen(true)
     }
@@ -320,6 +324,28 @@ export default function CostCenters() {
                                 </SelectContent>
                               </Select>
                               <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="isActive"
+                          render={({ field }) => (
+                            <FormItem className="md:col-span-2 flex flex-row items-center justify-between rounded-lg border p-4">
+                              <div className="space-y-0.5">
+                                <FormLabel className="text-base">Status</FormLabel>
+                                <div className="text-sm text-muted-foreground">
+                                  {field.value ? "Centro de custo ativo" : "Centro de custo inativo"}
+                                </div>
+                              </div>
+                              <FormControl>
+                                <Switch
+                                  checked={field.value}
+                                  onCheckedChange={field.onChange}
+                                  data-testid="switch-is-active"
+                                />
+                              </FormControl>
                             </FormItem>
                           )}
                         />
