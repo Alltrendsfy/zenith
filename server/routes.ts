@@ -10,6 +10,7 @@ import {
   insertAccountsReceivableSchema,
   insertChartOfAccountsSchema,
   insertCostCenterSchema,
+  updateCostCenterSchema,
   insertBankTransferSchema,
   insertCostAllocationSchema,
   insertSupplierSchema,
@@ -263,7 +264,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/accounts-payable', isAuthenticated, requirePermission('canCreate'), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const validated = insertAccountsPayableSchema.parse(req.body);
+      
+      // Convert empty strings to null for optional foreign keys
+      const sanitizedData = {
+        ...req.body,
+        supplierId: req.body.supplierId === '' ? null : req.body.supplierId,
+        bankAccountId: req.body.bankAccountId === '' ? null : req.body.bankAccountId,
+        costCenterId: req.body.costCenterId === '' ? null : req.body.costCenterId,
+        chartOfAccountsId: req.body.chartOfAccountsId === '' ? null : req.body.chartOfAccountsId,
+        recurrenceParentId: req.body.recurrenceParentId === '' ? null : req.body.recurrenceParentId,
+      };
+      
+      const validated = insertAccountsPayableSchema.parse(sanitizedData);
       const account = await storage.createAccountPayable({
         ...validated,
         userId,
@@ -284,9 +296,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Installments array is required and cannot be empty" });
       }
       
-      // Validate each installment and add userId
+      // Validate each installment and add userId, converting empty strings to null
       const validatedInstallments = installments.map(inst => {
-        const validated = insertAccountsPayableSchema.parse(inst);
+        const sanitized = {
+          ...inst,
+          supplierId: inst.supplierId === '' ? null : inst.supplierId,
+          bankAccountId: inst.bankAccountId === '' ? null : inst.bankAccountId,
+          costCenterId: inst.costCenterId === '' ? null : inst.costCenterId,
+          chartOfAccountsId: inst.chartOfAccountsId === '' ? null : inst.chartOfAccountsId,
+          recurrenceParentId: inst.recurrenceParentId === '' ? null : inst.recurrenceParentId,
+        };
+        const validated = insertAccountsPayableSchema.parse(sanitized);
         return {
           ...validated,
           userId,
@@ -318,7 +338,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/accounts-receivable', isAuthenticated, requirePermission('canCreate'), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const validated = insertAccountsReceivableSchema.parse(req.body);
+      
+      // Convert empty strings to null for optional foreign keys
+      const sanitizedData = {
+        ...req.body,
+        customerId: req.body.customerId === '' ? null : req.body.customerId,
+        bankAccountId: req.body.bankAccountId === '' ? null : req.body.bankAccountId,
+        costCenterId: req.body.costCenterId === '' ? null : req.body.costCenterId,
+        chartOfAccountsId: req.body.chartOfAccountsId === '' ? null : req.body.chartOfAccountsId,
+        parentReceivableId: req.body.parentReceivableId === '' ? null : req.body.parentReceivableId,
+      };
+      
+      const validated = insertAccountsReceivableSchema.parse(sanitizedData);
       const account = await storage.createAccountReceivable({
         ...validated,
         userId,
@@ -339,9 +370,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Installments array is required and cannot be empty" });
       }
       
-      // Validate each installment and add userId
+      // Validate each installment and add userId, converting empty strings to null
       const validatedInstallments = installments.map(inst => {
-        const validated = insertAccountsReceivableSchema.parse(inst);
+        const sanitized = {
+          ...inst,
+          customerId: inst.customerId === '' ? null : inst.customerId,
+          bankAccountId: inst.bankAccountId === '' ? null : inst.bankAccountId,
+          costCenterId: inst.costCenterId === '' ? null : inst.costCenterId,
+          chartOfAccountsId: inst.chartOfAccountsId === '' ? null : inst.chartOfAccountsId,
+          parentReceivableId: inst.parentReceivableId === '' ? null : inst.parentReceivableId,
+        };
+        const validated = insertAccountsReceivableSchema.parse(sanitized);
         return {
           ...validated,
           userId,
@@ -488,6 +527,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error creating cost center:", error);
       res.status(400).json({ message: error.message || "Failed to create cost center" });
+    }
+  });
+
+  app.patch('/api/cost-centers/:id', isAuthenticated, requireManager, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      
+      // Convert empty strings to null for optional fields
+      const sanitizedData = {
+        ...req.body,
+        parentId: req.body.parentId === '' ? null : req.body.parentId,
+        description: req.body.description === '' ? null : req.body.description,
+      };
+      
+      const validated = updateCostCenterSchema.parse(sanitizedData);
+      const updated = await storage.updateCostCenter(id, userId, validated);
+      
+      if (!updated) {
+        return res.status(404).json({ message: "Centro de custo não encontrado" });
+      }
+      
+      res.json(updated);
+    } catch (error: any) {
+      console.error("Error updating cost center:", error);
+      res.status(400).json({ message: error.message || "Failed to update cost center" });
+    }
+  });
+
+  app.delete('/api/cost-centers/:id', isAuthenticated, requireManager, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      
+      const deleted = await storage.deleteCostCenter(id, userId);
+      
+      if (!deleted) {
+        return res.status(404).json({ message: "Centro de custo não encontrado" });
+      }
+      
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error deleting cost center:", error);
+      res.status(400).json({ message: error.message || "Failed to delete cost center" });
     }
   });
 

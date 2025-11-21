@@ -484,6 +484,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteCostCenter(id: string, userId: string): Promise<boolean> {
+    // Check if the cost center has any associated transactions
+    const [payables] = await db.select({ count: sql<number>`count(*)::int` })
+      .from(accountsPayable)
+      .where(and(eq(accountsPayable.costCenterId, id), eq(accountsPayable.userId, userId)));
+    
+    const [receivables] = await db.select({ count: sql<number>`count(*)::int` })
+      .from(accountsReceivable)
+      .where(and(eq(accountsReceivable.costCenterId, id), eq(accountsReceivable.userId, userId)));
+    
+    const totalTransactions = (payables?.count || 0) + (receivables?.count || 0);
+    
+    if (totalTransactions > 0) {
+      throw new Error(`Não é possível excluir este centro de custo porque ele possui ${totalTransactions} transação(ões) associada(s). Remova as transações antes de excluir o centro de custo.`);
+    }
+    
     const result = await db.delete(costCenters).where(and(eq(costCenters.id, id), eq(costCenters.userId, userId)));
     return result.rowCount ? result.rowCount > 0 : false;
   }

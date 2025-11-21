@@ -17,10 +17,20 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, CreditCard, Search, ChevronRight } from "lucide-react"
+import { Plus, CreditCard, Search, ChevronRight, Pencil, Trash2 } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -43,6 +53,8 @@ export default function CostCenters() {
   const { canCreate, canUpdate, canDelete } = usePermissions()
   const [open, setOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
+  const [editingCenter, setEditingCenter] = useState<CostCenter | null>(null)
+  const [deletingCenter, setDeletingCenter] = useState<CostCenter | null>(null)
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -70,6 +82,18 @@ export default function CostCenters() {
       description: "",
     },
   })
+
+  useEffect(() => {
+    if (editingCenter) {
+      form.reset({
+        code: editingCenter.code,
+        name: editingCenter.name,
+        description: editingCenter.description || "",
+        parentId: editingCenter.parentId || undefined,
+      })
+      setOpen(true)
+    }
+  }, [editingCenter, form])
 
   const createMutation = useMutation({
     mutationFn: async (data: z.infer<typeof formSchema>) => {
@@ -107,8 +131,88 @@ export default function CostCenters() {
     },
   })
 
+  const updateMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof formSchema>) => {
+      if (!editingCenter) return
+      await apiRequest("PATCH", `/api/cost-centers/${editingCenter.id}`, data)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cost-centers"] })
+      toast({
+        title: "Sucesso",
+        description: "Centro de custo atualizado com sucesso",
+      })
+      setOpen(false)
+      setEditingCenter(null)
+      form.reset()
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error as Error)) {
+        toast({
+          title: "Não autorizado",
+          description: "Você precisa fazer login novamente...",
+          variant: "destructive",
+        })
+        setTimeout(() => {
+          window.location.href = "/api/login"
+        }, 500)
+        return
+      }
+      toast({
+        title: "Erro",
+        description: "Falha ao atualizar centro de custo",
+        variant: "destructive",
+      })
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/cost-centers/${id}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cost-centers"] })
+      toast({
+        title: "Sucesso",
+        description: "Centro de custo excluído com sucesso",
+      })
+      setDeletingCenter(null)
+    },
+    onError: (error: any) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Não autorizado",
+          description: "Você precisa fazer login novamente...",
+          variant: "destructive",
+        })
+        setTimeout(() => {
+          window.location.href = "/api/login"
+        }, 500)
+        return
+      }
+      toast({
+        title: "Erro",
+        description: error.message || "Falha ao excluir centro de custo",
+        variant: "destructive",
+      })
+      setDeletingCenter(null)
+    },
+  })
+
   const onSubmit = (data: z.infer<typeof formSchema>) => {
-    createMutation.mutate(data)
+    if (editingCenter) {
+      updateMutation.mutate(data)
+    } else {
+      createMutation.mutate(data)
+    }
+  }
+
+  const handleDialogClose = (isOpen: boolean) => {
+    setOpen(isOpen)
+    if (!isOpen) {
+      setEditingCenter(null)
+      form.reset()
+    }
   }
 
   if (authLoading || !isAuthenticated) {
@@ -139,7 +243,7 @@ export default function CostCenters() {
             />
           </div>
 
-          <Dialog open={open} onOpenChange={setOpen}>
+          <Dialog open={open} onOpenChange={handleDialogClose}>
                 <DialogTrigger asChild>
                   <Button disabled={!canCreate} data-testid="button-add-cost-center">
                     <Plus className="h-4 w-4 mr-2" />
@@ -148,7 +252,7 @@ export default function CostCenters() {
                 </DialogTrigger>
                 <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
-                    <DialogTitle>Novo Centro de Custo</DialogTitle>
+                    <DialogTitle>{editingCenter ? "Editar Centro de Custo" : "Novo Centro de Custo"}</DialogTitle>
                   </DialogHeader>
                   <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -197,11 +301,15 @@ export default function CostCenters() {
                       </div>
 
                       <MobileFormActions>
-                        <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                        <Button type="button" variant="outline" onClick={() => handleDialogClose(false)}>
                           Cancelar
                         </Button>
-                        <Button type="submit" disabled={createMutation.isPending} data-testid="button-submit">
-                          {createMutation.isPending ? "Salvando..." : "Salvar"}
+                        <Button 
+                          type="submit" 
+                          disabled={createMutation.isPending || updateMutation.isPending} 
+                          data-testid="button-submit"
+                        >
+                          {(createMutation.isPending || updateMutation.isPending) ? "Salvando..." : "Salvar"}
                         </Button>
                       </MobileFormActions>
                     </form>
@@ -238,6 +346,7 @@ export default function CostCenters() {
                       <TableHead>Nome</TableHead>
                       <TableHead>Descrição</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead className="w-[100px]">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -258,6 +367,28 @@ export default function CostCenters() {
                             {center.isActive ? "Ativo" : "Inativo"}
                           </Badge>
                         </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => setEditingCenter(center)}
+                              disabled={!canUpdate}
+                              data-testid={`button-edit-${center.id}`}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => setDeletingCenter(center)}
+                              disabled={!canDelete}
+                              data-testid={`button-delete-${center.id}`}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -267,6 +398,28 @@ export default function CostCenters() {
           </CardContent>
         </Card>
       </div>
+
+      <AlertDialog open={!!deletingCenter} onOpenChange={(open) => !open && setDeletingCenter(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir o centro de custo "{deletingCenter?.name}"?
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete">Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deletingCenter && deleteMutation.mutate(deletingCenter.id)}
+              disabled={deleteMutation.isPending}
+              data-testid="button-confirm-delete"
+            >
+              {deleteMutation.isPending ? "Excluindo..." : "Excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </PageContainer>
   )
 }

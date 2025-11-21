@@ -284,8 +284,18 @@ export const insertCostCenterSchema = createInsertSchema(costCenters).omit({
   updatedAt: true,
 });
 
+export const updateCostCenterSchema = z.object({
+  code: z.string().min(1, "Código é obrigatório").optional(),
+  name: z.string().min(1, "Nome é obrigatório").optional(),
+  parentId: z.string().nullable().optional(),
+  level: z.number().optional(),
+  isActive: z.boolean().optional(),
+  description: z.string().nullable().optional(),
+});
+
 export type CostCenter = typeof costCenters.$inferSelect;
 export type InsertCostCenter = z.infer<typeof insertCostCenterSchema>;
+export type UpdateCostCenter = z.infer<typeof updateCostCenterSchema>;
 
 // Bank Accounts (Contas Bancárias)
 export const bankAccounts = pgTable("bank_accounts", {
