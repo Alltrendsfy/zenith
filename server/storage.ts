@@ -484,7 +484,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteCostCenter(id: string, userId: string): Promise<boolean> {
-    // Check if the cost center has any associated transactions
+    // Check if the cost center has any child cost centers
+    const [children] = await db.select({ count: sql<number>`count(*)::int` })
+      .from(costCenters)
+      .where(and(eq(costCenters.parentId, id), eq(costCenters.userId, userId)));
+    
+    if ((children?.count || 0) > 0) {
+      throw new Error(`Não é possível excluir este centro de custo porque ele possui ${children.count} centro(s) de custo filho(s). Remova ou reatribua os centros filhos antes de excluir.`);
+    }
+    
+    // Check if the cost center has any associated transactions or allocations
     const [payables] = await db.select({ count: sql<number>`count(*)::int` })
       .from(accountsPayable)
       .where(and(eq(accountsPayable.costCenterId, id), eq(accountsPayable.userId, userId)));
@@ -493,7 +502,12 @@ export class DatabaseStorage implements IStorage {
       .from(accountsReceivable)
       .where(and(eq(accountsReceivable.costCenterId, id), eq(accountsReceivable.userId, userId)));
     
-    const totalTransactions = (payables?.count || 0) + (receivables?.count || 0);
+    // Check cost allocations (rateio) - these are the main way cost centers are used
+    const [allocations] = await db.select({ count: sql<number>`count(*)::int` })
+      .from(costAllocations)
+      .where(and(eq(costAllocations.costCenterId, id), eq(costAllocations.userId, userId)));
+    
+    const totalTransactions = (payables?.count || 0) + (receivables?.count || 0) + (allocations?.count || 0);
     
     if (totalTransactions > 0) {
       throw new Error(`Não é possível excluir este centro de custo porque ele possui ${totalTransactions} transação(ões) associada(s). Remova as transações antes de excluir o centro de custo.`);

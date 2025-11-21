@@ -30,6 +30,13 @@ import {
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Plus, CreditCard, Search, ChevronRight, Pencil, Trash2 } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -97,9 +104,11 @@ export default function CostCenters() {
 
   const createMutation = useMutation({
     mutationFn: async (data: z.infer<typeof formSchema>) => {
+      const parentId = data.parentId && data.parentId !== "none" ? data.parentId : null
       await apiRequest("POST", "/api/cost-centers", {
         ...data,
-        level: data.parentId ? 2 : 1,
+        parentId,
+        level: parentId ? 2 : 1,
       })
     },
     onSuccess: () => {
@@ -134,7 +143,11 @@ export default function CostCenters() {
   const updateMutation = useMutation({
     mutationFn: async (data: z.infer<typeof formSchema>) => {
       if (!editingCenter) return
-      await apiRequest("PATCH", `/api/cost-centers/${editingCenter.id}`, data)
+      const parentId = data.parentId && data.parentId !== "none" ? data.parentId : null
+      await apiRequest("PATCH", `/api/cost-centers/${editingCenter.id}`, {
+        ...data,
+        parentId,
+      })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/cost-centers"] })
@@ -280,6 +293,32 @@ export default function CostCenters() {
                               <FormControl>
                                 <Input placeholder="Ex: Administrativo" {...field} data-testid="input-name" />
                               </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="parentId"
+                          render={({ field }) => (
+                            <FormItem className="md:col-span-2">
+                              <FormLabel>Centro Pai (Opcional)</FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value || ""} data-testid="select-parent">
+                                <FormControl>
+                                  <SelectTrigger data-testid="select-parent-trigger">
+                                    <SelectValue placeholder="Selecione o centro pai..." />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="none" data-testid="select-parent-none">Nenhum (Centro Raiz)</SelectItem>
+                                  {costCenters?.filter(c => c.id !== editingCenter?.id).map((center) => (
+                                    <SelectItem key={center.id} value={center.id} data-testid={`select-parent-${center.id}`}>
+                                      {center.code} - {center.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
                               <FormMessage />
                             </FormItem>
                           )}
