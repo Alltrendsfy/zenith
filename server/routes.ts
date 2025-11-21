@@ -97,10 +97,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       
-      const [bankAccounts, accountsPayable, accountsReceivable] = await Promise.all([
+      const [bankAccounts, accountsPayable, accountsReceivable, costAllocations, costCenters] = await Promise.all([
         storage.getBankAccounts(userId),
         storage.getAccountsPayable(userId),
         storage.getAccountsReceivable(userId),
+        storage.getAllAllocations(userId),
+        storage.getCostCenters(userId),
       ]);
 
       const totalBalance = bankAccounts.reduce((sum, acc) => sum + parseFloat(acc.balance || "0"), 0);
@@ -128,12 +130,106 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      // Calculate Cash Flow Data (last 6 months)
+      const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+      const now = new Date();
+      const last6Months = Array.from({ length: 6 }, (_, i) => {
+        const date = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
+        return {
+          month: monthNames[date.getMonth()],
+          year: date.getFullYear(),
+          monthIndex: date.getMonth(),
+        };
+      });
+
+      const cashFlowData = last6Months.map(({ month, year, monthIndex }) => {
+        // Include only non-canceled transactions for cash flow projection
+        const receitas = accountsReceivable
+          .filter(a => {
+            if (a.status === 'cancelado') return false;
+            const dueDate = new Date(a.dueDate);
+            return dueDate.getMonth() === monthIndex && dueDate.getFullYear() === year;
+          })
+          .reduce((sum, acc) => sum + parseFloat(acc.totalAmount || "0"), 0);
+
+        const despesas = accountsPayable
+          .filter(a => {
+            if (a.status === 'cancelado') return false;
+            const dueDate = new Date(a.dueDate);
+            return dueDate.getMonth() === monthIndex && dueDate.getFullYear() === year;
+          })
+          .reduce((sum, acc) => sum + parseFloat(acc.totalAmount || "0"), 0);
+
+        return {
+          month,
+          receitas: Number(receitas.toFixed(2)),
+          despesas: Number(despesas.toFixed(2)),
+        };
+      });
+
+      // Calculate Expenses by Cost Center
+      const payableAllocations = costAllocations.filter(a => a.transactionType === 'payable');
+      const expensesByCostCenterMap = new Map<string, number>();
+
+      // Sum allocated expenses by cost center
+      payableAllocations.forEach(allocation => {
+        const current = expensesByCostCenterMap.get(allocation.costCenterId) || 0;
+        expensesByCostCenterMap.set(allocation.costCenterId, current + parseFloat(allocation.amount));
+      });
+
+      // Group allocations by transaction to detect partial allocations
+      const allocationsByPayable = new Map<string, number>();
+      payableAllocations.forEach(allocation => {
+        const current = allocationsByPayable.get(allocation.transactionId) || 0;
+        allocationsByPayable.set(allocation.transactionId, current + parseFloat(allocation.amount));
+      });
+
+      // Calculate unallocated amounts (fully unallocated + partial allocations)
+      let unallocatedTotal = 0;
+
+      accountsPayable
+        .filter(p => p.status !== 'cancelado')
+        .forEach(payable => {
+          const totalAmount = parseFloat(payable.totalAmount || "0");
+          const allocatedAmount = allocationsByPayable.get(payable.id) || 0;
+          const unallocatedAmount = totalAmount - allocatedAmount;
+          
+          if (unallocatedAmount > 0.01) { // Use small threshold to avoid floating point issues
+            unallocatedTotal += unallocatedAmount;
+          }
+        });
+
+      if (unallocatedTotal > 0) {
+        const current = expensesByCostCenterMap.get('__unallocated__') || 0;
+        expensesByCostCenterMap.set('__unallocated__', current + unallocatedTotal);
+      }
+
+      const expensesByCostCenter = Array.from(expensesByCostCenterMap.entries())
+        .map(([costCenterId, value]) => {
+          if (costCenterId === '__unallocated__') {
+            return {
+              name: 'Sem Centro de Custo',
+              value: Number(value.toFixed(2)),
+            };
+          }
+          const costCenter = costCenters.find(cc => cc.id === costCenterId);
+          return {
+            name: costCenter ? costCenter.name : 'Sem Centro de Custo',
+            value: Number(value.toFixed(2)),
+          };
+        })
+        .filter(item => item.value > 0)
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 10); // Top 10 cost centers
+
       res.json({
         totalBalance: `R$ ${totalBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
         totalReceivable: `R$ ${totalReceivable.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
         totalPayable: `R$ ${totalPayable.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
         bankAccountsCount: bankAccounts.length.toString(),
         alerts,
+        cashFlowData,
+        expensesByCostCenter,
       });
     } catch (error) {
       console.error("Error fetching dashboard:", error);
