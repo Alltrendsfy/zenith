@@ -18,6 +18,18 @@ interface DatePickerProps {
   "data-testid"?: string;
 }
 
+function stringToDate(dateString: string): Date {
+  const [year, month, day] = dateString.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function dateToString(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export function DatePicker({ 
   value, 
   onChange, 
@@ -26,24 +38,44 @@ export function DatePicker({
   "data-testid": testId
 }: DatePickerProps) {
   const [date, setDate] = React.useState<Date | undefined>(
-    value ? new Date(value) : undefined
+    value ? stringToDate(value) : undefined
   );
 
   React.useEffect(() => {
     if (value) {
-      setDate(new Date(value));
+      setDate(stringToDate(value));
     } else {
       setDate(undefined);
     }
   }, [value]);
 
   const handleSelect = (selectedDate: Date | undefined) => {
+    console.log('=== DatePicker handleSelect START ===');
+    console.log('1. Raw selectedDate:', selectedDate);
+    console.log('2. selectedDate type:', typeof selectedDate);
+    console.log('3. selectedDate toString:', selectedDate?.toString());
+    console.log('4. selectedDate toISOString:', selectedDate?.toISOString());
+    console.log('5. Date components:', {
+      fullYear: selectedDate?.getFullYear(),
+      month: selectedDate?.getMonth(),
+      date: selectedDate?.getDate(),
+      hours: selectedDate?.getHours(),
+      minutes: selectedDate?.getMinutes(),
+      seconds: selectedDate?.getSeconds(),
+      timezoneOffset: selectedDate?.getTimezoneOffset()
+    });
+    
     setDate(selectedDate);
     if (selectedDate && onChange) {
-      onChange(format(selectedDate, 'yyyy-MM-dd'));
+      const result = dateToString(selectedDate);
+      console.log('6. dateToString result:', result);
+      console.log('7. Calling onChange with:', result);
+      onChange(result);
     } else if (!selectedDate && onChange) {
+      console.log('8. selectedDate is undefined, calling onChange with empty string');
       onChange('');
     }
+    console.log('=== DatePicker handleSelect END ===');
   };
 
   return (
