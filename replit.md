@@ -26,6 +26,11 @@ Drizzle ORM with a PostgreSQL dialect, accessed via Neon serverless driver, form
 
 Authentication is managed via Replit OpenID Connect (OIDC) using Passport.js and `openid-client`. Express sessions, stored in PostgreSQL with `connect-pg-simple`, provide secure session management. Authorization is handled by `isAuthenticated` middleware for protected routes, with user IDs from session claims enforcing data isolation. User roles (admin and gerente) control access to various modules and functionalities.
 
+**Data Visibility Model:**
+- **Admin and Gerente roles**: View ALL financial transactions (accounts payable/receivable) across the entire company, enabling comprehensive financial oversight and management.
+- **Other roles (financeiro, visualizador)**: View only their own financial transactions, maintaining data isolation for team-level work.
+- **Master data (suppliers, customers, cost centers, chart of accounts)**: Remains user-scoped for all roles, allowing teams to maintain their own cadastros.
+
 ### Key Features
 
 *   **Payment Settlement System (Baixa)**: Supports partial and full payments across eight methods, with optional bank account association and automatic status updates.
@@ -38,6 +43,7 @@ Authentication is managed via Replit OpenID Connect (OIDC) using Passport.js and
 *   **Bank Account Management**: Full edit and delete capabilities for bank accounts with data integrity protection. Edit functionality allows updating mutable fields (name, bank details, description) while preventing changes to financial balances. Delete validation prevents removal of accounts with associated transactions (payables, receivables, or transfers), displaying descriptive error messages in Portuguese. Dedicated `updateBankAccountSchema` ensures immutable fields cannot be modified post-creation.
 *   **Cost Center Management**: Comprehensive edit and delete capabilities with hierarchical support and data integrity validation. Edit functionality allows updating all mutable fields (code, name, parentId, level, description) with automatic circular reference prevention. The `wouldCreateCycle` validation ensures hierarchical integrity by blocking attempts to create parent-child loops. Delete validation includes four specific checks: hierarchical children (blocks if cost center has child centers), cost allocations/rateios (primary association method), accounts payable, and accounts receivable. Each validation provides descriptive Portuguese error messages indicating the specific blocker and count. Both POST and PATCH routes sanitize empty strings and "none" values to null for optional fields. Frontend includes "Centro Pai (Opcional)" dropdown for hierarchical organization and displays backend error messages in toasts for clear user feedback.
 *   **Timezone-Safe Date Handling**: Comprehensive date handling fixes ensure dates are stored and displayed correctly without timezone-related shifts. DatePicker component uses manual date formatting (`formatDateBR`) instead of date-fns to avoid timezone conversion issues. Calendar component has `showOutsideDays=false` to prevent accidentally selecting days from adjacent months. All date values are kept as ISO strings (yyyy-MM-dd) end-to-end from frontend to backend, with conversion only for display purposes.
+*   **Accounts Payable Edit/Delete**: Full CRUD implementation with edit and delete capabilities. Edit functionality pre-loads existing data including allocations, uses `updateAccountsPayableSchema` for validation, and properly sanitizes foreign key fields (accountId, supplierId, bankAccountId, costCenterId) to prevent constraint violations. Delete functionality includes confirmation dialog and proper permission checks. Admin and gerente roles can edit/delete any payable; other roles can only modify their own records.
 
 ## External Dependencies
 
