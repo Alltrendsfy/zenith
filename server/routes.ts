@@ -98,29 +98,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const { startDate, endDate, status, supplierId } = req.query;
 
-      console.log('[REPORTS] Accounts Payable - Query params:', { startDate, endDate, status, supplierId, userId });
-
       const accountsPayable = await storage.getAccountsPayable(userId);
       const costAllocations = await storage.getCostAllocations(userId);
       const costCenters = await storage.getCostCenters(userId);
       const suppliers = await storage.getSuppliers(userId);
 
-      console.log('[REPORTS] Initial data:', { 
-        payables: accountsPayable.length, 
-        allocations: costAllocations.length,
-        costCenters: costCenters.length,
-        suppliers: suppliers.length
-      });
-
       // Filter by date range
       let filtered = accountsPayable;
       if (startDate && endDate) {
-        const beforeFilter = filtered.length;
         filtered = filtered.filter(p => {
           const dueDate = new Date(p.dueDate);
           return dueDate >= new Date(startDate as string) && dueDate <= new Date(endDate as string);
         });
-        console.log('[REPORTS] After date filter:', { before: beforeFilter, after: filtered.length, startDate, endDate });
       }
 
       // Filter by status
@@ -216,7 +205,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const response = {
+      res.json({
         data: filtered,
         summary: {
           vencidos: {
@@ -238,17 +227,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })),
         evolutionData,
         suppliers,
-      };
-
-      console.log('[REPORTS] Response summary:', {
-        filteredCount: filtered.length,
-        vencidosCount: vencidos.length,
-        aVencerCount: aVencer.length,
-        pagosCount: pagos.length,
-        costCentersCount: response.costCenterTotals.length
       });
-
-      res.json(response);
     } catch (error) {
       console.error("Error generating accounts payable report:", error);
       res.status(500).json({ message: "Failed to generate report" });
