@@ -33,6 +33,7 @@ import { MobileCardList, type MobileCardProps } from "@/components/mobile-card-l
 import { MobileFormActions } from "@/components/mobile-form-actions"
 import { AllocationManager, type AllocationInput } from "@/components/allocation-manager"
 import { RecurrencePreview, type RecurrenceInstallment } from "@/components/recurrence-preview"
+import { DatePicker } from "@/components/ui/date-picker"
 import { apiRequest, queryClient } from "@/lib/queryClient"
 import type { AccountsPayable, Supplier, ChartOfAccounts } from "@shared/schema"
 import { format } from "date-fns"
@@ -428,12 +429,11 @@ export default function AccountsPayable() {
                             <FormItem>
                               <FormLabel>Data de Emissão *</FormLabel>
                               <FormControl>
-                                <Input 
-                                  type="date" 
-                                  {...field}
-                                  value={field.value || ''}
-                                  onChange={(e) => field.onChange(e.target.value)}
-                                  data-testid="input-issue-date" 
+                                <DatePicker
+                                  value={field.value}
+                                  onChange={field.onChange}
+                                  placeholder="Selecione a data"
+                                  data-testid="input-issue-date"
                                 />
                               </FormControl>
                               <FormMessage />
@@ -448,12 +448,11 @@ export default function AccountsPayable() {
                             <FormItem>
                               <FormLabel>Data de Vencimento *</FormLabel>
                               <FormControl>
-                                <Input 
-                                  type="date" 
-                                  {...field}
-                                  value={field.value || ''}
-                                  onChange={(e) => field.onChange(e.target.value)}
-                                  data-testid="input-due-date" 
+                                <DatePicker
+                                  value={field.value}
+                                  onChange={field.onChange}
+                                  placeholder="Selecione a data"
+                                  data-testid="input-due-date"
                                 />
                               </FormControl>
                               <FormMessage />
@@ -520,12 +519,11 @@ export default function AccountsPayable() {
                                 <FormItem>
                                   <FormLabel>Data de Início da Recorrência *</FormLabel>
                                   <FormControl>
-                                    <Input 
-                                      type="date" 
-                                      {...field}
+                                    <DatePicker
                                       value={field.value || ''}
-                                      onChange={(e) => field.onChange(e.target.value)}
-                                      data-testid="input-recurrence-start-date" 
+                                      onChange={field.onChange}
+                                      placeholder="Selecione a data"
+                                      data-testid="input-recurrence-start-date"
                                     />
                                   </FormControl>
                                   <FormMessage />
@@ -540,12 +538,11 @@ export default function AccountsPayable() {
                                 <FormItem>
                                   <FormLabel>Data de Término (opcional)</FormLabel>
                                   <FormControl>
-                                    <Input 
-                                      type="date" 
-                                      {...field}
+                                    <DatePicker
                                       value={field.value || ''}
-                                      onChange={(e) => field.onChange(e.target.value)}
-                                      data-testid="input-recurrence-end-date" 
+                                      onChange={field.onChange}
+                                      placeholder="Selecione a data"
+                                      data-testid="input-recurrence-end-date"
                                     />
                                   </FormControl>
                                   <FormMessage />

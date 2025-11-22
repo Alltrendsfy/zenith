@@ -13,9 +13,7 @@ export default function Settings() {
 
   const deleteTestDataMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest('/api/test-data', {
-        method: 'DELETE',
-      });
+      return await apiRequest('DELETE', '/api/test-data');
     },
     onSuccess: () => {
       toast({
