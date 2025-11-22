@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -35,10 +36,12 @@ import { insertCustomerSchema, type Customer, type InsertCustomer } from "@share
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil, Trash2, Building2, User } from "lucide-react";
+import { formatCPFCNPJ, handleCPFCNPJInput, unformatCPFCNPJ } from "@/lib/format-utils";
 
 export default function CustomersPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [search, setSearch] = useState("");
   const { toast } = useToast();
   const { canCreate, canUpdate, canDelete } = usePermissions();
 
@@ -69,6 +72,10 @@ export default function CustomersPage() {
       facebook: "",
       linkedin: "",
       observacoes: "",
+      banco: "",
+      agencia: "",
+      contaCorrente: "",
+      chavePix: "",
       isActive: true,
     },
   });
@@ -121,10 +128,15 @@ export default function CustomersPage() {
   });
 
   const onSubmit = (data: InsertCustomer) => {
+    const cleanedData = {
+      ...data,
+      cnpjCpf: data.cnpjCpf ? unformatCPFCNPJ(data.cnpjCpf) : "",
+    };
+    
     if (editingCustomer) {
-      updateMutation.mutate({ id: editingCustomer.id, data });
+      updateMutation.mutate({ id: editingCustomer.id, data: cleanedData });
     } else {
-      createMutation.mutate(data);
+      createMutation.mutate(cleanedData);
     }
   };
 
@@ -146,6 +158,16 @@ export default function CustomersPage() {
     setIsDialogOpen(true);
   };
 
+  const filteredCustomers = customers.filter((customer) => {
+    const searchLower = search.toLowerCase();
+    return (
+      (customer.razaoSocial?.toLowerCase().includes(searchLower)) ||
+      (customer.cnpjCpf?.toLowerCase().includes(searchLower)) ||
+      (customer.nomeFantasia?.toLowerCase().includes(searchLower)) ||
+      (customer.email?.toLowerCase().includes(searchLower))
+    );
+  });
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
@@ -165,14 +187,24 @@ export default function CustomersPage() {
           <CardDescription>Todos os clientes cadastrados no sistema</CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="mb-4">
+            <Input
+              placeholder="Buscar por razão social, CNPJ/CPF, nome fantasia ou email..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              data-testid="input-search-customers"
+            />
+          </div>
           {isLoading ? (
             <div className="space-y-4">
               <div className="h-10 bg-muted animate-pulse rounded" />
               <div className="h-10 bg-muted animate-pulse rounded" />
               <div className="h-10 bg-muted animate-pulse rounded" />
             </div>
-          ) : customers.length === 0 ? (
-            <p className="text-muted-foreground" data-testid="text-empty-customers">Nenhum cliente cadastrado</p>
+          ) : filteredCustomers.length === 0 ? (
+            <p className="text-muted-foreground" data-testid="text-empty-customers">
+              {customers.length === 0 ? "Nenhum cliente cadastrado" : "Nenhum cliente encontrado"}
+            </p>
           ) : (
             <Table>
               <TableHeader>
@@ -186,7 +218,7 @@ export default function CustomersPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {customers.map((customer) => (
+                {filteredCustomers.map((customer) => (
                   <TableRow key={customer.id} data-testid={`row-customer-${customer.id}`}>
                     <TableCell data-testid={`cell-type-${customer.id}`}>
                       {customer.personType === "juridica" ? (
@@ -195,7 +227,7 @@ export default function CustomersPage() {
                         <User className="h-4 w-4" data-testid={`icon-fisica-${customer.id}`} />
                       )}
                     </TableCell>
-                    <TableCell data-testid={`cell-cnpj-cpf-${customer.id}`}>{customer.cnpjCpf}</TableCell>
+                    <TableCell data-testid={`cell-cnpj-cpf-${customer.id}`}>{formatCPFCNPJ(customer.cnpjCpf)}</TableCell>
                     <TableCell className="font-medium" data-testid={`cell-razao-social-${customer.id}`}>{customer.razaoSocial}</TableCell>
                     <TableCell data-testid={`cell-email-${customer.id}`}>{customer.email}</TableCell>
                     <TableCell data-testid={`cell-telefone-${customer.id}`}>{customer.telefone || customer.celular}</TableCell>
@@ -270,7 +302,15 @@ export default function CustomersPage() {
                     <FormItem>
                       <FormLabel>CNPJ/CPF</FormLabel>
                       <FormControl>
-                        <Input {...field} value={field.value || ""} data-testid="input-cnpj-cpf" />
+                        <Input 
+                          {...field} 
+                          value={field.value || ""} 
+                          onChange={(e) => {
+                            const formatted = handleCPFCNPJInput(e);
+                            field.onChange(formatted);
+                          }}
+                          data-testid="input-cnpj-cpf" 
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -541,6 +581,89 @@ export default function CustomersPage() {
                   </FormItem>
                 )}
               />
+
+              <div className="space-y-4 pt-4 border-t">
+                <h3 className="text-lg font-semibold">Dados Bancários</h3>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="banco"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Banco</FormLabel>
+                        <FormControl>
+                          <Input {...field} value={field.value || ""} data-testid="input-banco" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="agencia"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Agência</FormLabel>
+                        <FormControl>
+                          <Input {...field} value={field.value || ""} data-testid="input-agencia" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="contaCorrente"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Conta Corrente</FormLabel>
+                        <FormControl>
+                          <Input {...field} value={field.value || ""} data-testid="input-conta-corrente" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="chavePix"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Chave PIX</FormLabel>
+                        <FormControl>
+                          <Input {...field} value={field.value || ""} data-testid="input-chave-pix" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="isActive"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                      <div className="space-y-0.5">
+                        <FormLabel className="text-base">Ativo</FormLabel>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                          data-testid="switch-is-active"
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </div>
 
               <DialogFooter>
                 <Button
