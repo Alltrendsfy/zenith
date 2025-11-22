@@ -18,11 +18,12 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus, Receipt, Search, DollarSign } from "lucide-react"
+import { Plus, Receipt, Search, DollarSign, Pencil, Trash2 } from "lucide-react"
 import { PaymentSettlementDialog } from "@/components/payment-settlement-dialog"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -84,6 +85,8 @@ export default function AccountsPayable() {
   const [recurrenceInstallments, setRecurrenceInstallments] = useState<RecurrenceInstallment[]>([])
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
   const [selectedPayable, setSelectedPayable] = useState<AccountsPayable | null>(null)
+  const [editingPayable, setEditingPayable] = useState<AccountsPayable | null>(null)
+  const [deletingPayable, setDeletingPayable] = useState<AccountsPayable | null>(null)
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -147,7 +150,7 @@ export default function AccountsPayable() {
           issueDate: data.issueDate,
           documentNumber: data.documentNumber || null,
           notes: data.notes || null,
-          accountId: data.accountId || null,
+          chartOfAccountsId: data.accountId || null,
           costCenterId: data.costCenterId || null,
           recurrenceType: data.recurrenceType,
           recurrenceStatus: 'ativa' as const,
@@ -189,7 +192,7 @@ export default function AccountsPayable() {
         // Convert empty strings to null for foreign keys
         supplierId: data.supplierId || null,
         supplierName: data.supplierName || null,
-        accountId: data.accountId || null,
+        chartOfAccountsId: data.accountId || null,
         costCenterId: data.costCenterId || null,
         documentNumber: data.documentNumber || null,
         notes: data.notes || null,
@@ -243,6 +246,154 @@ export default function AccountsPayable() {
     },
   })
 
+  const updateMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof formSchema>) => {
+      if (!editingPayable) throw new Error("No payable selected")
+      const res = await apiRequest("PATCH", `/api/accounts-payable/${editingPayable.id}`, {
+        ...data,
+        supplierId: data.supplierId || null,
+        supplierName: data.supplierName || null,
+        chartOfAccountsId: data.accountId || null,
+        costCenterId: data.costCenterId || null,
+        documentNumber: data.documentNumber || null,
+        notes: data.notes || null,
+      })
+      const response = await res.json()
+      
+      // Update allocations - delete old ones and create new ones
+      if (allocations.length > 0) {
+        await apiRequest("POST", `/api/accounts-payable/${editingPayable.id}/allocations`, {
+          allocations,
+        })
+      } else {
+        // If no allocations, delete all existing ones (if any exist)
+        try {
+          await apiRequest("DELETE", `/api/accounts-payable/${editingPayable.id}/allocations`)
+        } catch (e) {
+          // Ignore errors if no allocations existed
+        }
+      }
+      
+      return response
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/accounts-payable"] })
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] })
+      toast({
+        title: "Sucesso",
+        description: "Conta a pagar atualizada com sucesso",
+      })
+      setEditingPayable(null)
+      setOpen(false)
+      form.reset()
+      setAllocations([])
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error as Error)) {
+        toast({
+          title: "Não autorizado",
+          description: "Você precisa fazer login novamente...",
+          variant: "destructive",
+        })
+        setTimeout(() => {
+          window.location.href = "/api/login"
+        }, 500)
+        return
+      }
+      toast({
+        title: "Erro",
+        description: "Falha ao atualizar conta a pagar",
+        variant: "destructive",
+      })
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/accounts-payable/${id}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/accounts-payable"] })
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] })
+      toast({
+        title: "Sucesso",
+        description: "Conta a pagar excluída com sucesso",
+      })
+      setDeletingPayable(null)
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error as Error)) {
+        toast({
+          title: "Não autorizado",
+          description: "Você precisa fazer login novamente...",
+          variant: "destructive",
+        })
+        setTimeout(() => {
+          window.location.href = "/api/login"
+        }, 500)
+        return
+      }
+      toast({
+        title: "Erro",
+        description: "Falha ao excluir conta a pagar",
+        variant: "destructive",
+      })
+    },
+  })
+
+  useEffect(() => {
+    if (editingPayable) {
+      // Load allocations first, then open dialog
+      const loadAndOpenEdit = async () => {
+        form.reset({
+          description: editingPayable.description,
+          supplierId: editingPayable.supplierId || "",
+          supplierName: editingPayable.supplierName || "",
+          totalAmount: editingPayable.totalAmount,
+          dueDate: editingPayable.dueDate,
+          issueDate: editingPayable.issueDate,
+          documentNumber: editingPayable.documentNumber || "",
+          notes: editingPayable.notes || "",
+          accountId: editingPayable.chartOfAccountsId || "",
+          costCenterId: editingPayable.costCenterId || "",
+          recurrenceType: editingPayable.recurrenceType || "unica",
+          recurrenceCount: "",
+          recurrenceStartDate: "",
+          recurrenceEndDate: "",
+        })
+        
+        // Load allocations if they exist
+        try {
+          const res = await fetch(`/api/accounts-payable/${editingPayable.id}/allocations`, {
+            credentials: "include",
+          })
+          if (res.ok) {
+            const data = await res.json()
+            if (data && Array.isArray(data) && data.length > 0) {
+              setAllocations(data.map((alloc: any) => ({
+                costCenterId: alloc.costCenterId,
+                percentage: typeof alloc.percentage === 'string' ? parseFloat(alloc.percentage) : alloc.percentage,
+                amount: alloc.amount,
+              })))
+            } else {
+              setAllocations([])
+            }
+          } else {
+            setAllocations([])
+          }
+        } catch (error) {
+          console.error("Error loading allocations:", error)
+          setAllocations([])
+        }
+        
+        // Open dialog after loading allocations
+        setOpen(true)
+      }
+      
+      loadAndOpenEdit()
+    }
+  }, [editingPayable, form])
+
   const onSubmit = (data: z.infer<typeof formSchema>) => {
     // Validate allocations if configured
     if (allocations.length > 0) {
@@ -269,7 +420,25 @@ export default function AccountsPayable() {
       }
     }
 
-    createMutation.mutate(data)
+    if (editingPayable) {
+      updateMutation.mutate(data)
+    } else {
+      createMutation.mutate(data)
+    }
+  }
+
+  const handleEdit = (payable: AccountsPayable) => {
+    setEditingPayable(payable)
+  }
+
+  const handleDelete = (payable: AccountsPayable) => {
+    setDeletingPayable(payable)
+  }
+
+  const confirmDelete = () => {
+    if (deletingPayable) {
+      deleteMutation.mutate(deletingPayable.id)
+    }
   }
 
   if (authLoading || !isAuthenticated) {
@@ -319,7 +488,15 @@ export default function AccountsPayable() {
             />
           </div>
 
-          <Dialog open={open} onOpenChange={setOpen}>
+          <Dialog open={open} onOpenChange={(isOpen) => {
+                if (!isOpen) {
+                  setOpen(false)
+                  setEditingPayable(null)
+                  form.reset()
+                  setAllocations([])
+                  setRecurrenceInstallments([])
+                }
+              }}>
                 <DialogTrigger asChild>
                   <Button data-testid="button-add-payable" disabled={!canCreate}>
                     <Plus className="h-4 w-4 mr-2" />
@@ -328,7 +505,7 @@ export default function AccountsPayable() {
                 </DialogTrigger>
                 <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
-                    <DialogTitle>Nova Conta a Pagar</DialogTitle>
+                    <DialogTitle>{editingPayable ? "Editar Conta a Pagar" : "Nova Conta a Pagar"}</DialogTitle>
                   </DialogHeader>
                   <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -719,6 +896,32 @@ export default function AccountsPayable() {
                           badgeVariant: 'outline' as const,
                         }] : []),
                       ],
+                      actions: [
+                        ...(canUpdate ? [{
+                          label: "Editar",
+                          icon: <Pencil className="h-4 w-4" />,
+                          onClick: () => handleEdit(payable),
+                          testId: `button-edit-${payable.id}`,
+                        }] : []),
+                        ...(canDelete ? [{
+                          label: "Excluir",
+                          icon: <Trash2 className="h-4 w-4" />,
+                          onClick: () => handleDelete(payable),
+                          variant: 'destructive' as const,
+                          testId: `button-delete-${payable.id}`,
+                        }] : []),
+                        {
+                          label: "Baixar",
+                          icon: <DollarSign className="h-4 w-4" />,
+                          onClick: () => {
+                            setSelectedPayable(payable)
+                            setPaymentDialogOpen(true)
+                          },
+                          variant: 'default' as const,
+                          disabled: payable.status === 'pago' || payable.status === 'cancelado',
+                          testId: `button-baixa-${payable.id}`,
+                        },
+                      ],
                     })}
                     emptyMessage="Nenhuma conta a pagar encontrada"
                   />
@@ -761,19 +964,41 @@ export default function AccountsPayable() {
                             )}
                           </TableCell>
                           <TableCell className="text-right">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setSelectedPayable(payable)
-                                setPaymentDialogOpen(true)
-                              }}
-                              disabled={payable.status === 'pago' || payable.status === 'cancelado'}
-                              data-testid={`button-baixa-${payable.id}`}
-                            >
-                              <DollarSign className="h-4 w-4 mr-1" />
-                              Baixar
-                            </Button>
+                            <div className="flex items-center justify-end gap-1">
+                              {canUpdate && (
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  onClick={() => handleEdit(payable)}
+                                  data-testid={`button-edit-${payable.id}`}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                              )}
+                              {canDelete && (
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  onClick={() => handleDelete(payable)}
+                                  data-testid={`button-delete-${payable.id}`}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setSelectedPayable(payable)
+                                  setPaymentDialogOpen(true)
+                                }}
+                                disabled={payable.status === 'pago' || payable.status === 'cancelado'}
+                                data-testid={`button-baixa-${payable.id}`}
+                              >
+                                <DollarSign className="h-4 w-4 mr-1" />
+                                Baixar
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -800,6 +1025,27 @@ export default function AccountsPayable() {
           }}
         />
       )}
+
+      <AlertDialog open={!!deletingPayable} onOpenChange={(isOpen) => !isOpen && setDeletingPayable(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir a conta "{deletingPayable?.description}"? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete">Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDelete} 
+              disabled={deleteMutation.isPending}
+              data-testid="button-confirm-delete"
+            >
+              {deleteMutation.isPending ? "Excluindo..." : "Excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </PageContainer>
   )
 }

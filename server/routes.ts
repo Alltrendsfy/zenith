@@ -694,6 +694,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch('/api/accounts-payable/:id', isAuthenticated, requirePermission('canUpdate'), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      
+      const sanitizedData = {
+        ...req.body,
+        supplierId: req.body.supplierId === '' ? null : req.body.supplierId,
+        bankAccountId: req.body.bankAccountId === '' ? null : req.body.bankAccountId,
+        costCenterId: req.body.costCenterId === '' ? null : req.body.costCenterId,
+        chartOfAccountsId: req.body.chartOfAccountsId === '' ? null : req.body.chartOfAccountsId,
+      };
+      
+      const validated = insertAccountsPayableSchema.partial().parse(sanitizedData);
+      const payable = await storage.updateAccountPayable(id, userId, validated);
+      if (!payable) {
+        return res.status(404).json({ message: "Conta a pagar não encontrada" });
+      }
+      res.json(payable);
+    } catch (error: any) {
+      console.error("Error updating account payable:", error);
+      res.status(400).json({ message: error.message || "Falha ao atualizar conta a pagar" });
+    }
+  });
+
+  app.delete('/api/accounts-payable/:id', isAuthenticated, requirePermission('canDelete'), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      const deleted = await storage.deleteAccountPayable(id, userId);
+      if (!deleted) {
+        return res.status(404).json({ message: "Conta a pagar não encontrada" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting account payable:", error);
+      res.status(500).json({ message: "Falha ao excluir conta a pagar" });
+    }
+  });
+
   // Accounts Receivable
   app.get('/api/accounts-receivable', isAuthenticated, async (req: any, res) => {
     try {
