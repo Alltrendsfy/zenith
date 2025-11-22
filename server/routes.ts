@@ -22,6 +22,11 @@ import {
 import { validateAllocations, calculateAmounts } from "@shared/allocationUtils";
 import { z } from "zod";
 
+function stringToDate(dateString: string): Date {
+  const [year, month, day] = dateString.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   await setupAuth(app);
 
@@ -106,9 +111,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Filter by date range
       let filtered = accountsPayable;
       if (startDate && endDate) {
+        const startDateObj = stringToDate(startDate as string);
+        const endDateObj = stringToDate(endDate as string);
         filtered = filtered.filter(p => {
-          const dueDate = new Date(p.dueDate);
-          return dueDate >= new Date(startDate as string) && dueDate <= new Date(endDate as string);
+          const dueDate = stringToDate(p.dueDate);
+          return dueDate >= startDateObj && dueDate <= endDateObj;
         });
       }
 
@@ -125,10 +132,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Calculate summaries
       const now = new Date();
       const vencidos = filtered.filter(p => 
-        p.status !== 'cancelado' && p.status !== 'pago' && new Date(p.dueDate) < now
+        p.status !== 'cancelado' && p.status !== 'pago' && stringToDate(p.dueDate) < now
       );
       const aVencer = filtered.filter(p => 
-        p.status === 'pendente' && new Date(p.dueDate) >= now
+        p.status === 'pendente' && stringToDate(p.dueDate) >= now
       );
       const pagos = filtered.filter(p => p.status === 'pago');
 
@@ -246,9 +253,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Filter by date range
       let filtered = accountsReceivable;
       if (startDate && endDate) {
+        const startDateObj = stringToDate(startDate as string);
+        const endDateObj = stringToDate(endDate as string);
         filtered = filtered.filter(r => {
-          const dueDate = new Date(r.dueDate);
-          return dueDate >= new Date(startDate as string) && dueDate <= new Date(endDate as string);
+          const dueDate = stringToDate(r.dueDate);
+          return dueDate >= startDateObj && dueDate <= endDateObj;
         });
       }
 
@@ -265,10 +274,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Calculate summaries
       const now = new Date();
       const vencidos = filtered.filter(r => 
-        r.status !== 'cancelado' && r.status !== 'pago' && new Date(r.dueDate) < now
+        r.status !== 'cancelado' && r.status !== 'pago' && stringToDate(r.dueDate) < now
       );
       const aVencer = filtered.filter(r => 
-        r.status === 'pendente' && new Date(r.dueDate) >= now
+        r.status === 'pendente' && stringToDate(r.dueDate) >= now
       );
       const recebidos = filtered.filter(r => r.status === 'pago');
 
@@ -386,7 +395,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const alerts = [];
       
       const overduePayables = accountsPayable.filter(a => 
-        a.status !== 'pago' && a.status !== 'cancelado' && new Date(a.dueDate) < new Date()
+        a.status !== 'pago' && a.status !== 'cancelado' && stringToDate(a.dueDate) < new Date()
       );
       
       if (overduePayables.length > 0) {
@@ -415,7 +424,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const receitas = accountsReceivable
           .filter(a => {
             if (a.status === 'cancelado') return false;
-            const dueDate = new Date(a.dueDate);
+            const dueDate = stringToDate(a.dueDate);
             return dueDate.getMonth() === monthIndex && dueDate.getFullYear() === year;
           })
           .reduce((sum, acc) => sum + parseFloat(acc.totalAmount || "0"), 0);
@@ -423,7 +432,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const despesas = accountsPayable
           .filter(a => {
             if (a.status === 'cancelado') return false;
-            const dueDate = new Date(a.dueDate);
+            const dueDate = stringToDate(a.dueDate);
             return dueDate.getMonth() === monthIndex && dueDate.getFullYear() === year;
           })
           .reduce((sum, acc) => sum + parseFloat(acc.totalAmount || "0"), 0);
@@ -1088,8 +1097,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "startDate and endDate are required" });
       }
 
-      const start = new Date(startDate as string);
-      const end = new Date(endDate as string);
+      const start = stringToDate(startDate as string);
+      const end = stringToDate(endDate as string);
 
       // Fetch all transactions within period
       const [payables, receivables, accounts, costCenters] = await Promise.all([
@@ -1101,12 +1110,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Filter by date range and status
       const filteredPayables = payables.filter(p => {
-        const issueDate = new Date(p.issueDate);
+        const issueDate = stringToDate(p.issueDate);
         return issueDate >= start && issueDate <= end && p.status !== 'cancelado';
       });
 
       const filteredReceivables = receivables.filter(r => {
-        const issueDate = new Date(r.issueDate);
+        const issueDate = stringToDate(r.issueDate);
         return issueDate >= start && issueDate <= end && r.status !== 'cancelado';
       });
 
@@ -1276,7 +1285,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { bankAccountId, startDate, endDate } = validation.data;
 
       // Validate date ordering
-      if (new Date(startDate) > new Date(endDate)) {
+      if (stringToDate(startDate) > stringToDate(endDate)) {
         return res.status(400).json({ 
           message: "startDate must be before or equal to endDate" 
         });
