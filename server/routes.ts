@@ -1387,6 +1387,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       const validated = insertSupplierSchema.parse(req.body);
+      
+      if (validated.cnpjCpf) {
+        const cleanCpfCnpj = validated.cnpjCpf.replace(/\D/g, '');
+        const existing = await storage.findSupplierByCpfCnpj(userId, cleanCpfCnpj);
+        if (existing) {
+          return res.status(400).json({ message: "Já existe um fornecedor cadastrado com este CPF/CNPJ" });
+        }
+      }
+      
       const supplier = await storage.createSupplier({
         ...validated,
         userId,
@@ -1445,6 +1454,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       const validated = insertCustomerSchema.parse(req.body);
+      
+      if (validated.cnpjCpf) {
+        const cleanCpfCnpj = validated.cnpjCpf.replace(/\D/g, '');
+        const existing = await storage.findCustomerByCpfCnpj(userId, cleanCpfCnpj);
+        if (existing) {
+          return res.status(400).json({ message: "Já existe um cliente cadastrado com este CPF/CNPJ" });
+        }
+      }
+      
       const customer = await storage.createCustomer({
         ...validated,
         userId,

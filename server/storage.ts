@@ -721,6 +721,16 @@ export class DatabaseStorage implements IStorage {
     return supplier;
   }
 
+  async findSupplierByCpfCnpj(userId: string, cpfCnpj: string): Promise<Supplier | undefined> {
+    const [supplier] = await db.select().from(suppliers).where(
+      and(
+        eq(suppliers.userId, userId),
+        sql`REPLACE(REPLACE(REPLACE(${suppliers.cnpjCpf}, '.', ''), '/', ''), '-', '') = ${cpfCnpj}`
+      )
+    );
+    return supplier;
+  }
+
   async createSupplier(supplier: InsertSupplier): Promise<Supplier> {
     const [created] = await db.insert(suppliers).values(supplier).returning();
     return created;
@@ -747,6 +757,16 @@ export class DatabaseStorage implements IStorage {
 
   async getCustomer(id: string, userId: string): Promise<Customer | undefined> {
     const [customer] = await db.select().from(customers).where(and(eq(customers.id, id), eq(customers.userId, userId)));
+    return customer;
+  }
+
+  async findCustomerByCpfCnpj(userId: string, cpfCnpj: string): Promise<Customer | undefined> {
+    const [customer] = await db.select().from(customers).where(
+      and(
+        eq(customers.userId, userId),
+        sql`REPLACE(REPLACE(REPLACE(${customers.cnpjCpf}, '.', ''), '/', ''), '-', '') = ${cpfCnpj}`
+      )
+    );
     return customer;
   }
 
