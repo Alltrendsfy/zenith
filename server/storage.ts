@@ -60,7 +60,7 @@ export interface IStorage {
   deleteBankAccount(id: string, userId: string): Promise<boolean>;
 
   // Accounts Payable
-  getAccountsPayable(userId: string): Promise<AccountsPayable[]>;
+  getAccountsPayable(userId: string, userRole?: string): Promise<AccountsPayable[]>;
   getAccountPayable(id: string, userId: string): Promise<AccountsPayable | undefined>;
   createAccountPayable(account: InsertAccountsPayable): Promise<AccountsPayable>;
   createAccountsPayableBatch(accounts: InsertAccountsPayable[]): Promise<AccountsPayable[]>;
@@ -68,7 +68,7 @@ export interface IStorage {
   deleteAccountPayable(id: string, userId: string): Promise<boolean>;
 
   // Accounts Receivable
-  getAccountsReceivable(userId: string): Promise<AccountsReceivable[]>;
+  getAccountsReceivable(userId: string, userRole?: string): Promise<AccountsReceivable[]>;
   getAccountReceivable(id: string, userId: string): Promise<AccountsReceivable | undefined>;
   createAccountReceivable(account: InsertAccountsReceivable): Promise<AccountsReceivable>;
   createAccountsReceivableBatch(accounts: InsertAccountsReceivable[]): Promise<AccountsReceivable[]>;
@@ -266,7 +266,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Accounts Payable
-  async getAccountsPayable(userId: string): Promise<AccountsPayable[]> {
+  async getAccountsPayable(userId: string, userRole?: string): Promise<AccountsPayable[]> {
+    if (userRole === 'admin' || userRole === 'gerente') {
+      return await db.select().from(accountsPayable).orderBy(desc(accountsPayable.dueDate));
+    }
     return await db.select().from(accountsPayable).where(eq(accountsPayable.userId, userId)).orderBy(desc(accountsPayable.dueDate));
   }
 
@@ -321,7 +324,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Accounts Receivable
-  async getAccountsReceivable(userId: string): Promise<AccountsReceivable[]> {
+  async getAccountsReceivable(userId: string, userRole?: string): Promise<AccountsReceivable[]> {
+    if (userRole === 'admin' || userRole === 'gerente') {
+      return await db.select().from(accountsReceivable).orderBy(desc(accountsReceivable.dueDate));
+    }
     return await db.select().from(accountsReceivable).where(eq(accountsReceivable.userId, userId)).orderBy(desc(accountsReceivable.dueDate));
   }
 

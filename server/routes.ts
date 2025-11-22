@@ -102,9 +102,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/reports/accounts-payable', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      const userRole = req.user.role;
       const { startDate, endDate, status, supplierId } = req.query;
 
-      const accountsPayable = await storage.getAccountsPayable(userId);
+      const accountsPayable = await storage.getAccountsPayable(userId, userRole);
       const costAllocations = await storage.getCostAllocations(userId);
       const costCenters = await storage.getCostCenters(userId);
       const suppliers = await storage.getSuppliers(userId);
@@ -246,9 +247,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/reports/accounts-receivable', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      const userRole = req.user.role;
       const { startDate, endDate, status, customerId } = req.query;
 
-      const accountsReceivable = await storage.getAccountsReceivable(userId);
+      const accountsReceivable = await storage.getAccountsReceivable(userId, userRole);
       const customers = await storage.getCustomers(userId);
 
       // Filter by date range
@@ -374,11 +376,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/dashboard', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      const userRole = req.user.role;
       
       const [bankAccounts, accountsPayable, accountsReceivable, costAllocations, costCenters] = await Promise.all([
         storage.getBankAccounts(userId),
-        storage.getAccountsPayable(userId),
-        storage.getAccountsReceivable(userId),
+        storage.getAccountsPayable(userId, userRole),
+        storage.getAccountsReceivable(userId, userRole),
         storage.getAllAllocations(userId),
         storage.getCostCenters(userId),
       ]);
@@ -625,9 +628,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/accounts-payable', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      const userRole = req.user.role;
       // Process pending recurrences before fetching accounts
       await storage.processRecurrences(userId);
-      const accounts = await storage.getAccountsPayable(userId);
+      const accounts = await storage.getAccountsPayable(userId, userRole);
       res.json(accounts);
     } catch (error) {
       console.error("Error fetching accounts payable:", error);
@@ -739,9 +743,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/accounts-receivable', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      const userRole = req.user.role;
       // Process pending recurrences before fetching accounts
       await storage.processRecurrences(userId);
-      const accounts = await storage.getAccountsReceivable(userId);
+      const accounts = await storage.getAccountsReceivable(userId, userRole);
       res.json(accounts);
     } catch (error) {
       console.error("Error fetching accounts receivable:", error);
