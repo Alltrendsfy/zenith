@@ -31,7 +31,7 @@ export default function AccountsReceivableReports() {
   const [customerId, setCustomerId] = useState<string>('all');
 
   const { data: report, isLoading } = useQuery<ReceivableReport>({
-    queryKey: ['/api/reports/accounts-receivable', startDate, endDate, status, customerId],
+    queryKey: [`/api/reports/accounts-receivable?startDate=${startDate}&endDate=${endDate}&status=${status}&customerId=${customerId}`],
     enabled: !!startDate && !!endDate,
   });
 

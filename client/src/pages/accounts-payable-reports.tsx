@@ -33,7 +33,7 @@ export default function AccountsPayableReports() {
   const [supplierId, setSupplierId] = useState<string>('all');
 
   const { data: report, isLoading } = useQuery<PayableReport>({
-    queryKey: ['/api/reports/accounts-payable', startDate, endDate, status, supplierId],
+    queryKey: [`/api/reports/accounts-payable?startDate=${startDate}&endDate=${endDate}&status=${status}&supplierId=${supplierId}`],
     enabled: !!startDate && !!endDate,
   });
 
