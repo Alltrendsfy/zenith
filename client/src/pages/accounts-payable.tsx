@@ -37,6 +37,7 @@ import { DatePicker } from "@/components/ui/date-picker"
 import { apiRequest, queryClient } from "@/lib/queryClient"
 import type { AccountsPayable, Supplier, ChartOfAccounts } from "@shared/schema"
 import { format } from "date-fns"
+import { formatDateBR } from "@/lib/date-utils"
 
 const formSchema = z.object({
   description: z.string().min(1, "Descrição é obrigatória"),
@@ -698,7 +699,7 @@ export default function AccountsPayable() {
                         },
                         {
                           label: "Vencimento",
-                          value: format(new Date(payable.dueDate), 'dd/MM/yyyy'),
+                          value: formatDateBR(payable.dueDate),
                         },
                         {
                           label: "Valor",
@@ -741,7 +742,7 @@ export default function AccountsPayable() {
                         <TableRow key={payable.id} className="hover-elevate">
                           <TableCell className="font-medium">{payable.description}</TableCell>
                           <TableCell>{getSupplierName(payable)}</TableCell>
-                          <TableCell>{format(new Date(payable.dueDate), 'dd/MM/yyyy')}</TableCell>
+                          <TableCell>{formatDateBR(payable.dueDate)}</TableCell>
                           <TableCell className="text-right font-mono">
                             R$ {getDisplayAmount(payable).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                           </TableCell>

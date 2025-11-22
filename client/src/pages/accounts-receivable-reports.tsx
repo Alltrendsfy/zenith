@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { Calendar, TrendingUp, CheckCircle2, AlertCircle, FileText } from "lucide-react";
 import { format, startOfMonth, endOfMonth } from "date-fns";
+import { formatDateBR } from "@/lib/date-utils";
 
 interface Summary {
   vencidos: { count: number; total: number };
@@ -281,7 +282,7 @@ export default function AccountsReceivableReports() {
               {report && report.data.length > 0 ? (
                 report.data.map((receivable) => (
                   <TableRow key={receivable.id} data-testid={`row-receivable-${receivable.id}`}>
-                    <TableCell>{format(new Date(receivable.dueDate), 'dd/MM/yyyy')}</TableCell>
+                    <TableCell>{formatDateBR(receivable.dueDate)}</TableCell>
                     <TableCell>{receivable.description}</TableCell>
                     <TableCell>
                       {report.customers.find(c => c.id === receivable.customerId)?.razaoSocial || '-'}

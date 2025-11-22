@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { Calendar, TrendingDown, CheckCircle2, AlertCircle, FileText } from "lucide-react";
 import { format, startOfMonth, endOfMonth } from "date-fns";
+import { formatDateBR } from "@/lib/date-utils";
 
 interface Summary {
   vencidos: { count: number; total: number };
@@ -284,7 +285,7 @@ export default function AccountsPayableReports() {
               {report && report.data.length > 0 ? (
                 report.data.map((payable) => (
                   <TableRow key={payable.id} data-testid={`row-payable-${payable.id}`}>
-                    <TableCell>{format(new Date(payable.dueDate), 'dd/MM/yyyy')}</TableCell>
+                    <TableCell>{formatDateBR(payable.dueDate)}</TableCell>
                     <TableCell>{payable.description}</TableCell>
                     <TableCell>
                       {report.suppliers.find(s => s.id === payable.supplierId)?.razaoSocial || '-'}

@@ -50,32 +50,12 @@ export function DatePicker({
   }, [value]);
 
   const handleSelect = (selectedDate: Date | undefined) => {
-    console.log('=== DatePicker handleSelect START ===');
-    console.log('1. Raw selectedDate:', selectedDate);
-    console.log('2. selectedDate type:', typeof selectedDate);
-    console.log('3. selectedDate toString:', selectedDate?.toString());
-    console.log('4. selectedDate toISOString:', selectedDate?.toISOString());
-    console.log('5. Date components:', {
-      fullYear: selectedDate?.getFullYear(),
-      month: selectedDate?.getMonth(),
-      date: selectedDate?.getDate(),
-      hours: selectedDate?.getHours(),
-      minutes: selectedDate?.getMinutes(),
-      seconds: selectedDate?.getSeconds(),
-      timezoneOffset: selectedDate?.getTimezoneOffset()
-    });
-    
     setDate(selectedDate);
     if (selectedDate && onChange) {
-      const result = dateToString(selectedDate);
-      console.log('6. dateToString result:', result);
-      console.log('7. Calling onChange with:', result);
-      onChange(result);
+      onChange(dateToString(selectedDate));
     } else if (!selectedDate && onChange) {
-      console.log('8. selectedDate is undefined, calling onChange with empty string');
       onChange('');
     }
-    console.log('=== DatePicker handleSelect END ===');
   };
 
   return (

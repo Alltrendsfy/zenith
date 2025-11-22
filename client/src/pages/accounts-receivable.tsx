@@ -37,6 +37,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient"
 import type { AccountsReceivable, Customer, ChartOfAccounts } from "@shared/schema"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { format } from "date-fns"
+import { formatDateBR } from "@/lib/date-utils"
 
 const formSchema = z.object({
   description: z.string().min(1, "Descrição é obrigatória"),
@@ -697,7 +698,7 @@ export default function AccountsReceivable() {
                         },
                         {
                           label: "Vencimento",
-                          value: format(new Date(receivable.dueDate), 'dd/MM/yyyy'),
+                          value: formatDateBR(receivable.dueDate),
                         },
                         {
                           label: "Valor",
@@ -740,7 +741,7 @@ export default function AccountsReceivable() {
                         <TableRow key={receivable.id} className="hover-elevate">
                           <TableCell className="font-medium">{receivable.description}</TableCell>
                           <TableCell>{getCustomerName(receivable)}</TableCell>
-                          <TableCell>{format(new Date(receivable.dueDate), 'dd/MM/yyyy')}</TableCell>
+                          <TableCell>{formatDateBR(receivable.dueDate)}</TableCell>
                           <TableCell className="text-right font-mono">
                             R$ {getDisplayAmount(receivable).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                           </TableCell>
