@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -36,10 +37,12 @@ import { insertSupplierSchema, type Supplier, type InsertSupplier } from "@share
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil, Trash2, Building2, User } from "lucide-react";
+import { formatCPFCNPJ, handleCPFCNPJInput, unformatCPFCNPJ } from "@/lib/format-utils";
 
 export default function SuppliersPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
+  const [search, setSearch] = useState("");
   const { toast } = useToast();
   const { canCreate, canUpdate, canDelete } = usePermissions();
 
@@ -70,6 +73,10 @@ export default function SuppliersPage() {
       facebook: "",
       linkedin: "",
       observacoes: "",
+      banco: "",
+      agencia: "",
+      contaCorrente: "",
+      chavePix: "",
       isActive: true,
     },
   });
@@ -122,10 +129,15 @@ export default function SuppliersPage() {
   });
 
   const onSubmit = (data: InsertSupplier) => {
+    const cleanedData = {
+      ...data,
+      cnpjCpf: data.cnpjCpf ? unformatCPFCNPJ(data.cnpjCpf) : "",
+    };
+    
     if (editingSupplier) {
-      updateMutation.mutate({ id: editingSupplier.id, data });
+      updateMutation.mutate({ id: editingSupplier.id, data: cleanedData });
     } else {
-      createMutation.mutate(data);
+      createMutation.mutate(cleanedData);
     }
   };
 
@@ -147,6 +159,16 @@ export default function SuppliersPage() {
     setIsDialogOpen(true);
   };
 
+  const filteredSuppliers = suppliers.filter((supplier) => {
+    const searchLower = search.toLowerCase();
+    return (
+      (supplier.razaoSocial?.toLowerCase().includes(searchLower)) ||
+      (supplier.cnpjCpf?.toLowerCase().includes(searchLower)) ||
+      (supplier.nomeFantasia?.toLowerCase().includes(searchLower)) ||
+      (supplier.email?.toLowerCase().includes(searchLower))
+    );
+  });
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
@@ -166,14 +188,24 @@ export default function SuppliersPage() {
           <CardDescription>Todos os fornecedores cadastrados no sistema</CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="mb-4">
+            <Input
+              placeholder="Buscar por razão social, CNPJ/CPF, nome fantasia ou email..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              data-testid="input-search-suppliers"
+            />
+          </div>
           {isLoading ? (
             <div className="space-y-4">
               <div className="h-10 bg-muted animate-pulse rounded" />
               <div className="h-10 bg-muted animate-pulse rounded" />
               <div className="h-10 bg-muted animate-pulse rounded" />
             </div>
-          ) : suppliers.length === 0 ? (
-            <p className="text-muted-foreground" data-testid="text-empty-suppliers">Nenhum fornecedor cadastrado</p>
+          ) : filteredSuppliers.length === 0 ? (
+            <p className="text-muted-foreground" data-testid="text-empty-suppliers">
+              {suppliers.length === 0 ? "Nenhum fornecedor cadastrado" : "Nenhum fornecedor encontrado"}
+            </p>
           ) : (
             <Table>
               <TableHeader>
@@ -188,7 +220,7 @@ export default function SuppliersPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {suppliers.map((supplier) => (
+                {filteredSuppliers.map((supplier) => (
                   <TableRow key={supplier.id} data-testid={`row-supplier-${supplier.id}`}>
                     <TableCell data-testid={`cell-type-${supplier.id}`}>
                       {supplier.personType === "juridica" ? (
@@ -197,7 +229,7 @@ export default function SuppliersPage() {
                         <User className="h-4 w-4" data-testid={`icon-fisica-${supplier.id}`} />
                       )}
                     </TableCell>
-                    <TableCell data-testid={`cell-cnpj-cpf-${supplier.id}`}>{supplier.cnpjCpf}</TableCell>
+                    <TableCell data-testid={`cell-cnpj-cpf-${supplier.id}`}>{formatCPFCNPJ(supplier.cnpjCpf)}</TableCell>
                     <TableCell className="font-medium" data-testid={`cell-razao-social-${supplier.id}`}>{supplier.razaoSocial}</TableCell>
                     <TableCell data-testid={`cell-nome-fantasia-${supplier.id}`}>{supplier.nomeFantasia}</TableCell>
                     <TableCell data-testid={`cell-email-${supplier.id}`}>{supplier.email}</TableCell>
@@ -273,7 +305,15 @@ export default function SuppliersPage() {
                     <FormItem>
                       <FormLabel>CNPJ/CPF</FormLabel>
                       <FormControl>
-                        <Input {...field} value={field.value || ""} data-testid="input-cnpj-cpf" />
+                        <Input 
+                          {...field} 
+                          value={field.value || ""} 
+                          onChange={(e) => {
+                            const formatted = handleCPFCNPJInput(e);
+                            field.onChange(formatted);
+                          }}
+                          data-testid="input-cnpj-cpf" 
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -544,6 +584,89 @@ export default function SuppliersPage() {
                   </FormItem>
                 )}
               />
+
+              <div className="space-y-4 pt-4 border-t">
+                <h3 className="text-lg font-semibold">Dados Bancários</h3>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="banco"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Banco</FormLabel>
+                        <FormControl>
+                          <Input {...field} value={field.value || ""} data-testid="input-banco" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="agencia"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Agência</FormLabel>
+                        <FormControl>
+                          <Input {...field} value={field.value || ""} data-testid="input-agencia" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="contaCorrente"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Conta Corrente</FormLabel>
+                        <FormControl>
+                          <Input {...field} value={field.value || ""} data-testid="input-conta-corrente" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="chavePix"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Chave PIX</FormLabel>
+                        <FormControl>
+                          <Input {...field} value={field.value || ""} data-testid="input-chave-pix" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="isActive"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                      <div className="space-y-0.5">
+                        <FormLabel className="text-base">Ativo</FormLabel>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                          data-testid="switch-is-active"
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </div>
 
               <DialogFooter>
                 <Button
