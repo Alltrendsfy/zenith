@@ -16,8 +16,7 @@ import {
 } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
-import { Calendar, Printer, FileDown, TrendingUp, TrendingDown } from "lucide-react"
-import { MobileCardList, type MobileCardProps } from "@/components/mobile-card-list"
+import { Calendar, Printer, FileDown } from "lucide-react"
 import { startOfMonth, endOfMonth, format } from "date-fns"
 import type { BankAccount } from "@shared/schema"
 
@@ -241,59 +240,8 @@ export default function BankStatement() {
                 </div>
               </div>
 
-              {/* Mobile View */}
-              <div className="md:hidden">
-                <MobileCardList
-                  items={statement}
-                  renderCard={(entry): MobileCardProps => ({
-                    title: entry.description,
-                    titleIcon: entry.type === 'C' ? 
-                      <TrendingUp className="h-4 w-4 text-green-600" /> : 
-                      <TrendingDown className="h-4 w-4 text-red-600" />,
-                    fields: [
-                      {
-                        label: "Data",
-                        value: format(new Date(entry.date), 'dd/MM/yyyy'),
-                      },
-                      {
-                        label: "Tipo",
-                        value: entry.type === 'C' ? 'Crédito' : 'Débito',
-                        className: entry.type === 'C' ? 'text-green-600' : 'text-red-600',
-                      },
-                      ...(entry.entityName ? [{
-                        label: "Fornecedor/Cliente",
-                        value: entry.entityName,
-                      }] : []),
-                      ...(entry.accountName ? [{
-                        label: "Conta Contábil",
-                        value: `${entry.accountCode} - ${entry.accountName}`,
-                      }] : []),
-                      ...(entry.costCenterName ? [{
-                        label: "Centro de Custo",
-                        value: `${entry.costCenterCode} - ${entry.costCenterName}`,
-                      }] : []),
-                      ...(entry.documentNumber ? [{
-                        label: "Nº Documento",
-                        value: entry.documentNumber,
-                      }] : []),
-                      {
-                        label: "Valor",
-                        value: `R$ ${parseFloat(entry.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-                        className: `text-lg font-bold font-mono ${entry.type === 'C' ? 'text-green-600' : 'text-red-600'}`,
-                      },
-                      {
-                        label: "Saldo",
-                        value: `R$ ${parseFloat(entry.balance).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-                        className: "text-lg font-bold font-mono",
-                      },
-                    ],
-                  })}
-                  emptyMessage="Nenhum lançamento encontrado"
-                />
-              </div>
-
-              {/* Desktop View */}
-              <div className="hidden md:block overflow-x-auto">
+              {/* Table View */}
+              <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
