@@ -135,6 +135,10 @@ export interface IStorage {
 
   // Bank Statement
   getBankStatement(userId: string, bankAccountId: string, startDate: string, endDate: string): Promise<BankStatementEntry[]>;
+
+  // Test Data Cleanup
+  deleteAllTransactions(userId: string): Promise<void>;
+  getCostAllocations(userId: string): Promise<CostAllocation[]>;
 }
 
 export interface BankStatementEntry {
@@ -1325,6 +1329,42 @@ export class DatabaseStorage implements IStorage {
     }
 
     return entries;
+  }
+
+  // Get all cost allocations for a user
+  async getCostAllocations(userId: string): Promise<CostAllocation[]> {
+    return await db.select().from(costAllocations).where(eq(costAllocations.userId, userId));
+  }
+
+  // Delete all transactions (preserving master data)
+  async deleteAllTransactions(userId: string): Promise<void> {
+    // Delete in correct order to respect foreign key constraints
+    
+    // 1. Delete cost allocations
+    await db.delete(costAllocations).where(eq(costAllocations.userId, userId));
+    
+    // 2. Delete payments
+    await db.delete(payments).where(eq(payments.userId, userId));
+    
+    // 3. Delete bank transfers
+    await db.delete(bankTransfers).where(eq(bankTransfers.userId, userId));
+    
+    // 4. Delete accounts payable
+    await db.delete(accountsPayable).where(eq(accountsPayable.userId, userId));
+    
+    // 5. Delete accounts receivable
+    await db.delete(accountsReceivable).where(eq(accountsReceivable.userId, userId));
+    
+    // 6. Delete activities
+    await db.delete(activities).where(eq(activities.userId, userId));
+    
+    // 7. Reset bank account balances
+    await db.update(bankAccounts)
+      .set({ 
+        currentBalance: '0.00',
+        updatedAt: new Date()
+      })
+      .where(eq(bankAccounts.userId, userId));
   }
 }
 

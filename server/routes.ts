@@ -92,6 +92,274 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Reports - Accounts Payable
+  app.get('/api/reports/accounts-payable', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { startDate, endDate, status, supplierId } = req.query;
+
+      const accountsPayable = await storage.getAccountsPayable(userId);
+      const costAllocations = await storage.getCostAllocations(userId);
+      const costCenters = await storage.getCostCenters(userId);
+      const suppliers = await storage.getSuppliers(userId);
+
+      // Filter by date range
+      let filtered = accountsPayable;
+      if (startDate && endDate) {
+        filtered = filtered.filter(p => {
+          const dueDate = new Date(p.dueDate);
+          return dueDate >= new Date(startDate as string) && dueDate <= new Date(endDate as string);
+        });
+      }
+
+      // Filter by status
+      if (status && status !== 'all') {
+        filtered = filtered.filter(p => p.status === status);
+      }
+
+      // Filter by supplier
+      if (supplierId && supplierId !== 'all') {
+        filtered = filtered.filter(p => p.supplierId === supplierId);
+      }
+
+      // Calculate summaries
+      const now = new Date();
+      const vencidos = filtered.filter(p => 
+        p.status !== 'cancelado' && p.status !== 'pago' && new Date(p.dueDate) < now
+      );
+      const aVencer = filtered.filter(p => 
+        p.status === 'pendente' && new Date(p.dueDate) >= now
+      );
+      const pagos = filtered.filter(p => p.status === 'pago');
+
+      const totalVencidos = vencidos.reduce((sum, p) => sum + parseFloat(p.totalAmount || "0"), 0);
+      const totalAVencer = aVencer.reduce((sum, p) => sum + parseFloat(p.totalAmount || "0"), 0);
+      const totalPagos = pagos.reduce((sum, p) => sum + parseFloat(p.amountPaid || "0"), 0);
+
+      // Total by cost center
+      const costCenterTotals = new Map<string, { name: string; total: number }>();
+      
+      const payableAllocations = costAllocations.filter(a => a.transactionType === 'payable');
+      
+      payableAllocations.forEach(allocation => {
+        const payable = filtered.find(p => p.id === allocation.transactionId);
+        if (payable && payable.status !== 'cancelado') {
+          const costCenter = costCenters.find(cc => cc.id === allocation.costCenterId);
+          const key = costCenter?.id || '__unallocated__';
+          const name = costCenter?.name || 'Sem Centro de Custo';
+          
+          const current = costCenterTotals.get(key) || { name, total: 0 };
+          costCenterTotals.set(key, {
+            name,
+            total: current.total + parseFloat(allocation.amount)
+          });
+        }
+      });
+
+      // Add unallocated amounts
+      const allocationsByPayable = new Map<string, number>();
+      payableAllocations.forEach(allocation => {
+        const current = allocationsByPayable.get(allocation.transactionId) || 0;
+        allocationsByPayable.set(allocation.transactionId, current + parseFloat(allocation.amount));
+      });
+
+      let unallocatedTotal = 0;
+      filtered
+        .filter(p => p.status !== 'cancelado')
+        .forEach(payable => {
+          const totalAmount = parseFloat(payable.totalAmount || "0");
+          const allocatedAmount = allocationsByPayable.get(payable.id) || 0;
+          const unallocatedAmount = totalAmount - allocatedAmount;
+          
+          if (unallocatedAmount > 0.01) {
+            unallocatedTotal += unallocatedAmount;
+          }
+        });
+
+      if (unallocatedTotal > 0) {
+        const current = costCenterTotals.get('__unallocated__') || { name: 'Sem Centro de Custo', total: 0 };
+        costCenterTotals.set('__unallocated__', {
+          name: current.name,
+          total: current.total + unallocatedTotal
+        });
+      }
+
+      // Evolution data (last 6 months)
+      const evolutionData = [];
+      for (let i = 5; i >= 0; i--) {
+        const month = new Date();
+        month.setMonth(month.getMonth() - i);
+        const monthStr = month.toISOString().slice(0, 7);
+        
+        const monthPayables = accountsPayable.filter(p => {
+          return p.dueDate.startsWith(monthStr) && p.status !== 'cancelado';
+        });
+        
+        const total = monthPayables.reduce((sum, p) => sum + parseFloat(p.totalAmount || "0"), 0);
+        const paid = monthPayables.filter(p => p.status === 'pago').reduce((sum, p) => sum + parseFloat(p.amountPaid || "0"), 0);
+        
+        evolutionData.push({
+          month: monthStr,
+          total: Number(total.toFixed(2)),
+          paid: Number(paid.toFixed(2)),
+        });
+      }
+
+      res.json({
+        data: filtered,
+        summary: {
+          vencidos: {
+            count: vencidos.length,
+            total: Number(totalVencidos.toFixed(2))
+          },
+          aVencer: {
+            count: aVencer.length,
+            total: Number(totalAVencer.toFixed(2))
+          },
+          pagos: {
+            count: pagos.length,
+            total: Number(totalPagos.toFixed(2))
+          }
+        },
+        costCenterTotals: Array.from(costCenterTotals.values()).map(cc => ({
+          name: cc.name,
+          total: Number(cc.total.toFixed(2))
+        })),
+        evolutionData,
+        suppliers,
+      });
+    } catch (error) {
+      console.error("Error generating accounts payable report:", error);
+      res.status(500).json({ message: "Failed to generate report" });
+    }
+  });
+
+  // Reports - Accounts Receivable
+  app.get('/api/reports/accounts-receivable', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { startDate, endDate, status, customerId } = req.query;
+
+      const accountsReceivable = await storage.getAccountsReceivable(userId);
+      const customers = await storage.getCustomers(userId);
+
+      // Filter by date range
+      let filtered = accountsReceivable;
+      if (startDate && endDate) {
+        filtered = filtered.filter(r => {
+          const dueDate = new Date(r.dueDate);
+          return dueDate >= new Date(startDate as string) && dueDate <= new Date(endDate as string);
+        });
+      }
+
+      // Filter by status
+      if (status && status !== 'all') {
+        filtered = filtered.filter(r => r.status === status);
+      }
+
+      // Filter by customer
+      if (customerId && customerId !== 'all') {
+        filtered = filtered.filter(r => r.customerId === customerId);
+      }
+
+      // Calculate summaries
+      const now = new Date();
+      const vencidos = filtered.filter(r => 
+        r.status !== 'cancelado' && r.status !== 'pago' && new Date(r.dueDate) < now
+      );
+      const aVencer = filtered.filter(r => 
+        r.status === 'pendente' && new Date(r.dueDate) >= now
+      );
+      const recebidos = filtered.filter(r => r.status === 'pago');
+
+      const totalVencidos = vencidos.reduce((sum, r) => sum + parseFloat(r.totalAmount || "0"), 0);
+      const totalAVencer = aVencer.reduce((sum, r) => sum + parseFloat(r.totalAmount || "0"), 0);
+      const totalRecebidos = recebidos.reduce((sum, r) => sum + parseFloat(r.amountReceived || "0"), 0);
+
+      // Defaulting customers
+      const defaultingCustomers = new Map<string, { name: string; count: number; total: number }>();
+      
+      vencidos.forEach(receivable => {
+        if (receivable.customerId) {
+          const customer = customers.find(c => c.id === receivable.customerId);
+          const key = receivable.customerId;
+          const name = customer?.razaoSocial || 'Cliente Desconhecido';
+          
+          const current = defaultingCustomers.get(key) || { name, count: 0, total: 0 };
+          defaultingCustomers.set(key, {
+            name,
+            count: current.count + 1,
+            total: current.total + parseFloat(receivable.totalAmount || "0")
+          });
+        }
+      });
+
+      // Evolution data (last 6 months)
+      const evolutionData = [];
+      for (let i = 5; i >= 0; i--) {
+        const month = new Date();
+        month.setMonth(month.getMonth() - i);
+        const monthStr = month.toISOString().slice(0, 7);
+        
+        const monthReceivables = accountsReceivable.filter(r => {
+          return r.dueDate.startsWith(monthStr) && r.status !== 'cancelado';
+        });
+        
+        const total = monthReceivables.reduce((sum, r) => sum + parseFloat(r.totalAmount || "0"), 0);
+        const received = monthReceivables.filter(r => r.status === 'pago').reduce((sum, r) => sum + parseFloat(r.amountReceived || "0"), 0);
+        
+        evolutionData.push({
+          month: monthStr,
+          total: Number(total.toFixed(2)),
+          received: Number(received.toFixed(2)),
+        });
+      }
+
+      res.json({
+        data: filtered,
+        summary: {
+          vencidos: {
+            count: vencidos.length,
+            total: Number(totalVencidos.toFixed(2))
+          },
+          aVencer: {
+            count: aVencer.length,
+            total: Number(totalAVencer.toFixed(2))
+          },
+          recebidos: {
+            count: recebidos.length,
+            total: Number(totalRecebidos.toFixed(2))
+          }
+        },
+        defaultingCustomers: Array.from(defaultingCustomers.values()).map(c => ({
+          name: c.name,
+          count: c.count,
+          total: Number(c.total.toFixed(2))
+        })),
+        evolutionData,
+        customers,
+      });
+    } catch (error) {
+      console.error("Error generating accounts receivable report:", error);
+      res.status(500).json({ message: "Failed to generate report" });
+    }
+  });
+
+  // Test Data Cleanup
+  app.delete('/api/test-data', isAuthenticated, requireManager, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Delete all transactions while preserving master data
+      await storage.deleteAllTransactions(userId);
+      
+      res.json({ message: "Dados de teste removidos com sucesso" });
+    } catch (error) {
+      console.error("Error deleting test data:", error);
+      res.status(500).json({ message: "Failed to delete test data" });
+    }
+  });
+
   // Dashboard
   app.get('/api/dashboard', isAuthenticated, async (req: any, res) => {
     try {

@@ -13,6 +13,8 @@ import Landing from "@/pages/landing";
 import Dashboard from "@/pages/dashboard";
 import AccountsPayable from "@/pages/accounts-payable";
 import AccountsReceivable from "@/pages/accounts-receivable";
+import AccountsPayableReports from "@/pages/accounts-payable-reports";
+import AccountsReceivableReports from "@/pages/accounts-receivable-reports";
 import BankAccounts from "@/pages/bank-accounts";
 import BankTransfers from "@/pages/bank-transfers";
 import ChartOfAccountsPage from "@/pages/chart-of-accounts";
@@ -24,6 +26,7 @@ import Customers from "@/pages/customers";
 import UserManagement from "@/pages/user-management";
 import Agenda from "@/pages/agenda";
 import CompanySettings from "@/pages/company-settings";
+import Settings from "@/pages/settings";
 import NotFound from "@/pages/not-found";
 import zenithLogo from "@assets/logo zenith erp_1763561150551.jpeg";
 
@@ -61,7 +64,9 @@ function Router() {
                   <Switch>
                     <Route path="/" component={Dashboard} />
                     <Route path="/accounts-payable" component={AccountsPayable} />
+                    <Route path="/accounts-payable-reports" component={AccountsPayableReports} />
                     <Route path="/accounts-receivable" component={AccountsReceivable} />
+                    <Route path="/accounts-receivable-reports" component={AccountsReceivableReports} />
                     <Route path="/bank-accounts" component={BankAccounts} />
                     <Route path="/bank-transfers" component={BankTransfers} />
                     <Route path="/chart-of-accounts" component={ChartOfAccountsPage} />
@@ -73,6 +78,7 @@ function Router() {
                     <Route path="/agenda" component={Agenda} />
                     <Route path="/company-settings" component={CompanySettings} />
                     <Route path="/user-management" component={UserManagement} />
+                    <Route path="/settings" component={Settings} />
                     <Route component={NotFound} />
                   </Switch>
                 </main>
