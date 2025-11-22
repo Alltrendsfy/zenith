@@ -828,7 +828,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/chart-of-accounts', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const accounts = await storage.getChartOfAccounts(userId);
+      const classification = req.query.classification as string | undefined;
+      
+      let accounts = await storage.getChartOfAccounts(userId);
+      
+      if (classification === 'debit') {
+        accounts = accounts.filter(acc => acc.type === 'despesa' || acc.type === 'ativo');
+      } else if (classification === 'credit') {
+        accounts = accounts.filter(acc => acc.type === 'receita' || acc.type === 'passivo');
+      }
+      
       res.json(accounts);
     } catch (error) {
       console.error("Error fetching chart of accounts:", error);

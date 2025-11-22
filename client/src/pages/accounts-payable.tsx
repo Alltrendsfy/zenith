@@ -109,7 +109,7 @@ export default function AccountsPayable() {
   })
 
   const { data: chartOfAccounts, isLoading: isLoadingAccounts } = useQuery<ChartOfAccounts[]>({
-    queryKey: ["/api/chart-of-accounts"],
+    queryKey: ["/api/chart-of-accounts", { classification: "debit" }],
     enabled: isAuthenticated,
   })
 

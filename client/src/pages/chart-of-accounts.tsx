@@ -88,7 +88,7 @@ export default function ChartOfAccountsPage() {
       })
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/chart-of-accounts"] })
+      queryClient.invalidateQueries({ queryKey: ["/api/chart-of-accounts"], exact: false })
       toast({
         title: "Sucesso",
         description: "Conta criada com sucesso",
@@ -122,7 +122,7 @@ export default function ChartOfAccountsPage() {
       return await response.json() as { created: number; skipped: number; accounts: any[] }
     },
     onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/chart-of-accounts"] })
+      queryClient.invalidateQueries({ queryKey: ["/api/chart-of-accounts"], exact: false })
       setImportDialogOpen(false)
       toast({
         title: "Importação concluída",
