@@ -649,6 +649,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         supplierId: req.body.supplierId === '' ? null : req.body.supplierId,
         bankAccountId: req.body.bankAccountId === '' ? null : req.body.bankAccountId,
         costCenterId: req.body.costCenterId === '' ? null : req.body.costCenterId,
+        accountId: req.body.accountId === '' ? null : req.body.accountId,
         chartOfAccountsId: req.body.chartOfAccountsId === '' ? null : req.body.chartOfAccountsId,
         recurrenceParentId: req.body.recurrenceParentId === '' ? null : req.body.recurrenceParentId,
       };
@@ -681,6 +682,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           supplierId: inst.supplierId === '' ? null : inst.supplierId,
           bankAccountId: inst.bankAccountId === '' ? null : inst.bankAccountId,
           costCenterId: inst.costCenterId === '' ? null : inst.costCenterId,
+          accountId: inst.accountId === '' ? null : inst.accountId,
           chartOfAccountsId: inst.chartOfAccountsId === '' ? null : inst.chartOfAccountsId,
           recurrenceParentId: inst.recurrenceParentId === '' ? null : inst.recurrenceParentId,
         };
@@ -709,6 +711,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         supplierId: req.body.supplierId === '' ? null : req.body.supplierId,
         bankAccountId: req.body.bankAccountId === '' ? null : req.body.bankAccountId,
         costCenterId: req.body.costCenterId === '' ? null : req.body.costCenterId,
+        accountId: req.body.accountId === '' ? null : req.body.accountId,
         chartOfAccountsId: req.body.chartOfAccountsId === '' ? null : req.body.chartOfAccountsId,
       };
       
