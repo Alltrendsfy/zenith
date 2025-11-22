@@ -416,8 +416,21 @@ export const insertAccountsPayableSchema = createInsertSchema(accountsPayable).o
   recurrenceNextDate: data.recurrenceNextDate === '' ? null : data.recurrenceNextDate,
 }));
 
+export const updateAccountsPayableSchema = createInsertSchema(accountsPayable).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
+}).partial().transform((data) => ({
+  ...data,
+  recurrenceStartDate: data.recurrenceStartDate === '' ? null : data.recurrenceStartDate,
+  recurrenceEndDate: data.recurrenceEndDate === '' ? null : data.recurrenceEndDate,
+  recurrenceNextDate: data.recurrenceNextDate === '' ? null : data.recurrenceNextDate,
+}));
+
 export type AccountsPayable = typeof accountsPayable.$inferSelect;
 export type InsertAccountsPayable = z.infer<typeof insertAccountsPayableSchema>;
+export type UpdateAccountsPayable = z.infer<typeof updateAccountsPayableSchema>;
 
 // Accounts Receivable (Contas a Receber)
 export const accountsReceivable = pgTable("accounts_receivable", {

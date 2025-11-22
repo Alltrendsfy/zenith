@@ -7,6 +7,7 @@ import {
   insertBankAccountSchema,
   updateBankAccountSchema,
   insertAccountsPayableSchema,
+  updateAccountsPayableSchema,
   insertAccountsReceivableSchema,
   insertChartOfAccountsSchema,
   insertCostCenterSchema,
@@ -707,7 +708,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         chartOfAccountsId: req.body.chartOfAccountsId === '' ? null : req.body.chartOfAccountsId,
       };
       
-      const validated = insertAccountsPayableSchema.partial().parse(sanitizedData);
+      const validated = updateAccountsPayableSchema.parse(sanitizedData);
       const payable = await storage.updateAccountPayable(id, userId, validated);
       if (!payable) {
         return res.status(404).json({ message: "Conta a pagar não encontrada" });
