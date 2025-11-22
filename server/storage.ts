@@ -40,7 +40,7 @@ import {
   companies,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, or, desc, sql } from "drizzle-orm";
+import { eq, and, or, desc, asc, sql } from "drizzle-orm";
 import { readFileSync } from "fs";
 import { join } from "path";
 
@@ -713,7 +713,7 @@ export class DatabaseStorage implements IStorage {
 
   // Suppliers
   async getSuppliers(userId: string): Promise<Supplier[]> {
-    return await db.select().from(suppliers).where(eq(suppliers.userId, userId)).orderBy(desc(suppliers.createdAt));
+    return await db.select().from(suppliers).where(eq(suppliers.userId, userId)).orderBy(asc(suppliers.razaoSocial));
   }
 
   async getSupplier(id: string, userId: string): Promise<Supplier | undefined> {
@@ -742,7 +742,7 @@ export class DatabaseStorage implements IStorage {
 
   // Customers
   async getCustomers(userId: string): Promise<Customer[]> {
-    return await db.select().from(customers).where(eq(customers.userId, userId)).orderBy(desc(customers.createdAt));
+    return await db.select().from(customers).where(eq(customers.userId, userId)).orderBy(asc(customers.razaoSocial));
   }
 
   async getCustomer(id: string, userId: string): Promise<Customer | undefined> {
