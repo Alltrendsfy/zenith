@@ -9,6 +9,7 @@ import {
   insertAccountsPayableSchema,
   updateAccountsPayableSchema,
   insertAccountsReceivableSchema,
+  updateAccountsReceivableSchema,
   insertChartOfAccountsSchema,
   insertCostCenterSchema,
   updateCostCenterSchema,
@@ -817,6 +818,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch('/api/accounts-receivable/:id', isAuthenticated, requirePermission('canUpdate'), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const userRole = req.user.role;
+      const { id } = req.params;
+      
+      const sanitizedData = {
+        ...req.body,
+        customerId: req.body.customerId === '' ? null : req.body.customerId,
+        bankAccountId: req.body.bankAccountId === '' ? null : req.body.bankAccountId,
+        costCenterId: req.body.costCenterId === '' ? null : req.body.costCenterId,
+        accountId: req.body.accountId === '' ? null : req.body.accountId,
+        chartOfAccountsId: req.body.chartOfAccountsId === '' ? null : req.body.chartOfAccountsId,
+      };
+      
+      const validated = updateAccountsReceivableSchema.parse(sanitizedData);
+      const receivable = await storage.updateAccountReceivable(id, userId, userRole, validated);
+      if (!receivable) {
+        return res.status(404).json({ message: "Conta a receber não encontrada" });
+      }
+      res.json(receivable);
+    } catch (error: any) {
+      console.error("Error updating account receivable:", error);
+      res.status(400).json({ message: error.message || "Falha ao atualizar conta a receber" });
+    }
+  });
+
+  app.delete('/api/accounts-receivable/:id', isAuthenticated, requirePermission('canDelete'), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const userRole = req.user.role;
+      const { id } = req.params;
+      const deleted = await storage.deleteAccountReceivable(id, userId, userRole);
+      if (!deleted) {
+        return res.status(404).json({ message: "Conta a receber não encontrada" });
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error deleting account receivable:", error);
+      res.status(400).json({ message: error.message || "Falha ao excluir conta a receber" });
+    }
+  });
+
   // Recurrence Management
   app.patch('/api/accounts-payable/:id/recurrence', isAuthenticated, requirePermission('canUpdate'), async (req: any, res) => {
     try {
@@ -843,6 +887,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch('/api/accounts-receivable/:id/recurrence', isAuthenticated, requirePermission('canUpdate'), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      const userRole = req.user.role;
       const { id } = req.params;
       const { recurrenceStatus } = req.body;
 
@@ -850,7 +895,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid recurrence status" });
       }
 
-      const updated = await storage.updateAccountReceivable(id, userId, { recurrenceStatus });
+      const updated = await storage.updateAccountReceivable(id, userId, userRole, { recurrenceStatus });
       if (!updated) {
         return res.status(404).json({ message: "Account receivable not found" });
       }

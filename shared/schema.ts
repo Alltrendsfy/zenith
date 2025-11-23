@@ -513,8 +513,16 @@ export const insertAccountsReceivableSchema = createInsertSchema(accountsReceiva
   recurrenceNextDate: data.recurrenceNextDate === '' ? null : data.recurrenceNextDate,
 }));
 
+export const updateAccountsReceivableSchema = createInsertSchema(accountsReceivable).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
+}).partial();
+
 export type AccountsReceivable = typeof accountsReceivable.$inferSelect;
 export type InsertAccountsReceivable = z.infer<typeof insertAccountsReceivableSchema>;
+export type UpdateAccountsReceivable = z.infer<typeof updateAccountsReceivableSchema>;
 
 // Bank Transfers (Transferências Bancárias)
 export const bankTransfers = pgTable("bank_transfers", {

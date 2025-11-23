@@ -72,8 +72,8 @@ export interface IStorage {
   getAccountReceivable(id: string, userId: string): Promise<AccountsReceivable | undefined>;
   createAccountReceivable(account: InsertAccountsReceivable): Promise<AccountsReceivable>;
   createAccountsReceivableBatch(accounts: InsertAccountsReceivable[]): Promise<AccountsReceivable[]>;
-  updateAccountReceivable(id: string, userId: string, data: Partial<InsertAccountsReceivable>): Promise<AccountsReceivable | undefined>;
-  deleteAccountReceivable(id: string, userId: string): Promise<boolean>;
+  updateAccountReceivable(id: string, userId: string, userRole: string, data: Partial<InsertAccountsReceivable>): Promise<AccountsReceivable | undefined>;
+  deleteAccountReceivable(id: string, userId: string, userRole: string): Promise<boolean>;
 
   // Chart of Accounts
   getChartOfAccounts(userId: string): Promise<ChartOfAccounts[]>;
@@ -367,18 +367,98 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async updateAccountReceivable(id: string, userId: string, data: Partial<InsertAccountsReceivable>): Promise<AccountsReceivable | undefined> {
-    const [updated] = await db
-      .update(accountsReceivable)
-      .set({ ...data, updatedAt: new Date() })
-      .where(and(eq(accountsReceivable.id, id), eq(accountsReceivable.userId, userId)))
-      .returning();
-    return updated;
+  async updateAccountReceivable(id: string, userId: string, userRole: string, data: Partial<InsertAccountsReceivable>): Promise<AccountsReceivable | undefined> {
+    try {
+      // Get the existing account to check permissions and status
+      const [existing] = await db
+        .select()
+        .from(accountsReceivable)
+        .where(eq(accountsReceivable.id, id));
+
+      if (!existing) {
+        return undefined;
+      }
+
+      // Validate permissions: admin/gerente can edit any, others only their own
+      if (userRole !== 'admin' && userRole !== 'gerente' && existing.userId !== userId) {
+        throw new Error("Você não tem permissão para editar esta conta a receber");
+      }
+
+      // If the account is already paid, prevent updating amountReceived and status
+      if (existing.status === 'pago') {
+        const { amountReceived, status, ...allowedData } = data;
+        
+        if (amountReceived !== undefined || status !== undefined) {
+          console.warn(`[updateAccountReceivable] Attempted to update amountReceived or status on paid account ${id}`);
+        }
+        
+        // Only update allowed fields for paid accounts
+        const [updated] = await db
+          .update(accountsReceivable)
+          .set({ ...allowedData, updatedAt: new Date() })
+          .where(eq(accountsReceivable.id, id))
+          .returning();
+        return updated;
+      }
+
+      // For non-paid accounts, allow all updates
+      const [updated] = await db
+        .update(accountsReceivable)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(accountsReceivable.id, id))
+        .returning();
+      return updated;
+    } catch (error) {
+      console.error(`[updateAccountReceivable] Error updating account ${id}:`, error);
+      throw error;
+    }
   }
 
-  async deleteAccountReceivable(id: string, userId: string): Promise<boolean> {
-    const result = await db.delete(accountsReceivable).where(and(eq(accountsReceivable.id, id), eq(accountsReceivable.userId, userId)));
-    return result.rowCount ? result.rowCount > 0 : false;
+  async deleteAccountReceivable(id: string, userId: string, userRole: string): Promise<boolean> {
+    try {
+      // Get the existing account to check permissions and status
+      const [existing] = await db
+        .select()
+        .from(accountsReceivable)
+        .where(eq(accountsReceivable.id, id));
+
+      if (!existing) {
+        return false;
+      }
+
+      // Validate permissions: admin/gerente can delete any, others only their own
+      if (userRole !== 'admin' && userRole !== 'gerente' && existing.userId !== userId) {
+        throw new Error("Você não tem permissão para excluir esta conta a receber");
+      }
+
+      // Validate that the account is not paid
+      if (existing.status === 'pago') {
+        throw new Error("Não é possível excluir uma conta a receber que já foi paga");
+      }
+
+      // Use transaction to ensure atomicity
+      return await db.transaction(async (tx) => {
+        // First, delete associated allocations
+        await tx
+          .delete(costAllocations)
+          .where(
+            and(
+              eq(costAllocations.transactionType, 'receivable'),
+              eq(costAllocations.transactionId, id)
+            )
+          );
+
+        // Then delete the account
+        const result = await tx
+          .delete(accountsReceivable)
+          .where(eq(accountsReceivable.id, id));
+
+        return result.rowCount ? result.rowCount > 0 : false;
+      });
+    } catch (error) {
+      console.error(`[deleteAccountReceivable] Error deleting account ${id}:`, error);
+      throw error;
+    }
   }
 
   // Chart of Accounts
