@@ -384,13 +384,13 @@ export class DatabaseStorage implements IStorage {
         throw new Error("Você não tem permissão para editar esta conta a receber");
       }
 
-      // If the account is already paid, prevent updating amountReceived and status
+      // If the account is already paid, reject attempts to update protected fields
       if (existing.status === 'pago') {
-        const { amountReceived, status, ...allowedData } = data;
-        
-        if (amountReceived !== undefined || status !== undefined) {
-          console.warn(`[updateAccountReceivable] Attempted to update amountReceived or status on paid account ${id}`);
+        if (data.amountReceived !== undefined || data.status !== undefined) {
+          throw new Error("Não é possível alterar valor recebido ou status de uma conta que já foi paga");
         }
+        
+        const { amountReceived, status, ...allowedData } = data;
         
         // Only update allowed fields for paid accounts
         const [updated] = await db

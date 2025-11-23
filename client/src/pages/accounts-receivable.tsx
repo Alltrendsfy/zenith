@@ -344,6 +344,8 @@ export default function AccountsReceivable() {
 
   const handleEdit = (receivable: AccountsReceivable) => {
     setEditingReceivable(receivable)
+    setRecurrenceInstallments([])
+    setAllocations([])
     form.reset({
       description: receivable.description,
       customerId: receivable.customerId || "",
@@ -355,7 +357,7 @@ export default function AccountsReceivable() {
       notes: receivable.notes || "",
       accountId: receivable.accountId || "",
       costCenterId: receivable.costCenterId || "",
-      recurrenceType: receivable.recurrenceType || 'unica',
+      recurrenceType: 'unica',
       recurrenceCount: "",
       recurrenceStartDate: "",
       recurrenceEndDate: "",
@@ -910,7 +912,7 @@ export default function AccountsReceivable() {
                               <Button
                                 size="icon"
                                 variant="ghost"
-                                disabled={!canDelete || receivable.status === 'pago'}
+                                disabled={!canDelete || receivable.status !== 'pendente'}
                                 onClick={() => handleDelete(receivable)}
                                 data-testid={`button-delete-${receivable.id}`}
                               >
