@@ -979,6 +979,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch('/api/chart-of-accounts/:id', isAuthenticated, requireManager, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      
+      const sanitizedData = {
+        ...req.body,
+        parentId: req.body.parentId === '' || req.body.parentId === 'none' ? null : req.body.parentId,
+        quickCode: req.body.quickCode === '' ? null : req.body.quickCode,
+        description: req.body.description === '' ? null : req.body.description,
+      };
+      
+      const validated = insertChartOfAccountsSchema.partial().parse(sanitizedData);
+      const account = await storage.updateChartAccount(id, userId, validated);
+      
+      if (!account) {
+        return res.status(404).json({ message: "Conta não encontrada" });
+      }
+      
+      res.json(account);
+    } catch (error: any) {
+      console.error("Error updating chart account:", error);
+      res.status(400).json({ message: error.message || "Failed to update chart account" });
+    }
+  });
+
+  app.delete('/api/chart-of-accounts/:id', isAuthenticated, requireManager, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      
+      const account = await storage.getChartAccount(id, userId);
+      if (!account) {
+        return res.status(404).json({ message: "Conta não encontrada" });
+      }
+      
+      const children = await storage.getChartOfAccounts(userId);
+      const hasChildren = children.some(c => c.parentId === id);
+      if (hasChildren) {
+        return res.status(409).json({ message: "Não é possível excluir conta que possui contas filhas" });
+      }
+      
+      const payables = await storage.getAccountsPayable(userId);
+      const hasPayables = payables.some(p => p.accountId === id);
+      if (hasPayables) {
+        return res.status(409).json({ message: "Não é possível excluir conta vinculada a contas a pagar" });
+      }
+      
+      const receivables = await storage.getAccountsReceivable(userId);
+      const hasReceivables = receivables.some(r => r.accountId === id);
+      if (hasReceivables) {
+        return res.status(409).json({ message: "Não é possível excluir conta vinculada a contas a receber" });
+      }
+      
+      const deleted = await storage.deleteChartAccount(id, userId);
+      if (!deleted) {
+        return res.status(500).json({ message: "Falha ao excluir conta" });
+      }
+      
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error deleting chart account:", error);
+      res.status(400).json({ message: error.message || "Failed to delete chart account" });
+    }
+  });
+
   // Cost Centers
   app.get('/api/cost-centers', isAuthenticated, async (req: any, res) => {
     try {
