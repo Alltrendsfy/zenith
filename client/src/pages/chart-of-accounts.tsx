@@ -17,11 +17,12 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus, FileText, Search, ChevronRight, Download } from "lucide-react"
+import { Plus, FileText, Search, ChevronRight, Download, Pencil, Trash2 } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -49,6 +50,9 @@ export default function ChartOfAccountsPage() {
   const [open, setOpen] = useState(false)
   const [importDialogOpen, setImportDialogOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
+  const [editingAccount, setEditingAccount] = useState<ChartOfAccounts | null>(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [accountToDelete, setAccountToDelete] = useState<ChartOfAccounts | null>(null)
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -79,6 +83,30 @@ export default function ChartOfAccountsPage() {
       description: "",
     },
   })
+
+  // Reset form when editing account changes
+  useEffect(() => {
+    if (editingAccount) {
+      form.reset({
+        code: editingAccount.code,
+        quickCode: editingAccount.quickCode || "",
+        name: editingAccount.name,
+        type: editingAccount.type,
+        nature: editingAccount.nature,
+        parentId: editingAccount.parentId || undefined,
+        description: editingAccount.description || "",
+      })
+    } else {
+      form.reset({
+        code: "",
+        quickCode: "",
+        name: "",
+        type: "despesa",
+        nature: "analitica",
+        description: "",
+      })
+    }
+  }, [editingAccount, form])
 
   const createMutation = useMutation({
     mutationFn: async (data: z.infer<typeof formSchema>) => {
@@ -111,6 +139,74 @@ export default function ChartOfAccountsPage() {
       toast({
         title: "Erro",
         description: "Falha ao criar conta",
+        variant: "destructive",
+      })
+    },
+  })
+
+  const updateMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof formSchema>) => {
+      if (!editingAccount) throw new Error("No account selected")
+      await apiRequest("PATCH", `/api/chart-of-accounts/${editingAccount.id}`, data)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/chart-of-accounts"], exact: false })
+      toast({
+        title: "Sucesso",
+        description: "Conta atualizada com sucesso",
+      })
+      setEditingAccount(null)
+      setOpen(false)
+      form.reset()
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error as Error)) {
+        toast({
+          title: "Não autorizado",
+          description: "Você precisa fazer login novamente...",
+          variant: "destructive",
+        })
+        setTimeout(() => {
+          window.location.href = "/api/login"
+        }, 500)
+        return
+      }
+      toast({
+        title: "Erro",
+        description: error instanceof Error ? error.message : "Falha ao atualizar conta",
+        variant: "destructive",
+      })
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/chart-of-accounts/${id}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/chart-of-accounts"], exact: false })
+      toast({
+        title: "Sucesso",
+        description: "Conta excluída com sucesso",
+      })
+      setDeleteDialogOpen(false)
+      setAccountToDelete(null)
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error as Error)) {
+        toast({
+          title: "Não autorizado",
+          description: "Você precisa fazer login novamente...",
+          variant: "destructive",
+        })
+        setTimeout(() => {
+          window.location.href = "/api/login"
+        }, 500)
+        return
+      }
+      toast({
+        title: "Erro",
+        description: error instanceof Error ? error.message : "Falha ao excluir conta",
         variant: "destructive",
       })
     },
@@ -150,7 +246,11 @@ export default function ChartOfAccountsPage() {
   })
 
   const onSubmit = (data: z.infer<typeof formSchema>) => {
-    createMutation.mutate(data)
+    if (editingAccount) {
+      updateMutation.mutate(data)
+    } else {
+      createMutation.mutate(data)
+    }
   }
 
   if (authLoading || !isAuthenticated) {
@@ -200,7 +300,15 @@ export default function ChartOfAccountsPage() {
               Importar DRE
             </Button>
 
-            <Dialog open={open} onOpenChange={setOpen}>
+            <Dialog open={open || !!editingAccount} onOpenChange={(isOpen) => {
+              if (isOpen) {
+                setOpen(true)
+              } else {
+                setOpen(false)
+                setEditingAccount(null)
+                form.reset()
+              }
+            }}>
                 <DialogTrigger asChild>
                   <Button disabled={!canCreate} data-testid="button-add-account">
                     <Plus className="h-4 w-4 mr-2" />
@@ -209,7 +317,7 @@ export default function ChartOfAccountsPage() {
                 </DialogTrigger>
                 <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
-                    <DialogTitle>Nova Conta Contábil</DialogTitle>
+                    <DialogTitle>{editingAccount ? "Editar Conta Contábil" : "Nova Conta Contábil"}</DialogTitle>
                   </DialogHeader>
                   <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -361,6 +469,7 @@ export default function ChartOfAccountsPage() {
                       <TableHead>Nome</TableHead>
                       <TableHead>Tipo</TableHead>
                       <TableHead>Natureza</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -386,6 +495,34 @@ export default function ChartOfAccountsPage() {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-sm capitalize">{account.nature}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              disabled={!canUpdate}
+                              onClick={() => {
+                                setEditingAccount(account)
+                                setOpen(true)
+                              }}
+                              data-testid={`button-edit-${account.id}`}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              disabled={!canDelete}
+                              onClick={() => {
+                                setAccountToDelete(account)
+                                setDeleteDialogOpen(true)
+                              }}
+                              data-testid={`button-delete-${account.id}`}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -402,6 +539,30 @@ export default function ChartOfAccountsPage() {
         onConfirm={(types) => importMutation.mutate(types)}
         isPending={importMutation.isPending}
       />
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir esta conta contábil? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover-elevate active-elevate-2"
+              onClick={() => {
+                if (accountToDelete) {
+                  deleteMutation.mutate(accountToDelete.id)
+                }
+              }}
+            >
+              Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </PageContainer>
   )
 }
