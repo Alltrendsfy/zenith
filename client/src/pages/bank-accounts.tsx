@@ -242,7 +242,9 @@ export default function BankAccounts() {
               </div>
 
               <Dialog open={open || !!editingAccount} onOpenChange={(isOpen) => {
-                if (!isOpen) {
+                if (isOpen) {
+                  setOpen(true)
+                } else {
                   setOpen(false)
                   setEditingAccount(null)
                   form.reset()
