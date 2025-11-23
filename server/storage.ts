@@ -386,11 +386,14 @@ export class DatabaseStorage implements IStorage {
 
       // If the account is already paid, reject attempts to update protected fields
       if (existing.status === 'pago') {
-        if (data.amountReceived !== undefined || data.status !== undefined) {
-          throw new Error("Não é possível alterar valor recebido ou status de uma conta que já foi paga");
+        const protectedFields = ['amountReceived', 'status', 'recurrenceType', 'recurrenceCount', 'recurrenceStartDate', 'recurrenceEndDate', 'recurrenceNextDate', 'recurrenceStatus'];
+        const attemptedProtectedFields = protectedFields.filter(field => data[field as keyof typeof data] !== undefined);
+        
+        if (attemptedProtectedFields.length > 0) {
+          throw new Error("Não é possível alterar campos protegidos de uma conta que já foi paga");
         }
         
-        const { amountReceived, status, ...allowedData } = data;
+        const { amountReceived, status, recurrenceType, recurrenceCount, recurrenceStartDate, recurrenceEndDate, recurrenceNextDate, recurrenceStatus, ...allowedData } = data;
         
         // Only update allowed fields for paid accounts
         const [updated] = await db

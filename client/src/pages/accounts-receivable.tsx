@@ -309,7 +309,7 @@ export default function AccountsReceivable() {
   })
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: number) => {
+    mutationFn: async (id: string) => {
       await apiRequest("DELETE", `/api/accounts-receivable/${id}`)
     },
     onSuccess: () => {
@@ -912,7 +912,7 @@ export default function AccountsReceivable() {
                               <Button
                                 size="icon"
                                 variant="ghost"
-                                disabled={!canDelete || receivable.status !== 'pendente'}
+                                disabled={!canDelete || receivable.status === 'pago'}
                                 onClick={() => handleDelete(receivable)}
                                 data-testid={`button-delete-${receivable.id}`}
                               >
