@@ -48,7 +48,7 @@ const ROLE_VARIANTS = {
 export default function UserManagement() {
   const { toast } = useToast()
   const { isAuthenticated, isLoading: authLoading } = useAuth()
-  const { isAdmin } = usePermissions()
+  const { isManager } = usePermissions()
   const [, setLocation] = useLocation()
   const [searchTerm, setSearchTerm] = useState("")
 
@@ -62,21 +62,21 @@ export default function UserManagement() {
       setTimeout(() => {
         window.location.href = "/api/login"
       }, 500)
-    } else if (!authLoading && isAuthenticated && !isAdmin) {
+    } else if (!authLoading && isAuthenticated && !isManager) {
       toast({
         title: "Acesso negado",
-        description: "Apenas administradores podem acessar esta página",
+        description: "Apenas administradores e gerentes podem acessar esta página",
         variant: "destructive",
       })
       setTimeout(() => {
         setLocation("/")
       }, 500)
     }
-  }, [isAuthenticated, authLoading, isAdmin, toast, setLocation])
+  }, [isAuthenticated, authLoading, isManager, toast, setLocation])
 
   const { data: users, isLoading } = useQuery<User[]>({
     queryKey: ["/api/users"],
-    enabled: isAuthenticated && isAdmin,
+    enabled: isAuthenticated && isManager,
   })
 
   const updateRoleMutation = useMutation({
@@ -141,7 +141,7 @@ export default function UserManagement() {
     },
   })
 
-  if (authLoading || !isAuthenticated || !isAdmin) {
+  if (authLoading || !isAuthenticated || !isManager) {
     return null
   }
 
