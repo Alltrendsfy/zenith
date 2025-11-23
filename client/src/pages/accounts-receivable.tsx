@@ -21,8 +21,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, FileText, Search, DollarSign } from "lucide-react"
+import { Plus, FileText, Search, DollarSign, Pencil, Trash2 } from "lucide-react"
 import { PaymentSettlementDialog } from "@/components/payment-settlement-dialog"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -84,6 +85,9 @@ export default function AccountsReceivable() {
   const [recurrenceInstallments, setRecurrenceInstallments] = useState<RecurrenceInstallment[]>([])
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
   const [selectedReceivable, setSelectedReceivable] = useState<AccountsReceivable | null>(null)
+  const [editingReceivable, setEditingReceivable] = useState<AccountsReceivable | null>(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [receivableToDelete, setReceivableToDelete] = useState<AccountsReceivable | null>(null)
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -242,6 +246,128 @@ export default function AccountsReceivable() {
     },
   })
 
+  const updateMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof formSchema>) => {
+      if (!editingReceivable) throw new Error("No receivable selected")
+      const res = await apiRequest("PATCH", `/api/accounts-receivable/${editingReceivable.id}`, {
+        ...data,
+        customerId: data.customerId || null,
+        customerName: data.customerName || null,
+        accountId: data.accountId || null,
+        costCenterId: data.costCenterId || null,
+        documentNumber: data.documentNumber || null,
+        notes: data.notes || null,
+      })
+      const response = await res.json()
+      
+      // Update allocations - delete old ones and create new ones
+      if (allocations.length > 0) {
+        await apiRequest("POST", `/api/accounts-receivable/${editingReceivable.id}/allocations`, {
+          allocations,
+        })
+      } else {
+        // If no allocations, delete all existing ones (if any exist)
+        try {
+          await apiRequest("DELETE", `/api/accounts-receivable/${editingReceivable.id}/allocations`)
+        } catch (e) {
+          // Ignore errors if no allocations existed
+        }
+      }
+      
+      return response
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/accounts-receivable"] })
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] })
+      toast({
+        title: "Sucesso",
+        description: "Conta a receber atualizada com sucesso",
+      })
+      setEditingReceivable(null)
+      setOpen(false)
+      form.reset()
+      setAllocations([])
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error as Error)) {
+        toast({
+          title: "Não autorizado",
+          description: "Você precisa fazer login novamente...",
+          variant: "destructive",
+        })
+        setTimeout(() => {
+          window.location.href = "/api/login"
+        }, 500)
+        return
+      }
+      toast({
+        title: "Erro",
+        description: "Falha ao atualizar conta a receber",
+        variant: "destructive",
+      })
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/accounts-receivable/${id}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/accounts-receivable"] })
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] })
+      toast({
+        title: "Sucesso",
+        description: "Conta a receber excluída com sucesso",
+      })
+      setDeleteDialogOpen(false)
+      setReceivableToDelete(null)
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error as Error)) {
+        toast({
+          title: "Não autorizado",
+          description: "Você precisa fazer login novamente...",
+          variant: "destructive",
+        })
+        setTimeout(() => {
+          window.location.href = "/api/login"
+        }, 500)
+        return
+      }
+      toast({
+        title: "Erro",
+        description: "Falha ao excluir conta a receber",
+        variant: "destructive",
+      })
+    },
+  })
+
+  const handleEdit = (receivable: AccountsReceivable) => {
+    setEditingReceivable(receivable)
+    form.reset({
+      description: receivable.description,
+      customerId: receivable.customerId || "",
+      customerName: receivable.customerName || "",
+      totalAmount: receivable.totalAmount,
+      dueDate: format(new Date(receivable.dueDate), 'yyyy-MM-dd'),
+      issueDate: format(new Date(receivable.issueDate), 'yyyy-MM-dd'),
+      documentNumber: receivable.documentNumber || "",
+      notes: receivable.notes || "",
+      accountId: receivable.accountId || "",
+      costCenterId: receivable.costCenterId || "",
+      recurrenceType: receivable.recurrenceType || 'unica',
+      recurrenceCount: "",
+      recurrenceStartDate: "",
+      recurrenceEndDate: "",
+    })
+    setOpen(true)
+  }
+
+  const handleDelete = (receivable: AccountsReceivable) => {
+    setReceivableToDelete(receivable)
+    setDeleteDialogOpen(true)
+  }
+
   const onSubmit = (data: z.infer<typeof formSchema>) => {
     // Validate allocations if configured
     if (allocations.length > 0) {
@@ -268,7 +394,11 @@ export default function AccountsReceivable() {
       }
     }
 
-    createMutation.mutate(data)
+    if (editingReceivable) {
+      updateMutation.mutate(data)
+    } else {
+      createMutation.mutate(data)
+    }
   }
 
   if (authLoading || !isAuthenticated) {
@@ -318,7 +448,14 @@ export default function AccountsReceivable() {
             />
           </div>
 
-          <Dialog open={open} onOpenChange={setOpen}>
+          <Dialog open={open} onOpenChange={(value) => {
+            setOpen(value)
+            if (!value) {
+              setEditingReceivable(null)
+              form.reset()
+              setAllocations([])
+            }
+          }}>
                 <DialogTrigger asChild>
                   <Button disabled={!canCreate} data-testid="button-add-receivable">
                     <Plus className="h-4 w-4 mr-2" />
@@ -327,7 +464,7 @@ export default function AccountsReceivable() {
                 </DialogTrigger>
                 <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
-                    <DialogTitle>Nova Conta a Receber</DialogTitle>
+                    <DialogTitle>{editingReceivable ? "Editar Conta a Receber" : "Nova Conta a Receber"}</DialogTitle>
                   </DialogHeader>
                   <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -654,8 +791,8 @@ export default function AccountsReceivable() {
                         <Button type="button" variant="outline" onClick={() => setOpen(false)}>
                           Cancelar
                         </Button>
-                        <Button type="submit" disabled={createMutation.isPending} data-testid="button-submit">
-                          {createMutation.isPending ? "Salvando..." : "Salvar"}
+                        <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending} data-testid="button-submit">
+                          {(createMutation.isPending || updateMutation.isPending) ? "Salvando..." : "Salvar"}
                         </Button>
                       </MobileFormActions>
                     </form>
@@ -760,19 +897,39 @@ export default function AccountsReceivable() {
                             )}
                           </TableCell>
                           <TableCell className="text-right">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setSelectedReceivable(receivable)
-                                setPaymentDialogOpen(true)
-                              }}
-                              disabled={receivable.status === 'pago' || receivable.status === 'cancelado'}
-                              data-testid={`button-baixa-${receivable.id}`}
-                            >
-                              <DollarSign className="h-4 w-4 mr-1" />
-                              Baixar
-                            </Button>
+                            <div className="flex gap-2 justify-end">
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                disabled={!canUpdate}
+                                onClick={() => handleEdit(receivable)}
+                                data-testid={`button-edit-${receivable.id}`}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                disabled={!canDelete || receivable.status === 'pago'}
+                                onClick={() => handleDelete(receivable)}
+                                data-testid={`button-delete-${receivable.id}`}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setSelectedReceivable(receivable)
+                                  setPaymentDialogOpen(true)
+                                }}
+                                disabled={receivable.status === 'pago' || receivable.status === 'cancelado'}
+                                data-testid={`button-baixa-${receivable.id}`}
+                              >
+                                <DollarSign className="h-4 w-4 mr-1" />
+                                Baixar
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -784,6 +941,30 @@ export default function AccountsReceivable() {
           </CardContent>
         </Card>
       </div>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir esta conta a receber? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover-elevate active-elevate-2"
+              onClick={() => {
+                if (receivableToDelete) {
+                  deleteMutation.mutate(Number(receivableToDelete.id))
+                }
+              }}
+            >
+              Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {selectedReceivable && (
         <PaymentSettlementDialog
