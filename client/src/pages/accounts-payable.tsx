@@ -489,8 +489,8 @@ export default function AccountsPayable() {
           </div>
 
           <Dialog open={open} onOpenChange={(isOpen) => {
+                setOpen(isOpen)
                 if (!isOpen) {
-                  setOpen(false)
                   setEditingPayable(null)
                   form.reset()
                   setAllocations([])
