@@ -958,7 +958,7 @@ export default function AccountsReceivable() {
               className="bg-destructive text-destructive-foreground hover-elevate active-elevate-2"
               onClick={() => {
                 if (receivableToDelete) {
-                  deleteMutation.mutate(Number(receivableToDelete.id))
+                  deleteMutation.mutate(receivableToDelete.id)
                 }
               }}
             >
