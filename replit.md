@@ -24,12 +24,40 @@ Drizzle ORM with a PostgreSQL dialect, accessed via Neon serverless driver, form
 
 ### Authentication & Authorization
 
-Authentication is managed via Replit OpenID Connect (OIDC) using Passport.js and `openid-client`. Express sessions, stored in PostgreSQL with `connect-pg-simple`, provide secure session management. Authorization is handled by `isAuthenticated` middleware for protected routes, with user IDs from session claims enforcing data isolation. User roles (admin and gerente) control access to various modules and functionalities.
+Authentication is managed via Replit OpenID Connect (OIDC) using Passport.js and `openid-client`. Express sessions, stored in PostgreSQL with `connect-pg-simple`, provide secure session management. Authorization is handled by `isAuthenticated` middleware for protected routes, with user IDs from session claims enforcing data isolation. 
+
+**User Roles and Permissions:**
+The system supports five distinct roles with hierarchical permissions:
+- **Admin**: Full system access, user management, backup capabilities, sees all data across all cost centers
+- **Gerente (Manager)**: Full system access except backups, user management, sees all data across all cost centers
+- **Financeiro (Financial)**: Full CRUD + settlement on assigned cost centers, restricted to assigned cost center data
+- **Operacional (Operational)**: Create and edit on assigned cost centers, NO settlement or delete, restricted to assigned cost center data
+- **Visualizador (Viewer)**: View-only access to assigned cost center data
+
+**Cost Center-Based Access Control:**
+The system implements granular access control through cost center assignments:
+- **userCostCenters table**: Many-to-many relationship linking users to authorized cost centers
+- **Query-level filtering**: Backend automatically filters accounts payable/receivable queries based on user's assigned cost centers
+- **Admin/Gerente bypass**: These roles see ALL transactions regardless of cost center assignments (getUserAllowedCostCenters returns null)
+- **Role-based restrictions**: Restricted roles (financeiro, operacional, visualizador) only see transactions for their assigned cost centers
+- **Optional cost center field**: costCenterId is optional in transactions; canAccessCostCenter allows null values to prevent blocking record creation
 
 **Data Visibility Model:**
 - **Admin and Gerente roles**: View ALL financial transactions (accounts payable/receivable) across the entire company, enabling comprehensive financial oversight and management.
-- **Other roles (financeiro, visualizador)**: View only their own financial transactions, maintaining data isolation for team-level work.
+- **Other roles (financeiro, operacional, visualizador)**: View only transactions associated with their assigned cost centers, maintaining strict data isolation for department-level work.
 - **Master data (suppliers, customers, cost centers, chart of accounts)**: Remains user-scoped for all roles, allowing teams to maintain their own cadastros.
+
+**Permission Matrix:**
+| Permission | Admin | Gerente | Financeiro | Operacional | Visualizador |
+|------------|-------|---------|------------|-------------|--------------|
+| View All Data | ✓ | ✓ | ✗ | ✗ | ✗ |
+| View Assigned Centers | N/A | N/A | ✓ | ✓ | ✓ |
+| Create Transactions | ✓ | ✓ | ✓ | ✓ | ✗ |
+| Edit Transactions | ✓ | ✓ | ✓ | ✓ | ✗ |
+| Delete Transactions | ✓ | ✓ | ✓ | ✗ | ✗ |
+| Settle Payments | ✓ | ✓ | ✓ | ✗ | ✗ |
+| Manage Users | ✓ | ✓ | ✗ | ✗ | ✗ |
+| System Backup | ✓ | ✗ | ✗ | ✗ | ✗ |
 
 ### Key Features
 
