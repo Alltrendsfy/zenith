@@ -274,12 +274,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async canAccessCostCenter(userId: string, userRole: string, costCenterId: string | null): Promise<boolean> {
+    // Admin and gerente can access any cost center
     if (userRole === 'admin' || userRole === 'gerente') {
       return true;
     }
     
+    // Allow null cost center (optional field)
     if (!costCenterId) {
-      return false;
+      return true;
     }
     
     const allowedCenters = await this.getUserAllowedCostCenters(userId, userRole);
