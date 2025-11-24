@@ -178,9 +178,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
-    const existing = await db.select().from(users).where(eq(users.id, userData.id!));
+    // First check if user exists by email (more reliable for OIDC)
+    const existingByEmail = await db.select().from(users).where(eq(users.email, userData.email));
     
-    if (existing.length > 0) {
+    if (existingByEmail.length > 0) {
+      // User exists with this email, update their data
       const [user] = await db
         .update(users)
         .set({
@@ -190,15 +192,34 @@ export class DatabaseStorage implements IStorage {
           profileImageUrl: userData.profileImageUrl,
           updatedAt: new Date(),
         })
-        .where(eq(users.id, userData.id!))
+        .where(eq(users.email, userData.email))
         .returning();
       return user;
     } else {
-      const [user] = await db
-        .insert(users)
-        .values(userData)
-        .returning();
-      return user;
+      // Check by ID as fallback
+      const existingById = await db.select().from(users).where(eq(users.id, userData.id!));
+      
+      if (existingById.length > 0) {
+        const [user] = await db
+          .update(users)
+          .set({
+            email: userData.email,
+            firstName: userData.firstName,
+            lastName: userData.lastName,
+            profileImageUrl: userData.profileImageUrl,
+            updatedAt: new Date(),
+          })
+          .where(eq(users.id, userData.id!))
+          .returning();
+        return user;
+      } else {
+        // User doesn't exist, insert new
+        const [user] = await db
+          .insert(users)
+          .values(userData)
+          .returning();
+        return user;
+      }
     }
   }
 
