@@ -17,7 +17,7 @@ import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
 // Enums - Must be defined before tables that use them
-export const userRoleEnum = pgEnum('user_role', ['admin', 'gerente', 'financeiro', 'visualizador']);
+export const userRoleEnum = pgEnum('user_role', ['admin', 'gerente', 'financeiro', 'operacional', 'visualizador']);
 export const accountTypeEnum = pgEnum('account_type', ['receita', 'despesa', 'ativo', 'passivo']);
 export const accountNatureEnum = pgEnum('account_nature', ['analitica', 'sintetica']);
 export const transactionStatusEnum = pgEnum('transaction_status', ['pendente', 'pago', 'parcial', 'cancelado', 'vencido']);
@@ -304,6 +304,30 @@ export const updateCostCenterSchema = z.object({
 export type CostCenter = typeof costCenters.$inferSelect;
 export type InsertCostCenter = z.infer<typeof insertCostCenterSchema>;
 export type UpdateCostCenter = z.infer<typeof updateCostCenterSchema>;
+
+// User Cost Centers - Many-to-many relationship between users and cost centers
+export const userCostCenters = pgTable("user_cost_centers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  costCenterId: varchar("cost_center_id").notNull().references(() => costCenters.id, { onDelete: 'cascade' }),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_user_cost_centers_user_id").on(table.userId),
+  index("idx_user_cost_centers_cost_center_id").on(table.costCenterId),
+]);
+
+export const userCostCentersRelations = relations(userCostCenters, ({ one }) => ({
+  user: one(users, {
+    fields: [userCostCenters.userId],
+    references: [users.id],
+  }),
+  costCenter: one(costCenters, {
+    fields: [userCostCenters.costCenterId],
+    references: [costCenters.id],
+  }),
+}));
+
+export type UserCostCenter = typeof userCostCenters.$inferSelect;
 
 // Bank Accounts (Contas Bancárias)
 export const bankAccounts = pgTable("bank_accounts", {

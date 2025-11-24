@@ -25,16 +25,27 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
-import { Users, Search } from "lucide-react"
+import { Users, Search, Building2 } from "lucide-react"
 import { EmptyState } from "@/components/empty-state"
 import { Card, CardContent } from "@/components/ui/card"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Label } from "@/components/ui/label"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { apiRequest, queryClient } from "@/lib/queryClient"
-import type { User } from "@shared/schema"
+import type { User, CostCenter } from "@shared/schema"
 
 const ROLE_LABELS = {
   admin: "Administrador",
   gerente: "Gerente",
   financeiro: "Financeiro",
+  operacional: "Operacional",
   visualizador: "Visualizador",
 } as const
 
@@ -42,6 +53,7 @@ const ROLE_VARIANTS = {
   admin: "destructive",
   gerente: "default",
   financeiro: "secondary",
+  operacional: "secondary",
   visualizador: "outline",
 } as const
 
@@ -51,6 +63,9 @@ export default function UserManagement() {
   const { isManager } = usePermissions()
   const [, setLocation] = useLocation()
   const [searchTerm, setSearchTerm] = useState("")
+  const [costCenterDialogOpen, setCostCenterDialogOpen] = useState(false)
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
+  const [selectedCostCenterIds, setSelectedCostCenterIds] = useState<string[]>([])
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -140,6 +155,84 @@ export default function UserManagement() {
       })
     },
   })
+
+  const { data: allCostCenters } = useQuery<CostCenter[]>({
+    queryKey: ["/api/cost-centers"],
+    enabled: isAuthenticated && isManager,
+  })
+
+  const { data: userCostCenters } = useQuery<CostCenter[]>({
+    queryKey: ["/api/users", selectedUserId, "cost-centers"],
+    enabled: !!selectedUserId,
+  })
+
+  useEffect(() => {
+    if (userCostCenters) {
+      setSelectedCostCenterIds(userCostCenters.map(cc => cc.id))
+    }
+  }, [userCostCenters])
+
+  const updateCostCentersMutation = useMutation({
+    mutationFn: async ({ userId, costCenterIds }: { userId: string; costCenterIds: string[] }) => {
+      await apiRequest("POST", `/api/users/${userId}/cost-centers`, { costCenterIds })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users", selectedUserId, "cost-centers"] })
+      toast({
+        title: "Sucesso",
+        description: "Centros de custo atualizados com sucesso",
+      })
+      setCostCenterDialogOpen(false)
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error as Error)) {
+        toast({
+          title: "Não autorizado",
+          description: "Você precisa fazer login novamente...",
+          variant: "destructive",
+        })
+        setTimeout(() => {
+          window.location.href = "/api/login"
+        }, 500)
+        return
+      }
+      toast({
+        title: "Erro",
+        description: "Falha ao atualizar centros de custo",
+        variant: "destructive",
+      })
+    },
+  })
+
+  const handleOpenCostCenterDialog = (userId: string, userRole: string) => {
+    if (userRole === 'admin' || userRole === 'gerente') {
+      toast({
+        title: "Informação",
+        description: "Administradores e Gerentes têm acesso a todos os centros de custo",
+        variant: "default",
+      })
+      return
+    }
+    setSelectedUserId(userId)
+    setCostCenterDialogOpen(true)
+  }
+
+  const handleSaveCostCenters = () => {
+    if (selectedUserId) {
+      updateCostCentersMutation.mutate({
+        userId: selectedUserId,
+        costCenterIds: selectedCostCenterIds
+      })
+    }
+  }
+
+  const toggleCostCenter = (costCenterId: string) => {
+    setSelectedCostCenterIds(prev =>
+      prev.includes(costCenterId)
+        ? prev.filter(id => id !== costCenterId)
+        : [...prev, costCenterId]
+    )
+  }
 
   if (authLoading || !isAuthenticated || !isManager) {
     return null
@@ -242,6 +335,7 @@ export default function UserManagement() {
                               <SelectItem value="admin">Administrador</SelectItem>
                               <SelectItem value="gerente">Gerente</SelectItem>
                               <SelectItem value="financeiro">Financeiro</SelectItem>
+                              <SelectItem value="operacional">Operacional</SelectItem>
                               <SelectItem value="visualizador">Visualizador</SelectItem>
                             </SelectContent>
                           </Select>
@@ -253,6 +347,15 @@ export default function UserManagement() {
                             data-testid={`button-toggle-status-${user.id}`}
                           >
                             {user.isActive ? "Desativar" : "Ativar"}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleOpenCostCenterDialog(user.id, user.role)}
+                            data-testid={`button-cost-centers-${user.id}`}
+                          >
+                            <Building2 className="h-4 w-4 mr-1" />
+                            Centros
                           </Button>
                         </div>
                       </TableCell>
@@ -310,6 +413,7 @@ export default function UserManagement() {
                           <SelectItem value="admin">Administrador</SelectItem>
                           <SelectItem value="gerente">Gerente</SelectItem>
                           <SelectItem value="financeiro">Financeiro</SelectItem>
+                          <SelectItem value="operacional">Operacional</SelectItem>
                           <SelectItem value="visualizador">Visualizador</SelectItem>
                         </SelectContent>
                       </Select>
@@ -323,6 +427,16 @@ export default function UserManagement() {
                       >
                         {user.isActive ? "Desativar" : "Ativar"}
                       </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => handleOpenCostCenterDialog(user.id, user.role)}
+                        data-testid={`button-cost-centers-${user.id}`}
+                      >
+                        <Building2 className="h-4 w-4 mr-1" />
+                        Gerenciar Centros de Custo
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -331,6 +445,71 @@ export default function UserManagement() {
           </>
         )}
       </div>
+
+      <Dialog open={costCenterDialogOpen} onOpenChange={setCostCenterDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>Gerenciar Centros de Custo</DialogTitle>
+            <DialogDescription>
+              Selecione os centros de custo que este usuário poderá acessar
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[50vh] pr-4">
+            {allCostCenters && allCostCenters.length > 0 ? (
+              <div className="space-y-4">
+                {allCostCenters.map((center) => (
+                  <div key={center.id} className="flex items-start space-x-3 p-3 rounded-md hover:bg-muted/50">
+                    <Checkbox
+                      id={`center-${center.id}`}
+                      checked={selectedCostCenterIds.includes(center.id)}
+                      onCheckedChange={() => toggleCostCenter(center.id)}
+                      data-testid={`checkbox-cost-center-${center.id}`}
+                    />
+                    <div className="flex-1">
+                      <Label
+                        htmlFor={`center-${center.id}`}
+                        className="text-sm font-medium cursor-pointer"
+                      >
+                        {center.name}
+                      </Label>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Código: {center.code}
+                      </p>
+                      {center.description && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {center.description}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                icon={Building2}
+                title="Nenhum centro de custo cadastrado"
+                description="Cadastre centros de custo primeiro"
+              />
+            )}
+          </ScrollArea>
+          <div className="flex justify-end gap-2 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => setCostCenterDialogOpen(false)}
+              data-testid="button-cancel-cost-centers"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleSaveCostCenters}
+              disabled={updateCostCentersMutation.isPending}
+              data-testid="button-save-cost-centers"
+            >
+              {updateCostCentersMutation.isPending ? "Salvando..." : "Salvar"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </PageContainer>
   )
 }

@@ -31,6 +31,7 @@ import {
   accountsReceivable,
   chartOfAccounts,
   costCenters,
+  userCostCenters,
   bankTransfers,
   costAllocations,
   suppliers,
@@ -49,8 +50,13 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
   getAllUsers(): Promise<User[]>;
-  updateUserRole(userId: string, role: 'admin' | 'gerente' | 'financeiro' | 'visualizador'): Promise<User | undefined>;
+  updateUserRole(userId: string, role: 'admin' | 'gerente' | 'financeiro' | 'operacional' | 'visualizador'): Promise<User | undefined>;
   toggleUserStatus(userId: string, isActive: boolean): Promise<User | undefined>;
+  
+  // User Cost Centers
+  getUserCostCenters(userId: string): Promise<CostCenter[]>;
+  setUserCostCenters(userId: string, costCenterIds: string[]): Promise<void>;
+  removeUserCostCenter(userId: string, costCenterId: string): Promise<void>;
 
   // Bank Accounts
   getBankAccounts(userId: string): Promise<BankAccount[]>;
@@ -193,7 +199,7 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(users).orderBy(desc(users.createdAt));
   }
 
-  async updateUserRole(userId: string, role: 'admin' | 'gerente' | 'financeiro' | 'visualizador'): Promise<User | undefined> {
+  async updateUserRole(userId: string, role: 'admin' | 'gerente' | 'financeiro' | 'operacional' | 'visualizador'): Promise<User | undefined> {
     const [updated] = await db
       .update(users)
       .set({ role, updatedAt: new Date() })
@@ -209,6 +215,79 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId))
       .returning();
     return updated;
+  }
+
+  // User Cost Centers
+  async getUserCostCenters(userId: string): Promise<CostCenter[]> {
+    const userCostCenterLinks = await db
+      .select()
+      .from(userCostCenters)
+      .where(eq(userCostCenters.userId, userId));
+    
+    if (userCostCenterLinks.length === 0) {
+      return [];
+    }
+
+    const costCenterIds = userCostCenterLinks.map(link => link.costCenterId);
+    const centers = await db
+      .select()
+      .from(costCenters)
+      .where(sql`${costCenters.id} = ANY(${costCenterIds})`);
+    
+    return centers;
+  }
+
+  async setUserCostCenters(userId: string, costCenterIds: string[]): Promise<void> {
+    await db.delete(userCostCenters).where(eq(userCostCenters.userId, userId));
+    
+    if (costCenterIds.length > 0) {
+      const values = costCenterIds.map(costCenterId => ({
+        userId,
+        costCenterId
+      }));
+      await db.insert(userCostCenters).values(values);
+    }
+  }
+
+  async removeUserCostCenter(userId: string, costCenterId: string): Promise<void> {
+    await db
+      .delete(userCostCenters)
+      .where(
+        and(
+          eq(userCostCenters.userId, userId),
+          eq(userCostCenters.costCenterId, costCenterId)
+        )
+      );
+  }
+
+  async getUserAllowedCostCenters(userId: string, userRole: string): Promise<string[] | null> {
+    if (userRole === 'admin' || userRole === 'gerente') {
+      return null;
+    }
+    
+    const links = await db
+      .select()
+      .from(userCostCenters)
+      .where(eq(userCostCenters.userId, userId));
+    
+    return links.map(link => link.costCenterId);
+  }
+
+  async canAccessCostCenter(userId: string, userRole: string, costCenterId: string | null): Promise<boolean> {
+    if (userRole === 'admin' || userRole === 'gerente') {
+      return true;
+    }
+    
+    if (!costCenterId) {
+      return false;
+    }
+    
+    const allowedCenters = await this.getUserAllowedCostCenters(userId, userRole);
+    if (allowedCenters === null) {
+      return true;
+    }
+    
+    return allowedCenters.includes(costCenterId);
   }
 
   // Bank Accounts
@@ -270,7 +349,19 @@ export class DatabaseStorage implements IStorage {
     if (userRole === 'admin' || userRole === 'gerente') {
       return await db.select().from(accountsPayable).orderBy(desc(accountsPayable.dueDate));
     }
-    return await db.select().from(accountsPayable).where(eq(accountsPayable.userId, userId)).orderBy(desc(accountsPayable.dueDate));
+    
+    const allowedCostCenters = await this.getUserAllowedCostCenters(userId, userRole || '');
+    if (allowedCostCenters === null) {
+      return await db.select().from(accountsPayable).orderBy(desc(accountsPayable.dueDate));
+    }
+    
+    if (allowedCostCenters.length === 0) {
+      return [];
+    }
+    
+    return await db.select().from(accountsPayable)
+      .where(sql`${accountsPayable.costCenterId} = ANY(${allowedCostCenters})`)
+      .orderBy(desc(accountsPayable.dueDate));
   }
 
   async getAccountPayable(id: string, userId: string): Promise<AccountsPayable | undefined> {
@@ -328,7 +419,19 @@ export class DatabaseStorage implements IStorage {
     if (userRole === 'admin' || userRole === 'gerente') {
       return await db.select().from(accountsReceivable).orderBy(desc(accountsReceivable.dueDate));
     }
-    return await db.select().from(accountsReceivable).where(eq(accountsReceivable.userId, userId)).orderBy(desc(accountsReceivable.dueDate));
+    
+    const allowedCostCenters = await this.getUserAllowedCostCenters(userId, userRole || '');
+    if (allowedCostCenters === null) {
+      return await db.select().from(accountsReceivable).orderBy(desc(accountsReceivable.dueDate));
+    }
+    
+    if (allowedCostCenters.length === 0) {
+      return [];
+    }
+    
+    return await db.select().from(accountsReceivable)
+      .where(sql`${accountsReceivable.costCenterId} = ANY(${allowedCostCenters})`)
+      .orderBy(desc(accountsReceivable.dueDate));
   }
 
   async getAccountReceivable(id: string, userId: string): Promise<AccountsReceivable | undefined> {

@@ -1,6 +1,6 @@
 import { useAuth } from "./useAuth";
 
-type UserRole = 'admin' | 'gerente' | 'financeiro' | 'visualizador';
+type UserRole = 'admin' | 'gerente' | 'financeiro' | 'operacional' | 'visualizador';
 
 const ROLE_PERMISSIONS = {
   admin: {
@@ -8,6 +8,7 @@ const ROLE_PERMISSIONS = {
     canCreate: true,
     canUpdate: true,
     canDelete: true,
+    canSettle: true,
     canManageUsers: true,
     canBackup: true,
   },
@@ -16,6 +17,7 @@ const ROLE_PERMISSIONS = {
     canCreate: true,
     canUpdate: true,
     canDelete: true,
+    canSettle: true,
     canManageUsers: true,
     canBackup: false,
   },
@@ -23,7 +25,17 @@ const ROLE_PERMISSIONS = {
     canView: true,
     canCreate: true,
     canUpdate: true,
+    canDelete: true,
+    canSettle: true,
+    canManageUsers: false,
+    canBackup: false,
+  },
+  operacional: {
+    canView: true,
+    canCreate: true,
+    canUpdate: true,
     canDelete: false,
+    canSettle: false,
     canManageUsers: false,
     canBackup: false,
   },
@@ -32,6 +44,7 @@ const ROLE_PERMISSIONS = {
     canCreate: false,
     canUpdate: false,
     canDelete: false,
+    canSettle: false,
     canManageUsers: false,
     canBackup: false,
   },
@@ -49,6 +62,7 @@ export function usePermissions() {
     isAdmin: role === 'admin',
     isManager: role === 'admin' || role === 'gerente',
     isFinancial: role === 'admin' || role === 'gerente' || role === 'financeiro',
+    isOperational: role === 'operacional',
     isViewer: role === 'visualizador',
   };
 }

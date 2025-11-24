@@ -81,7 +81,7 @@ const formSchema = z.object({
 export default function AccountsReceivable() {
   const { toast } = useToast()
   const { isAuthenticated, isLoading: authLoading } = useAuth()
-  const { canCreate, canUpdate, canDelete } = usePermissions()
+  const { canCreate, canUpdate, canDelete, canSettle } = usePermissions()
   const [open, setOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [allocations, setAllocations] = useState<AllocationInput[]>([])
@@ -1004,19 +1004,21 @@ export default function AccountsReceivable() {
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  setSelectedReceivable(receivable)
-                                  setPaymentDialogOpen(true)
-                                }}
-                                disabled={receivable.status === 'pago' || receivable.status === 'cancelado'}
-                                data-testid={`button-baixa-${receivable.id}`}
-                              >
-                                <DollarSign className="h-4 w-4 mr-1" />
-                                Baixar
-                              </Button>
+                              {canSettle && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setSelectedReceivable(receivable)
+                                    setPaymentDialogOpen(true)
+                                  }}
+                                  disabled={receivable.status === 'pago' || receivable.status === 'cancelado'}
+                                  data-testid={`button-baixa-${receivable.id}`}
+                                >
+                                  <DollarSign className="h-4 w-4 mr-1" />
+                                  Baixar
+                                </Button>
+                              )}
                             </div>
                           </TableCell>
                         </TableRow>

@@ -61,7 +61,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const { role } = req.body;
       
-      if (!['admin', 'gerente', 'financeiro', 'visualizador'].includes(role)) {
+      if (!['admin', 'gerente', 'financeiro', 'operacional', 'visualizador'].includes(role)) {
         return res.status(400).json({ message: "Role inválida" });
       }
 
@@ -97,6 +97,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating user status:", error);
       res.status(500).json({ message: "Failed to update user status" });
+    }
+  });
+
+  // User Cost Centers Management
+  app.get('/api/users/:userId/cost-centers', isAuthenticated, requireManager, async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      const costCenters = await storage.getUserCostCenters(userId);
+      res.json(costCenters);
+    } catch (error) {
+      console.error("Error fetching user cost centers:", error);
+      res.status(500).json({ message: "Failed to fetch user cost centers" });
+    }
+  });
+
+  app.post('/api/users/:userId/cost-centers', isAuthenticated, requireManager, async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      const { costCenterIds } = req.body;
+
+      if (!Array.isArray(costCenterIds)) {
+        return res.status(400).json({ message: "costCenterIds deve ser um array" });
+      }
+
+      await storage.setUserCostCenters(userId, costCenterIds);
+      const updatedCostCenters = await storage.getUserCostCenters(userId);
+      
+      res.json(updatedCostCenters);
+    } catch (error) {
+      console.error("Error setting user cost centers:", error);
+      res.status(500).json({ message: "Failed to set user cost centers" });
+    }
+  });
+
+  app.delete('/api/users/:userId/cost-centers/:costCenterId', isAuthenticated, requireManager, async (req: any, res) => {
+    try {
+      const { userId, costCenterId } = req.params;
+      await storage.removeUserCostCenter(userId, costCenterId);
+      res.json({ message: "Centro de custo removido com sucesso" });
+    } catch (error) {
+      console.error("Error removing user cost center:", error);
+      res.status(500).json({ message: "Failed to remove user cost center" });
     }
   });
 
@@ -644,6 +686,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/accounts-payable', isAuthenticated, requirePermission('canCreate'), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      const userRole = req.user.role;
       
       // Convert empty strings to null for optional foreign keys
       const sanitizedData = {
@@ -657,6 +700,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       
       const validated = insertAccountsPayableSchema.parse(sanitizedData);
+      
+      // Verify user has access to the selected cost center
+      const hasAccess = await storage.canAccessCostCenter(userId, userRole, validated.costCenterId);
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Você não tem acesso ao centro de custo selecionado" });
+      }
+      
       const account = await storage.createAccountPayable({
         ...validated,
         userId,
@@ -671,6 +721,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/accounts-payable/batch', isAuthenticated, requirePermission('canCreate'), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      const userRole = req.user.role;
       const { installments } = req.body;
       
       if (!Array.isArray(installments) || installments.length === 0) {
@@ -695,6 +746,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
       });
       
+      // Verify user has access to all selected cost centers
+      for (const inst of validatedInstallments) {
+        const hasAccess = await storage.canAccessCostCenter(userId, userRole, inst.costCenterId);
+        if (!hasAccess) {
+          return res.status(403).json({ message: "Você não tem acesso a um ou mais centros de custo selecionados" });
+        }
+      }
+      
       const accounts = await storage.createAccountsPayableBatch(validatedInstallments);
       res.json(accounts);
     } catch (error: any) {
@@ -706,6 +765,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch('/api/accounts-payable/:id', isAuthenticated, requirePermission('canUpdate'), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      const userRole = req.user.role;
       const { id } = req.params;
       
       const sanitizedData = {
@@ -718,6 +778,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       
       const validated = updateAccountsPayableSchema.parse(sanitizedData);
+      
+      // Verify user has access to the selected cost center
+      if (validated.costCenterId !== undefined) {
+        const hasAccess = await storage.canAccessCostCenter(userId, userRole, validated.costCenterId);
+        if (!hasAccess) {
+          return res.status(403).json({ message: "Você não tem acesso ao centro de custo selecionado" });
+        }
+      }
+      
       const payable = await storage.updateAccountPayable(id, userId, validated);
       if (!payable) {
         return res.status(404).json({ message: "Conta a pagar não encontrada" });
@@ -762,6 +831,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/accounts-receivable', isAuthenticated, requirePermission('canCreate'), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      const userRole = req.user.role;
       
       // Convert empty strings to null for optional foreign keys
       const sanitizedData = {
@@ -774,6 +844,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       
       const validated = insertAccountsReceivableSchema.parse(sanitizedData);
+      
+      // Verify user has access to the selected cost center
+      const hasAccess = await storage.canAccessCostCenter(userId, userRole, validated.costCenterId);
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Você não tem acesso ao centro de custo selecionado" });
+      }
+      
       const account = await storage.createAccountReceivable({
         ...validated,
         userId,
@@ -788,6 +865,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/accounts-receivable/batch', isAuthenticated, requirePermission('canCreate'), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      const userRole = req.user.role;
       const { installments } = req.body;
       
       if (!Array.isArray(installments) || installments.length === 0) {
@@ -810,6 +888,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           userId,
         };
       });
+      
+      // Verify user has access to all selected cost centers
+      for (const inst of validatedInstallments) {
+        const hasAccess = await storage.canAccessCostCenter(userId, userRole, inst.costCenterId);
+        if (!hasAccess) {
+          return res.status(403).json({ message: "Você não tem acesso a um ou mais centros de custo selecionados" });
+        }
+      }
       
       const accounts = await storage.createAccountsReceivableBatch(validatedInstallments);
       res.json(accounts);
@@ -835,6 +921,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       
       const validated = updateAccountsReceivableSchema.parse(sanitizedData);
+      
+      // Verify user has access to the selected cost center
+      if (validated.costCenterId !== undefined) {
+        const hasAccess = await storage.canAccessCostCenter(userId, userRole, validated.costCenterId);
+        if (!hasAccess) {
+          return res.status(403).json({ message: "Você não tem acesso ao centro de custo selecionado" });
+        }
+      }
+      
       const receivable = await storage.updateAccountReceivable(id, userId, userRole, validated);
       if (!receivable) {
         return res.status(404).json({ message: "Conta a receber não encontrada" });
@@ -1764,7 +1859,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/accounts-payable/:id/baixa', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      const userRole = req.user.role;
       const { id } = req.params;
+      
+      // Block operacional and visualizador from performing settlement
+      if (userRole === 'operacional' || userRole === 'visualizador') {
+        return res.status(403).json({ message: "Você não tem permissão para efetuar baixas" });
+      }
       
       // Validate request body with Zod
       const validated = paymentBaixaSchema.parse(req.body);
@@ -1793,7 +1894,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/accounts-receivable/:id/baixa', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      const userRole = req.user.role;
       const { id } = req.params;
+      
+      // Block operacional and visualizador from performing settlement
+      if (userRole === 'operacional' || userRole === 'visualizador') {
+        return res.status(403).json({ message: "Você não tem permissão para efetuar baixas" });
+      }
       
       // Validate request body with Zod
       const validated = paymentBaixaSchema.parse(req.body);

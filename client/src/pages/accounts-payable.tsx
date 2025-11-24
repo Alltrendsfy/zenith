@@ -81,7 +81,7 @@ const formSchema = z.object({
 export default function AccountsPayable() {
   const { toast } = useToast()
   const { isAuthenticated, isLoading: authLoading } = useAuth()
-  const { canCreate, canUpdate, canDelete } = usePermissions()
+  const { canCreate, canUpdate, canDelete, canSettle } = usePermissions()
   const [open, setOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [allocations, setAllocations] = useState<AllocationInput[]>([])
@@ -405,7 +405,7 @@ export default function AccountsPayable() {
           issueDate: editingPayable.issueDate,
           documentNumber: editingPayable.documentNumber || "",
           notes: editingPayable.notes || "",
-          accountId: editingPayable.chartOfAccountsId || "",
+          accountId: editingPayable.accountId || "",
           costCenterId: editingPayable.costCenterId || "",
           recurrenceType: editingPayable.recurrenceType || "unica",
           recurrenceCount: "",
@@ -996,7 +996,7 @@ export default function AccountsPayable() {
                           variant: 'destructive' as const,
                           testId: `button-delete-${payable.id}`,
                         }] : []),
-                        {
+                        ...(canSettle ? [{
                           label: "Baixar",
                           icon: <DollarSign className="h-4 w-4" />,
                           onClick: () => {
@@ -1006,7 +1006,7 @@ export default function AccountsPayable() {
                           variant: 'default' as const,
                           disabled: payable.status === 'pago' || payable.status === 'cancelado',
                           testId: `button-baixa-${payable.id}`,
-                        },
+                        }] : []),
                       ],
                     })}
                     emptyMessage="Nenhuma conta a pagar encontrada"
@@ -1082,19 +1082,21 @@ export default function AccountsPayable() {
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
                               )}
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  setSelectedPayable(payable)
-                                  setPaymentDialogOpen(true)
-                                }}
-                                disabled={payable.status === 'pago' || payable.status === 'cancelado'}
-                                data-testid={`button-baixa-${payable.id}`}
-                              >
-                                <DollarSign className="h-4 w-4 mr-1" />
-                                Baixar
-                              </Button>
+                              {canSettle && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setSelectedPayable(payable)
+                                    setPaymentDialogOpen(true)
+                                  }}
+                                  disabled={payable.status === 'pago' || payable.status === 'cancelado'}
+                                  data-testid={`button-baixa-${payable.id}`}
+                                >
+                                  <DollarSign className="h-4 w-4 mr-1" />
+                                  Baixar
+                                </Button>
+                              )}
                             </div>
                           </TableCell>
                         </TableRow>
