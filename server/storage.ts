@@ -51,12 +51,26 @@ export interface IStorage {
   upsertUser(user: UpsertUser): Promise<User>;
   getAllUsers(): Promise<User[]>;
   createUser(userData: { 
-    email: string; 
+    email: string;
+    username: string;
     firstName: string; 
-    lastName: string; 
+    lastName: string;
+    phone: string;
     role: 'admin' | 'gerente' | 'financeiro' | 'operacional' | 'visualizador';
     isActive: boolean;
+    temporaryPassword: string;
   }): Promise<User>;
+  updateUser(userId: string, userData: Partial<{
+    email: string;
+    username: string;
+    firstName: string;
+    lastName: string;
+    phone: string;
+    role: 'admin' | 'gerente' | 'financeiro' | 'operacional' | 'visualizador';
+    isActive: boolean;
+    temporaryPassword: string;
+  }>): Promise<User | undefined>;
+  deleteUser(userId: string): Promise<boolean>;
   updateUserRole(userId: string, role: 'admin' | 'gerente' | 'financeiro' | 'operacional' | 'visualizador'): Promise<User | undefined>;
   toggleUserStatus(userId: string, isActive: boolean): Promise<User | undefined>;
   
@@ -228,30 +242,133 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createUser(userData: { 
-    email: string; 
+    email: string;
+    username: string;
     firstName: string; 
-    lastName: string; 
+    lastName: string;
+    phone: string;
     role: 'admin' | 'gerente' | 'financeiro' | 'operacional' | 'visualizador';
     isActive: boolean;
+    temporaryPassword: string;
   }): Promise<User> {
     // Check if email already exists
-    const existingUser = await db.select().from(users).where(eq(users.email, userData.email));
-    if (existingUser.length > 0) {
+    const existingEmail = await db.select().from(users).where(eq(users.email, userData.email));
+    if (existingEmail.length > 0) {
       throw new Error("Email já está em uso");
+    }
+
+    // Check if username already exists
+    const existingUsername = await db.select().from(users).where(eq(users.username, userData.username));
+    if (existingUsername.length > 0) {
+      throw new Error("Login já está em uso");
     }
 
     const [user] = await db
       .insert(users)
       .values({
         email: userData.email,
+        username: userData.username,
         firstName: userData.firstName,
         lastName: userData.lastName,
+        phone: userData.phone,
         role: userData.role,
         isActive: userData.isActive,
+        temporaryPassword: userData.temporaryPassword,
       })
       .returning();
     
     return user;
+  }
+
+  async updateUser(userId: string, userData: Partial<{
+    email: string;
+    username: string;
+    firstName: string;
+    lastName: string;
+    phone: string;
+    role: 'admin' | 'gerente' | 'financeiro' | 'operacional' | 'visualizador';
+    isActive: boolean;
+    temporaryPassword: string;
+  }>): Promise<User | undefined> {
+    // Check if user exists
+    const existing = await db.select().from(users).where(eq(users.id, userId));
+    if (existing.length === 0) {
+      throw new Error("Usuário não encontrado");
+    }
+
+    // Check if email is being changed and if it's already in use by another user
+    if (userData.email) {
+      const existingEmail = await db.select().from(users).where(
+        and(
+          eq(users.email, userData.email),
+          sql`${users.id} != ${userId}`
+        )
+      );
+      if (existingEmail.length > 0) {
+        throw new Error("Email já está em uso por outro usuário");
+      }
+    }
+
+    // Check if username is being changed and if it's already in use by another user
+    if (userData.username) {
+      const existingUsername = await db.select().from(users).where(
+        and(
+          eq(users.username, userData.username),
+          sql`${users.id} != ${userId}`
+        )
+      );
+      if (existingUsername.length > 0) {
+        throw new Error("Login já está em uso por outro usuário");
+      }
+    }
+
+    const [updated] = await db
+      .update(users)
+      .set({
+        ...userData,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId))
+      .returning();
+
+    return updated;
+  }
+
+  async deleteUser(userId: string): Promise<boolean> {
+    // Check if user has any cost centers assigned
+    const userCostCenters = await db
+      .select()
+      .from(userCostCenters)
+      .where(eq(userCostCenters.userId, userId));
+
+    if (userCostCenters.length > 0) {
+      throw new Error(`Não é possível excluir este usuário pois ele possui ${userCostCenters.length} centro(s) de custo atribuído(s)`);
+    }
+
+    // Check if user owns any data (accounts payable, receivable, etc)
+    const payables = await db
+      .select()
+      .from(accountsPayable)
+      .where(eq(accountsPayable.userId, userId))
+      .limit(1);
+
+    if (payables.length > 0) {
+      throw new Error("Não é possível excluir este usuário pois ele possui contas a pagar cadastradas");
+    }
+
+    const receivables = await db
+      .select()
+      .from(accountsReceivable)
+      .where(eq(accountsReceivable.userId, userId))
+      .limit(1);
+
+    if (receivables.length > 0) {
+      throw new Error("Não é possível excluir este usuário pois ele possui contas a receber cadastradas");
+    }
+
+    // Delete the user
+    await db.delete(users).where(eq(users.id, userId));
+    return true;
   }
 
   async updateUserRole(userId: string, role: 'admin' | 'gerente' | 'financeiro' | 'operacional' | 'visualizador'): Promise<User | undefined> {

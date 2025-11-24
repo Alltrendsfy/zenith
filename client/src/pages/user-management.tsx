@@ -67,13 +67,29 @@ export default function UserManagement() {
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
   const [selectedCostCenterIds, setSelectedCostCenterIds] = useState<string[]>([])
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [newUserData, setNewUserData] = useState({
     firstName: "",
     lastName: "",
     email: "",
+    username: "",
+    phone: "",
+    temporaryPassword: "",
     role: "visualizador" as "admin" | "gerente" | "financeiro" | "operacional" | "visualizador",
     isActive: true,
     costCenterIds: [] as string[],
+  })
+  const [editUserData, setEditUserData] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    username: "",
+    phone: "",
+    temporaryPassword: "",
+    role: "visualizador" as "admin" | "gerente" | "financeiro" | "operacional" | "visualizador",
+    isActive: true,
   })
 
   useEffect(() => {

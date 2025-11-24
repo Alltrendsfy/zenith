@@ -46,11 +46,14 @@ export const sessions = pgTable(
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   email: varchar("email").unique(),
+  username: varchar("username").unique(),
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
+  phone: varchar("phone"),
   profileImageUrl: varchar("profile_image_url"),
   role: userRoleEnum("role").default("admin").notNull(),
   isActive: boolean("is_active").default(true),
+  temporaryPassword: varchar("temporary_password"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -60,15 +63,30 @@ export type User = typeof users.$inferSelect;
 
 export const insertUserSchema = z.object({
   email: z.string().email("Email inválido"),
+  username: z.string().min(3, "Login deve ter no mínimo 3 caracteres").regex(/^[a-zA-Z0-9_]+$/, "Login deve conter apenas letras, números e underscore"),
   firstName: z.string().min(1, "Nome é obrigatório"),
   lastName: z.string().min(1, "Sobrenome é obrigatório"),
+  phone: z.string().min(10, "Telefone deve ter no mínimo 10 dígitos"),
   role: z.enum(['admin', 'gerente', 'financeiro', 'operacional', 'visualizador'], {
     required_error: "Role é obrigatória",
   }),
   isActive: z.boolean().default(true),
+  temporaryPassword: z.string().min(6, "Senha deve ter no mínimo 6 caracteres"),
+});
+
+export const updateUserSchema = z.object({
+  email: z.string().email("Email inválido").optional(),
+  username: z.string().min(3, "Login deve ter no mínimo 3 caracteres").regex(/^[a-zA-Z0-9_]+$/, "Login deve conter apenas letras, números e underscore").optional(),
+  firstName: z.string().min(1, "Nome é obrigatório").optional(),
+  lastName: z.string().min(1, "Sobrenome é obrigatório").optional(),
+  phone: z.string().min(10, "Telefone deve ter no mínimo 10 dígitos").optional(),
+  role: z.enum(['admin', 'gerente', 'financeiro', 'operacional', 'visualizador']).optional(),
+  isActive: z.boolean().optional(),
+  temporaryPassword: z.string().min(6, "Senha deve ter no mínimo 6 caracteres").optional(),
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
+export type UpdateUser = z.infer<typeof updateUserSchema>;
 
 // Activities (Atividades/Agenda)
 export const activities = pgTable("activities", {

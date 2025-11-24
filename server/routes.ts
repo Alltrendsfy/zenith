@@ -22,6 +22,7 @@ import {
   updateActivitySchema,
   insertCompanySchema,
   insertUserSchema,
+  updateUserSchema,
 } from "@shared/schema";
 import { validateAllocations, calculateAmounts } from "@shared/allocationUtils";
 import { z } from "zod";
@@ -70,7 +71,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(newUser);
     } catch (error: any) {
       console.error("Error creating user:", error);
-      if (error.message === "Email já está em uso") {
+      if (error.message === "Email já está em uso" || error.message === "Login já está em uso") {
         return res.status(409).json({ message: error.message });
       }
       if (error.name === 'ZodError') {
@@ -80,6 +81,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       res.status(500).json({ message: "Falha ao criar usuário" });
+    }
+  });
+
+  app.patch('/api/users/:id', isAuthenticated, requireManager, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const validatedData = updateUserSchema.parse(req.body);
+      
+      const updatedUser = await storage.updateUser(id, validatedData);
+      
+      if (!updatedUser) {
+        return res.status(404).json({ message: "Usuário não encontrado" });
+      }
+      
+      res.json(updatedUser);
+    } catch (error: any) {
+      console.error("Error updating user:", error);
+      if (error.message === "Usuário não encontrado") {
+        return res.status(404).json({ message: error.message });
+      }
+      if (error.message === "Email já está em uso por outro usuário" || error.message === "Login já está em uso por outro usuário") {
+        return res.status(409).json({ message: error.message });
+      }
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ 
+          message: "Dados inválidos", 
+          errors: error.errors 
+        });
+      }
+      res.status(500).json({ message: "Falha ao atualizar usuário" });
+    }
+  });
+
+  app.delete('/api/users/:id', isAuthenticated, requireManager, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Prevent users from deleting themselves
+      if (id === req.user.id) {
+        return res.status(400).json({ message: "Você não pode excluir seu próprio usuário" });
+      }
+      
+      await storage.deleteUser(id);
+      res.json({ message: "Usuário excluído com sucesso" });
+    } catch (error: any) {
+      console.error("Error deleting user:", error);
+      if (error.message && error.message.includes("Não é possível excluir")) {
+        return res.status(400).json({ message: error.message });
+      }
+      res.status(500).json({ message: "Falha ao excluir usuário" });
     }
   });
 
