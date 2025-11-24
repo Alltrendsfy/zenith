@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { requireAdmin, requirePermission, requireManager } from "./permissions";
+import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import {
   insertBankAccountSchema,
   updateBankAccountSchema,
@@ -1849,6 +1850,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       res.status(400).json({ message: error.message || "Failed to save company data" });
+    }
+  });
+
+  // Object Storage routes for document uploads
+  app.get("/objects/:objectPath(*)", isAuthenticated, async (req: any, res) => {
+    const userId = req.user?.claims?.sub;
+    const objectStorageService = new ObjectStorageService();
+    try {
+      const objectFile = await objectStorageService.getObjectEntityFile(
+        req.path,
+      );
+      const canAccess = await objectStorageService.canAccessObjectEntity({
+        objectFile,
+        userId: userId,
+      });
+      if (!canAccess) {
+        return res.sendStatus(401);
+      }
+      objectStorageService.downloadObject(objectFile, res);
+    } catch (error) {
+      console.error("Error checking object access:", error);
+      if (error instanceof ObjectNotFoundError) {
+        return res.sendStatus(404);
+      }
+      return res.sendStatus(500);
+    }
+  });
+
+  app.post("/api/objects/upload", isAuthenticated, async (req: any, res) => {
+    const objectStorageService = new ObjectStorageService();
+    try {
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      res.json({ uploadURL });
+    } catch (error) {
+      console.error("Error generating upload URL:", error);
+      res.status(500).json({ error: "Failed to generate upload URL" });
+    }
+  });
+
+  app.post("/api/documents/upload", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const { documentURL } = req.body;
+      
+      if (!documentURL) {
+        return res.status(400).json({ error: "documentURL is required" });
+      }
+
+      const objectStorageService = new ObjectStorageService();
+      const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(
+        documentURL,
+        {
+          owner: userId,
+          visibility: "private",
+        },
+      );
+
+      res.status(200).json({ objectPath });
+    } catch (error) {
+      console.error("Error setting document:", error);
+      res.status(500).json({ error: "Internal server error" });
     }
   });
 

@@ -23,7 +23,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus, Receipt, Search, DollarSign, Pencil, Trash2 } from "lucide-react"
+import { Plus, Receipt, Search, DollarSign, Pencil, Trash2, Paperclip, FileText, Download, ExternalLink } from "lucide-react"
 import { PaymentSettlementDialog } from "@/components/payment-settlement-dialog"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -35,6 +35,7 @@ import { MobileFormActions } from "@/components/mobile-form-actions"
 import { AllocationManager, type AllocationInput } from "@/components/allocation-manager"
 import { RecurrencePreview, type RecurrenceInstallment } from "@/components/recurrence-preview"
 import { DatePicker } from "@/components/ui/date-picker"
+import { ObjectUploader } from "@/components/ObjectUploader"
 import { apiRequest, queryClient } from "@/lib/queryClient"
 import type { AccountsPayable, Supplier, ChartOfAccounts } from "@shared/schema"
 import { format } from "date-fns"
@@ -55,6 +56,8 @@ const formSchema = z.object({
   recurrenceCount: z.string().optional(),
   recurrenceStartDate: z.string().optional(),
   recurrenceEndDate: z.string().optional(),
+  attachmentUrl: z.string().optional(),
+  attachmentFilename: z.string().optional(),
 }).refine((data) => {
   // Se recorrência não for única, deve ter data de início
   if (data.recurrenceType !== 'unica' && !data.recurrenceStartDate) {
@@ -87,6 +90,8 @@ export default function AccountsPayable() {
   const [selectedPayable, setSelectedPayable] = useState<AccountsPayable | null>(null)
   const [editingPayable, setEditingPayable] = useState<AccountsPayable | null>(null)
   const [deletingPayable, setDeletingPayable] = useState<AccountsPayable | null>(null)
+  const [documentUrl, setDocumentUrl] = useState<string>("")
+  const [documentFilename, setDocumentFilename] = useState<string>("")
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -116,6 +121,48 @@ export default function AccountsPayable() {
     enabled: isAuthenticated,
   })
 
+  const handleGetUploadParameters = async () => {
+    const res = await apiRequest("POST", "/api/objects/upload", {});
+    const data = await res.json();
+    return {
+      method: "PUT" as const,
+      url: data.uploadURL,
+    };
+  };
+
+  const handleUploadComplete = async (result: { successful: { uploadURL: string; name: string }[] }) => {
+    if (result.successful && result.successful.length > 0) {
+      const uploadedFile = result.successful[0];
+      const uploadURL = uploadedFile.uploadURL;
+      const filename = uploadedFile.name;
+
+      try {
+        const res = await apiRequest("POST", "/api/documents/upload", {
+          documentURL: uploadURL,
+        });
+        const data = await res.json();
+        
+        setDocumentUrl(data.objectPath);
+        setDocumentFilename(filename);
+        
+        form.setValue("attachmentUrl", data.objectPath);
+        form.setValue("attachmentFilename", filename);
+        
+        toast({
+          title: "Sucesso",
+          description: "Documento anexado com sucesso",
+        });
+      } catch (error) {
+        console.error("Error setting document ACL:", error);
+        toast({
+          title: "Erro",
+          description: "Falha ao processar documento",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -133,6 +180,8 @@ export default function AccountsPayable() {
       recurrenceCount: "",
       recurrenceStartDate: "",
       recurrenceEndDate: "",
+      attachmentUrl: "",
+      attachmentFilename: "",
     },
   })
 
@@ -196,6 +245,8 @@ export default function AccountsPayable() {
         costCenterId: data.costCenterId || null,
         documentNumber: data.documentNumber || null,
         notes: data.notes || null,
+        attachmentUrl: data.attachmentUrl || null,
+        attachmentFilename: data.attachmentFilename || null,
         totalAmount: data.totalAmount,
         ...recurrenceData,
       })
@@ -495,6 +546,8 @@ export default function AccountsPayable() {
                   form.reset()
                   setAllocations([])
                   setRecurrenceInstallments([])
+                  setDocumentUrl("")
+                  setDocumentFilename("")
                 }
               }}>
                 <DialogTrigger asChild>
@@ -806,6 +859,32 @@ export default function AccountsPayable() {
                             </FormItem>
                           )}
                         />
+
+                        <div className="md:col-span-2">
+                          <FormLabel>Documento (Opcional)</FormLabel>
+                          <div className="flex items-center gap-2 mt-2">
+                            <ObjectUploader
+                              maxNumberOfFiles={1}
+                              maxFileSize={5242880}
+                              allowedFileTypes={['image/*', 'application/pdf']}
+                              onGetUploadParameters={handleGetUploadParameters}
+                              onComplete={handleUploadComplete}
+                              buttonVariant="outline"
+                            >
+                              <Paperclip className="h-4 w-4 mr-2" />
+                              Anexar Documento
+                            </ObjectUploader>
+                            {documentFilename && (
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <FileText className="h-4 w-4" />
+                                <span className="truncate max-w-[200px]">{documentFilename}</span>
+                              </div>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Arquivos permitidos: Imagens e PDFs (máx. 5MB)
+                          </p>
+                        </div>
                       </div>
 
                       <div className="pt-4 border-t">
@@ -897,6 +976,13 @@ export default function AccountsPayable() {
                         }] : []),
                       ],
                       actions: [
+                        ...(payable.attachmentUrl ? [{
+                          label: "Ver Anexo",
+                          icon: <ExternalLink className="h-4 w-4" />,
+                          onClick: () => window.open(payable.attachmentUrl!, '_blank'),
+                          variant: 'outline' as const,
+                          testId: `button-view-attachment-${payable.id}`,
+                        }] : []),
                         ...(canUpdate ? [{
                           label: "Editar",
                           icon: <Pencil className="h-4 w-4" />,
@@ -965,6 +1051,17 @@ export default function AccountsPayable() {
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-1">
+                              {payable.attachmentUrl && (
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  onClick={() => window.open(payable.attachmentUrl!, '_blank')}
+                                  title="Visualizar documento anexado"
+                                  data-testid={`button-view-attachment-${payable.id}`}
+                                >
+                                  <ExternalLink className="h-4 w-4 text-primary" />
+                                </Button>
+                              )}
                               {canUpdate && (
                                 <Button
                                   size="icon"

@@ -21,7 +21,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, FileText, Search, DollarSign, Pencil, Trash2 } from "lucide-react"
+import { Plus, FileText, Search, DollarSign, Pencil, Trash2, ExternalLink, Paperclip } from "lucide-react"
 import { PaymentSettlementDialog } from "@/components/payment-settlement-dialog"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { useForm } from "react-hook-form"
@@ -34,6 +34,7 @@ import { MobileFormActions } from "@/components/mobile-form-actions"
 import { AllocationManager, type AllocationInput } from "@/components/allocation-manager"
 import { RecurrencePreview, type RecurrenceInstallment } from "@/components/recurrence-preview"
 import { DatePicker } from "@/components/ui/date-picker"
+import { ObjectUploader } from "@/components/ObjectUploader"
 import { apiRequest, queryClient } from "@/lib/queryClient"
 import type { AccountsReceivable, Customer, ChartOfAccounts } from "@shared/schema"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -55,6 +56,8 @@ const formSchema = z.object({
   recurrenceCount: z.string().optional(),
   recurrenceStartDate: z.string().optional(),
   recurrenceEndDate: z.string().optional(),
+  attachmentUrl: z.string().optional(),
+  attachmentFilename: z.string().optional(),
 }).refine((data) => {
   // Se recorrência não for única, deve ter data de início
   if (data.recurrenceType !== 'unica' && !data.recurrenceStartDate) {
@@ -88,6 +91,8 @@ export default function AccountsReceivable() {
   const [editingReceivable, setEditingReceivable] = useState<AccountsReceivable | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [receivableToDelete, setReceivableToDelete] = useState<AccountsReceivable | null>(null)
+  const [documentUrl, setDocumentUrl] = useState("")
+  const [documentFilename, setDocumentFilename] = useState("")
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -117,6 +122,48 @@ export default function AccountsReceivable() {
     enabled: isAuthenticated,
   })
 
+  const handleGetUploadParameters = async () => {
+    const res = await apiRequest("POST", "/api/objects/upload", {});
+    const data = await res.json();
+    return {
+      method: "PUT" as const,
+      url: data.uploadURL,
+    };
+  };
+
+  const handleUploadComplete = async (result: { successful: { uploadURL: string; name: string }[] }) => {
+    if (result.successful && result.successful.length > 0) {
+      const uploadedFile = result.successful[0];
+      const uploadURL = uploadedFile.uploadURL;
+      const filename = uploadedFile.name;
+
+      try {
+        const res = await apiRequest("POST", "/api/documents/upload", {
+          documentURL: uploadURL,
+        });
+        const data = await res.json();
+        
+        setDocumentUrl(data.objectPath);
+        setDocumentFilename(filename);
+        
+        form.setValue("attachmentUrl", data.objectPath);
+        form.setValue("attachmentFilename", filename);
+        
+        toast({
+          title: "Sucesso",
+          description: "Documento anexado com sucesso",
+        });
+      } catch (error) {
+        console.error("Error setting document ACL:", error);
+        toast({
+          title: "Erro",
+          description: "Falha ao processar documento",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -134,6 +181,8 @@ export default function AccountsReceivable() {
       recurrenceCount: "",
       recurrenceStartDate: "",
       recurrenceEndDate: "",
+      attachmentUrl: "",
+      attachmentFilename: "",
     },
   })
 
@@ -456,6 +505,9 @@ export default function AccountsReceivable() {
               setEditingReceivable(null)
               form.reset()
               setAllocations([])
+              setRecurrenceInstallments([])
+              setDocumentUrl("")
+              setDocumentFilename("")
             }
           }}>
                 <DialogTrigger asChild>
@@ -767,6 +819,29 @@ export default function AccountsReceivable() {
                             </FormItem>
                           )}
                         />
+
+                        <div className="md:col-span-2">
+                          <FormLabel>Documento Anexo (Opcional)</FormLabel>
+                          <div className="mt-2">
+                            <ObjectUploader
+                              onGetUploadParameters={handleGetUploadParameters}
+                              onComplete={handleUploadComplete}
+                              buttonVariant="outline"
+                            >
+                              <Paperclip className="h-4 w-4 mr-2" />
+                              {documentFilename ? "Trocar Documento" : "Anexar Documento"}
+                            </ObjectUploader>
+                            {documentFilename && (
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2">
+                                <FileText className="h-4 w-4" />
+                                <span className="truncate max-w-[200px]">{documentFilename}</span>
+                              </div>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Arquivos permitidos: Imagens e PDFs (máx. 5MB)
+                          </p>
+                        </div>
                       </div>
 
                       <div className="pt-4 border-t">
@@ -900,6 +975,17 @@ export default function AccountsReceivable() {
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex gap-2 justify-end">
+                              {receivable.attachmentUrl && (
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  onClick={() => window.open(receivable.attachmentUrl!, '_blank')}
+                                  title="Visualizar documento anexado"
+                                  data-testid={`button-view-attachment-${receivable.id}`}
+                                >
+                                  <ExternalLink className="h-4 w-4 text-primary" />
+                                </Button>
+                              )}
                               <Button
                                 size="icon"
                                 variant="ghost"

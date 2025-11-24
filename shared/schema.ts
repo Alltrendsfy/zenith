@@ -368,6 +368,8 @@ export const accountsPayable = pgTable("accounts_payable", {
   bankAccountId: varchar("bank_account_id").references(() => bankAccounts.id),
   documentNumber: varchar("document_number", { length: 100 }),
   notes: text("notes"),
+  attachmentUrl: varchar("attachment_url", { length: 500 }),
+  attachmentFilename: varchar("attachment_filename", { length: 255 }),
   // Parcelamento
   installmentNumber: integer("installment_number"),
   totalInstallments: integer("total_installments"),
@@ -457,6 +459,8 @@ export const accountsReceivable = pgTable("accounts_receivable", {
   bankAccountId: varchar("bank_account_id").references(() => bankAccounts.id),
   documentNumber: varchar("document_number", { length: 100 }),
   notes: text("notes"),
+  attachmentUrl: varchar("attachment_url", { length: 500 }),
+  attachmentFilename: varchar("attachment_filename", { length: 255 }),
   // Parcelamento
   installmentNumber: integer("installment_number"),
   totalInstallments: integer("total_installments"),
