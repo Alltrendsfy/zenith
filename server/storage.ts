@@ -50,6 +50,13 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
   getAllUsers(): Promise<User[]>;
+  createUser(userData: { 
+    email: string; 
+    firstName: string; 
+    lastName: string; 
+    role: 'admin' | 'gerente' | 'financeiro' | 'operacional' | 'visualizador';
+    isActive: boolean;
+  }): Promise<User>;
   updateUserRole(userId: string, role: 'admin' | 'gerente' | 'financeiro' | 'operacional' | 'visualizador'): Promise<User | undefined>;
   toggleUserStatus(userId: string, isActive: boolean): Promise<User | undefined>;
   
@@ -197,6 +204,33 @@ export class DatabaseStorage implements IStorage {
 
   async getAllUsers(): Promise<User[]> {
     return await db.select().from(users).orderBy(desc(users.createdAt));
+  }
+
+  async createUser(userData: { 
+    email: string; 
+    firstName: string; 
+    lastName: string; 
+    role: 'admin' | 'gerente' | 'financeiro' | 'operacional' | 'visualizador';
+    isActive: boolean;
+  }): Promise<User> {
+    // Check if email already exists
+    const existingUser = await db.select().from(users).where(eq(users.email, userData.email));
+    if (existingUser.length > 0) {
+      throw new Error("Email já está em uso");
+    }
+
+    const [user] = await db
+      .insert(users)
+      .values({
+        email: userData.email,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        role: userData.role,
+        isActive: userData.isActive,
+      })
+      .returning();
+    
+    return user;
   }
 
   async updateUserRole(userId: string, role: 'admin' | 'gerente' | 'financeiro' | 'operacional' | 'visualizador'): Promise<User | undefined> {

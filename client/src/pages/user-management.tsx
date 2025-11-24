@@ -66,6 +66,15 @@ export default function UserManagement() {
   const [costCenterDialogOpen, setCostCenterDialogOpen] = useState(false)
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
   const [selectedCostCenterIds, setSelectedCostCenterIds] = useState<string[]>([])
+  const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  const [newUserData, setNewUserData] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    role: "visualizador" as "admin" | "gerente" | "financeiro" | "operacional" | "visualizador",
+    isActive: true,
+    costCenterIds: [] as string[],
+  })
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -151,6 +160,49 @@ export default function UserManagement() {
       toast({
         title: "Erro",
         description: "Falha ao atualizar status do usuário",
+        variant: "destructive",
+      })
+    },
+  })
+
+  const createUserMutation = useMutation({
+    mutationFn: async (userData: typeof newUserData) => {
+      await apiRequest("POST", "/api/users", userData)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] })
+      toast({
+        title: "Sucesso",
+        description: "Usuário criado com sucesso",
+      })
+      setCreateDialogOpen(false)
+      setNewUserData({
+        firstName: "",
+        lastName: "",
+        email: "",
+        role: "visualizador",
+        isActive: true,
+        costCenterIds: [],
+      })
+    },
+    onError: (error: any) => {
+      if (isUnauthorizedError(error as Error)) {
+        toast({
+          title: "Não autorizado",
+          description: "Você precisa fazer login novamente...",
+          variant: "destructive",
+        })
+        setTimeout(() => {
+          window.location.href = "/api/login"
+        }, 500)
+        return
+      }
+      const errorMessage = error?.message || "Falha ao criar usuário"
+      toast({
+        title: "Erro",
+        description: errorMessage.includes("Email já está em uso") 
+          ? "Este email já está cadastrado" 
+          : "Falha ao criar usuário",
         variant: "destructive",
       })
     },
@@ -270,6 +322,12 @@ export default function UserManagement() {
               data-testid="input-search"
             />
           </div>
+          <Button 
+            onClick={() => setCreateDialogOpen(true)}
+            data-testid="button-add-user"
+          >
+            Novo Usuário
+          </Button>
         </div>
 
         {isLoading ? (
@@ -506,6 +564,157 @@ export default function UserManagement() {
               data-testid="button-save-cost-centers"
             >
               {updateCostCentersMutation.isPending ? "Salvando..." : "Salvar"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>Novo Usuário</DialogTitle>
+            <DialogDescription>
+              Preencha os dados do novo usuário
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[60vh] pr-4">
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="firstName">Nome *</Label>
+                  <Input
+                    id="firstName"
+                    value={newUserData.firstName}
+                    onChange={(e) => setNewUserData({ ...newUserData, firstName: e.target.value })}
+                    placeholder="Nome"
+                    data-testid="input-first-name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lastName">Sobrenome *</Label>
+                  <Input
+                    id="lastName"
+                    value={newUserData.lastName}
+                    onChange={(e) => setNewUserData({ ...newUserData, lastName: e.target.value })}
+                    placeholder="Sobrenome"
+                    data-testid="input-last-name"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="email">Email *</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={newUserData.email}
+                  onChange={(e) => setNewUserData({ ...newUserData, email: e.target.value })}
+                  placeholder="email@exemplo.com"
+                  data-testid="input-email"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="role">Perfil *</Label>
+                <Select
+                  value={newUserData.role}
+                  onValueChange={(role: any) => setNewUserData({ ...newUserData, role })}
+                >
+                  <SelectTrigger id="role" data-testid="select-role">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="admin">Administrador</SelectItem>
+                    <SelectItem value="gerente">Gerente</SelectItem>
+                    <SelectItem value="financeiro">Financeiro</SelectItem>
+                    <SelectItem value="operacional">Operacional</SelectItem>
+                    <SelectItem value="visualizador">Visualizador</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="status">Status</Label>
+                <Select
+                  value={newUserData.isActive ? "active" : "inactive"}
+                  onValueChange={(value) => setNewUserData({ ...newUserData, isActive: value === "active" })}
+                >
+                  <SelectTrigger id="status" data-testid="select-status">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Ativo</SelectItem>
+                    <SelectItem value="inactive">Inativo</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {allCostCenters && allCostCenters.length > 0 && (
+                <div className="space-y-2">
+                  <Label>Centros de Custo (Opcional)</Label>
+                  <div className="border rounded-md p-4 space-y-3 max-h-[200px] overflow-y-auto">
+                    {allCostCenters.map((center) => (
+                      <div key={center.id} className="flex items-start space-x-3">
+                        <Checkbox
+                          id={`new-user-center-${center.id}`}
+                          checked={newUserData.costCenterIds.includes(center.id)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setNewUserData({
+                                ...newUserData,
+                                costCenterIds: [...newUserData.costCenterIds, center.id]
+                              })
+                            } else {
+                              setNewUserData({
+                                ...newUserData,
+                                costCenterIds: newUserData.costCenterIds.filter(id => id !== center.id)
+                              })
+                            }
+                          }}
+                          data-testid={`checkbox-new-user-cost-center-${center.id}`}
+                        />
+                        <div className="flex-1">
+                          <Label
+                            htmlFor={`new-user-center-${center.id}`}
+                            className="text-sm font-medium cursor-pointer"
+                          >
+                            {center.name}
+                          </Label>
+                          <p className="text-xs text-muted-foreground">
+                            Código: {center.code}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+          <div className="flex justify-end gap-2 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setCreateDialogOpen(false)
+                setNewUserData({
+                  firstName: "",
+                  lastName: "",
+                  email: "",
+                  role: "visualizador",
+                  isActive: true,
+                  costCenterIds: [],
+                })
+              }}
+              data-testid="button-cancel-create"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => createUserMutation.mutate(newUserData)}
+              disabled={createUserMutation.isPending || !newUserData.firstName || !newUserData.lastName || !newUserData.email}
+              data-testid="button-submit-create"
+            >
+              {createUserMutation.isPending ? "Criando..." : "Criar Usuário"}
             </Button>
           </div>
         </DialogContent>

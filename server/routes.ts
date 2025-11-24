@@ -21,6 +21,7 @@ import {
   insertActivitySchema,
   updateActivitySchema,
   insertCompanySchema,
+  insertUserSchema,
 } from "@shared/schema";
 import { validateAllocations, calculateAmounts } from "@shared/allocationUtils";
 import { z } from "zod";
@@ -53,6 +54,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching users:", error);
       res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  app.post('/api/users', isAuthenticated, requireManager, async (req: any, res) => {
+    try {
+      const validatedData = insertUserSchema.parse(req.body);
+      const newUser = await storage.createUser(validatedData);
+      
+      // Set cost centers if provided
+      if (req.body.costCenterIds && Array.isArray(req.body.costCenterIds)) {
+        await storage.setUserCostCenters(newUser.id, req.body.costCenterIds);
+      }
+      
+      res.status(201).json(newUser);
+    } catch (error: any) {
+      console.error("Error creating user:", error);
+      if (error.message === "Email já está em uso") {
+        return res.status(409).json({ message: error.message });
+      }
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ 
+          message: "Dados inválidos", 
+          errors: error.errors 
+        });
+      }
+      res.status(500).json({ message: "Falha ao criar usuário" });
     }
   });
 

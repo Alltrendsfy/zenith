@@ -58,6 +58,18 @@ export const users = pgTable("users", {
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
 
+export const insertUserSchema = z.object({
+  email: z.string().email("Email inválido"),
+  firstName: z.string().min(1, "Nome é obrigatório"),
+  lastName: z.string().min(1, "Sobrenome é obrigatório"),
+  role: z.enum(['admin', 'gerente', 'financeiro', 'operacional', 'visualizador'], {
+    required_error: "Role é obrigatória",
+  }),
+  isActive: z.boolean().default(true),
+});
+
+export type InsertUser = z.infer<typeof insertUserSchema>;
+
 // Activities (Atividades/Agenda)
 export const activities = pgTable("activities", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
