@@ -25,7 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
-import { Users, Search, Building2 } from "lucide-react"
+import { Users, Search, Building2, Pencil, Trash2, AlertTriangle } from "lucide-react"
 import { EmptyState } from "@/components/empty-state"
 import { Card, CardContent } from "@/components/ui/card"
 import {
@@ -196,6 +196,9 @@ export default function UserManagement() {
         firstName: "",
         lastName: "",
         email: "",
+        username: "",
+        phone: "",
+        temporaryPassword: "",
         role: "visualizador",
         isActive: true,
         costCenterIds: [],
@@ -218,11 +221,105 @@ export default function UserManagement() {
         title: "Erro",
         description: errorMessage.includes("Email já está em uso") 
           ? "Este email já está cadastrado" 
+          : errorMessage.includes("Login já está em uso")
+          ? "Este login já está cadastrado"
           : "Falha ao criar usuário",
         variant: "destructive",
       })
     },
   })
+
+  const updateUserMutation = useMutation({
+    mutationFn: async ({ userId, userData }: { userId: string; userData: typeof editUserData }) => {
+      await apiRequest("PATCH", `/api/users/${userId}`, userData)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] })
+      toast({
+        title: "Sucesso",
+        description: "Usuário atualizado com sucesso",
+      })
+      setEditDialogOpen(false)
+      setSelectedUser(null)
+    },
+    onError: (error: any) => {
+      if (isUnauthorizedError(error as Error)) {
+        toast({
+          title: "Não autorizado",
+          description: "Você precisa fazer login novamente...",
+          variant: "destructive",
+        })
+        setTimeout(() => {
+          window.location.href = "/api/login"
+        }, 500)
+        return
+      }
+      const errorMessage = error?.message || "Falha ao atualizar usuário"
+      toast({
+        title: "Erro",
+        description: errorMessage.includes("Email já está em uso") 
+          ? "Este email já está em uso por outro usuário" 
+          : errorMessage.includes("Login já está em uso")
+          ? "Este login já está em uso por outro usuário"
+          : "Falha ao atualizar usuário",
+        variant: "destructive",
+      })
+    },
+  })
+
+  const deleteUserMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      await apiRequest("DELETE", `/api/users/${userId}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] })
+      toast({
+        title: "Sucesso",
+        description: "Usuário excluído com sucesso",
+      })
+      setDeleteDialogOpen(false)
+      setSelectedUser(null)
+    },
+    onError: (error: any) => {
+      if (isUnauthorizedError(error as Error)) {
+        toast({
+          title: "Não autorizado",
+          description: "Você precisa fazer login novamente...",
+          variant: "destructive",
+        })
+        setTimeout(() => {
+          window.location.href = "/api/login"
+        }, 500)
+        return
+      }
+      const errorMessage = error?.message || "Falha ao excluir usuário"
+      toast({
+        title: "Erro",
+        description: errorMessage,
+        variant: "destructive",
+      })
+    },
+  })
+
+  const handleOpenEditDialog = (user: User) => {
+    setSelectedUser(user)
+    setEditUserData({
+      firstName: user.firstName || "",
+      lastName: user.lastName || "",
+      email: user.email || "",
+      username: user.username || "",
+      phone: user.phone || "",
+      temporaryPassword: "",
+      role: user.role,
+      isActive: user.isActive ?? true,
+    })
+    setEditDialogOpen(true)
+  }
+
+  const handleOpenDeleteDialog = (user: User) => {
+    setSelectedUser(user)
+    setDeleteDialogOpen(true)
+  }
 
   const { data: allCostCenters } = useQuery<CostCenter[]>({
     queryKey: ["/api/cost-centers"],
@@ -511,6 +608,28 @@ export default function UserManagement() {
                         <Building2 className="h-4 w-4 mr-1" />
                         Gerenciar Centros de Custo
                       </Button>
+                      <div className="flex gap-2 w-full">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                          onClick={() => handleOpenEditDialog(user)}
+                          data-testid={`button-edit-${user.id}`}
+                        >
+                          <Pencil className="h-4 w-4 mr-1" />
+                          Editar
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          className="flex-1"
+                          onClick={() => handleOpenDeleteDialog(user)}
+                          data-testid={`button-delete-${user.id}`}
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          Excluir
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -618,6 +737,29 @@ export default function UserManagement() {
                 </div>
               </div>
 
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="username">Login *</Label>
+                  <Input
+                    id="username"
+                    value={newUserData.username}
+                    onChange={(e) => setNewUserData({ ...newUserData, username: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '') })}
+                    placeholder="nome_usuario"
+                    data-testid="input-username"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Telefone *</Label>
+                  <Input
+                    id="phone"
+                    value={newUserData.phone}
+                    onChange={(e) => setNewUserData({ ...newUserData, phone: e.target.value.replace(/\D/g, '') })}
+                    placeholder="11999999999"
+                    data-testid="input-phone"
+                  />
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="email">Email *</Label>
                 <Input
@@ -627,6 +769,18 @@ export default function UserManagement() {
                   onChange={(e) => setNewUserData({ ...newUserData, email: e.target.value })}
                   placeholder="email@exemplo.com"
                   data-testid="input-email"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="temporaryPassword">Senha Provisória *</Label>
+                <Input
+                  id="temporaryPassword"
+                  type="password"
+                  value={newUserData.temporaryPassword}
+                  onChange={(e) => setNewUserData({ ...newUserData, temporaryPassword: e.target.value })}
+                  placeholder="Senha inicial do usuário"
+                  data-testid="input-temporary-password"
                 />
               </div>
 
@@ -716,6 +870,9 @@ export default function UserManagement() {
                   firstName: "",
                   lastName: "",
                   email: "",
+                  username: "",
+                  phone: "",
+                  temporaryPassword: "",
                   role: "visualizador",
                   isActive: true,
                   costCenterIds: [],
@@ -727,10 +884,193 @@ export default function UserManagement() {
             </Button>
             <Button
               onClick={() => createUserMutation.mutate(newUserData)}
-              disabled={createUserMutation.isPending || !newUserData.firstName || !newUserData.lastName || !newUserData.email}
+              disabled={createUserMutation.isPending || !newUserData.firstName || !newUserData.lastName || !newUserData.email || !newUserData.username || !newUserData.temporaryPassword}
               data-testid="button-submit-create"
             >
               {createUserMutation.isPending ? "Criando..." : "Criar Usuário"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de Edição */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>Editar Usuário</DialogTitle>
+            <DialogDescription>
+              Atualize os dados do usuário
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[60vh] pr-4">
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-firstName">Nome *</Label>
+                  <Input
+                    id="edit-firstName"
+                    value={editUserData.firstName}
+                    onChange={(e) => setEditUserData({ ...editUserData, firstName: e.target.value })}
+                    placeholder="Nome"
+                    data-testid="input-edit-first-name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-lastName">Sobrenome *</Label>
+                  <Input
+                    id="edit-lastName"
+                    value={editUserData.lastName}
+                    onChange={(e) => setEditUserData({ ...editUserData, lastName: e.target.value })}
+                    placeholder="Sobrenome"
+                    data-testid="input-edit-last-name"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-username">Login *</Label>
+                  <Input
+                    id="edit-username"
+                    value={editUserData.username}
+                    onChange={(e) => setEditUserData({ ...editUserData, username: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '') })}
+                    placeholder="nome_usuario"
+                    data-testid="input-edit-username"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-phone">Telefone</Label>
+                  <Input
+                    id="edit-phone"
+                    value={editUserData.phone}
+                    onChange={(e) => setEditUserData({ ...editUserData, phone: e.target.value.replace(/\D/g, '') })}
+                    placeholder="11999999999"
+                    data-testid="input-edit-phone"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-email">Email *</Label>
+                <Input
+                  id="edit-email"
+                  type="email"
+                  value={editUserData.email}
+                  onChange={(e) => setEditUserData({ ...editUserData, email: e.target.value })}
+                  placeholder="email@exemplo.com"
+                  data-testid="input-edit-email"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-temporaryPassword">Nova Senha Provisória (deixe em branco para manter)</Label>
+                <Input
+                  id="edit-temporaryPassword"
+                  type="password"
+                  value={editUserData.temporaryPassword}
+                  onChange={(e) => setEditUserData({ ...editUserData, temporaryPassword: e.target.value })}
+                  placeholder="Preencha apenas se quiser alterar"
+                  data-testid="input-edit-temporary-password"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-role">Perfil *</Label>
+                <Select
+                  value={editUserData.role}
+                  onValueChange={(role: any) => setEditUserData({ ...editUserData, role })}
+                >
+                  <SelectTrigger id="edit-role" data-testid="select-edit-role">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="admin">Administrador</SelectItem>
+                    <SelectItem value="gerente">Gerente</SelectItem>
+                    <SelectItem value="financeiro">Financeiro</SelectItem>
+                    <SelectItem value="operacional">Operacional</SelectItem>
+                    <SelectItem value="visualizador">Visualizador</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-status">Status</Label>
+                <Select
+                  value={editUserData.isActive ? "active" : "inactive"}
+                  onValueChange={(value) => setEditUserData({ ...editUserData, isActive: value === "active" })}
+                >
+                  <SelectTrigger id="edit-status" data-testid="select-edit-status">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Ativo</SelectItem>
+                    <SelectItem value="inactive">Inativo</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </ScrollArea>
+          <div className="flex justify-end gap-2 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setEditDialogOpen(false)
+                setSelectedUser(null)
+              }}
+              data-testid="button-cancel-edit"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => {
+                if (selectedUser) {
+                  updateUserMutation.mutate({ userId: selectedUser.id, userData: editUserData })
+                }
+              }}
+              disabled={updateUserMutation.isPending || !editUserData.firstName || !editUserData.lastName || !editUserData.email || !editUserData.username}
+              data-testid="button-submit-edit"
+            >
+              {updateUserMutation.isPending ? "Salvando..." : "Salvar Alterações"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de Exclusão */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Excluir Usuário
+            </DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja excluir o usuário <strong>{selectedUser?.firstName} {selectedUser?.lastName}</strong>?
+              Esta ação não pode ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteDialogOpen(false)
+                setSelectedUser(null)
+              }}
+              data-testid="button-cancel-delete"
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (selectedUser) {
+                  deleteUserMutation.mutate(selectedUser.id)
+                }
+              }}
+              disabled={deleteUserMutation.isPending}
+              data-testid="button-confirm-delete"
+            >
+              {deleteUserMutation.isPending ? "Excluindo..." : "Excluir"}
             </Button>
           </div>
         </DialogContent>
