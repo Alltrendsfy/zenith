@@ -749,6 +749,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch('/api/bank-transfers/:id', isAuthenticated, requirePermission('canUpdate'), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const userRole = req.user.role;
+      const { id } = req.params;
+      
+      const transfer = await storage.updateBankTransfer(id, userId, userRole, req.body);
+      if (!transfer) {
+        return res.status(404).json({ message: "Transferência não encontrada" });
+      }
+      
+      res.json(transfer);
+    } catch (error: any) {
+      console.error("Error updating bank transfer:", error);
+      res.status(400).json({ message: error.message || "Falha ao atualizar transferência" });
+    }
+  });
+
+  app.delete('/api/bank-transfers/:id', isAuthenticated, requirePermission('canDelete'), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const userRole = req.user.role;
+      const { id } = req.params;
+      
+      const success = await storage.deleteBankTransfer(id, userId, userRole);
+      if (!success) {
+        return res.status(404).json({ message: "Transferência não encontrada" });
+      }
+      
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error deleting bank transfer:", error);
+      res.status(400).json({ message: error.message || "Falha ao excluir transferência" });
+    }
+  });
+
   // Accounts Payable
   app.get('/api/accounts-payable', isAuthenticated, async (req: any, res) => {
     try {
