@@ -2161,8 +2161,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Backup routes (Admin only)
-  app.get('/api/backup/history', isAuthenticated, requireAdmin, async (req: any, res) => {
+  // Backup routes (Admin and Manager)
+  app.get('/api/backup/history', isAuthenticated, requireManager, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const history = await storage.getBackupHistory(userId);
@@ -2173,7 +2173,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/backup/last', isAuthenticated, requireAdmin, async (req: any, res) => {
+  app.get('/api/backup/last', isAuthenticated, requireManager, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const lastBackup = await storage.getLastBackup(userId);
@@ -2184,7 +2184,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/backup/generate', isAuthenticated, requireAdmin, async (req: any, res) => {
+  app.post('/api/backup/generate', isAuthenticated, requireManager, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { notes } = req.body;
@@ -2224,7 +2224,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/backup/download', isAuthenticated, requireAdmin, async (req: any, res) => {
+  app.get('/api/backup/download', isAuthenticated, requireManager, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       

@@ -28,6 +28,7 @@ import {
   type InsertCompany,
   type BackupHistory,
   type InsertBackupHistory,
+  type UserCostCenter,
   bankAccounts,
   accountsPayable,
   accountsReceivable,
@@ -200,7 +201,7 @@ export interface BankStatementEntry {
 export interface BackupData {
   version: string;
   generatedAt: string;
-  userId: string;
+  generatedBy: string;
   data: {
     suppliers: Supplier[];
     customers: Customer[];
@@ -213,7 +214,10 @@ export interface BackupData {
     costAllocations: CostAllocation[];
     payments: Payment[];
     activities: Activity[];
-    company: Company | null;
+    users: User[];
+    companies: Company[];
+    userCostCenters: UserCostCenter[];
+    backupHistory: BackupHistory[];
   };
   summary: {
     totalRecords: number;
@@ -1938,17 +1942,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Backup operations
-  async getBackupHistory(userId: string): Promise<BackupHistory[]> {
+  // Note: Backup history is shared across all admins/managers for disaster recovery visibility
+  async getBackupHistory(_userId: string): Promise<BackupHistory[]> {
     return await db.select()
       .from(backupHistory)
-      .where(eq(backupHistory.userId, userId))
       .orderBy(desc(backupHistory.createdAt));
   }
 
-  async getLastBackup(userId: string): Promise<BackupHistory | undefined> {
+  // Note: Last backup is shared across all admins/managers for the daily reminder
+  async getLastBackup(_userId: string): Promise<BackupHistory | undefined> {
     const [lastBackup] = await db.select()
       .from(backupHistory)
-      .where(eq(backupHistory.userId, userId))
       .orderBy(desc(backupHistory.createdAt))
       .limit(1);
     return lastBackup;
@@ -1961,8 +1965,9 @@ export class DatabaseStorage implements IStorage {
     return newBackup;
   }
 
-  async getFullBackupData(userId: string): Promise<BackupData> {
-    // Fetch all data for the user
+  async getFullBackupData(generatedByUserId: string): Promise<BackupData> {
+    // Fetch ALL data from the system for disaster recovery
+    // Note: This exports the entire database (except sessions which are temporary)
     const [
       suppliersData,
       customersData,
@@ -1975,38 +1980,46 @@ export class DatabaseStorage implements IStorage {
       costAllocationsData,
       paymentsData,
       activitiesData,
-      companyData,
+      usersData,
+      companiesData,
+      userCostCentersData,
+      backupHistoryData,
     ] = await Promise.all([
-      db.select().from(suppliers).where(eq(suppliers.userId, userId)),
-      db.select().from(customers).where(eq(customers.userId, userId)),
-      db.select().from(chartOfAccounts).where(eq(chartOfAccounts.userId, userId)),
-      db.select().from(costCenters).where(eq(costCenters.userId, userId)),
-      db.select().from(bankAccounts).where(eq(bankAccounts.userId, userId)),
-      db.select().from(accountsPayable).where(eq(accountsPayable.userId, userId)),
-      db.select().from(accountsReceivable).where(eq(accountsReceivable.userId, userId)),
-      db.select().from(bankTransfers).where(eq(bankTransfers.userId, userId)),
-      db.select().from(costAllocations).where(eq(costAllocations.userId, userId)),
-      db.select().from(payments).where(eq(payments.userId, userId)),
-      db.select().from(activities).where(eq(activities.userId, userId)),
-      this.getCompany(userId),
+      db.select().from(suppliers),
+      db.select().from(customers),
+      db.select().from(chartOfAccounts),
+      db.select().from(costCenters),
+      db.select().from(bankAccounts),
+      db.select().from(accountsPayable),
+      db.select().from(accountsReceivable),
+      db.select().from(bankTransfers),
+      db.select().from(costAllocations),
+      db.select().from(payments),
+      db.select().from(activities),
+      db.select().from(users),
+      db.select().from(companies),
+      db.select().from(userCostCenters),
+      db.select().from(backupHistory),
     ]);
 
     const tablesIncluded = [
       'suppliers', 'customers', 'chartOfAccounts', 'costCenters',
       'bankAccounts', 'accountsPayable', 'accountsReceivable',
-      'bankTransfers', 'costAllocations', 'payments', 'activities', 'company'
+      'bankTransfers', 'costAllocations', 'payments', 'activities',
+      'users', 'companies', 'userCostCenters', 'backupHistory'
     ];
 
     const totalRecords = 
       suppliersData.length + customersData.length + chartOfAccountsData.length +
       costCentersData.length + bankAccountsData.length + accountsPayableData.length +
       accountsReceivableData.length + bankTransfersData.length + costAllocationsData.length +
-      paymentsData.length + activitiesData.length + (companyData ? 1 : 0);
+      paymentsData.length + activitiesData.length + usersData.length + companiesData.length +
+      userCostCentersData.length + backupHistoryData.length;
 
     return {
       version: '1.0.0',
       generatedAt: new Date().toISOString(),
-      userId,
+      generatedBy: generatedByUserId,
       data: {
         suppliers: suppliersData,
         customers: customersData,
@@ -2019,7 +2032,10 @@ export class DatabaseStorage implements IStorage {
         costAllocations: costAllocationsData,
         payments: paymentsData,
         activities: activitiesData,
-        company: companyData || null,
+        users: usersData,
+        companies: companiesData,
+        userCostCenters: userCostCentersData,
+        backupHistory: backupHistoryData,
       },
       summary: {
         totalRecords,

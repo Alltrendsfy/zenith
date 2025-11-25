@@ -75,22 +75,23 @@ function getDaysSinceBackup(lastBackupDate: Date | string | null): number {
 
 export default function Backup() {
   const { toast } = useToast();
-  const { isAdmin } = usePermissions();
+  const { isAdmin, isManager } = usePermissions();
+  const canAccessBackup = isAdmin || isManager;
   const [dialogOpen, setDialogOpen] = useState(false);
   const [notes, setNotes] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
 
   const { data: backupHistory, isLoading: historyLoading } = useQuery<BackupHistory[]>({
     queryKey: ['/api/backup/history'],
-    enabled: isAdmin,
+    enabled: canAccessBackup,
   });
 
   const { data: lastBackup, isLoading: lastBackupLoading } = useQuery<BackupHistory | null>({
     queryKey: ['/api/backup/last'],
-    enabled: isAdmin,
+    enabled: canAccessBackup,
   });
 
-  if (!isAdmin) {
+  if (!canAccessBackup) {
     return (
       <div className="container mx-auto p-4 md:p-6">
         <Card className="max-w-lg mx-auto mt-12">
@@ -98,7 +99,7 @@ export default function Backup() {
             <ShieldAlert className="h-16 w-16 mx-auto text-amber-500 mb-4" />
             <CardTitle className="text-xl">Acesso Restrito</CardTitle>
             <CardDescription>
-              Apenas administradores podem acessar o módulo de backup.
+              Apenas administradores e gerentes podem acessar o módulo de backup.
             </CardDescription>
           </CardHeader>
           <CardContent className="text-center">

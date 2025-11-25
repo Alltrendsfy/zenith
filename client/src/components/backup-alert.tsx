@@ -37,18 +37,19 @@ function getDaysSinceBackup(lastBackupDate: Date | string | null): number {
 }
 
 export function BackupAlert() {
-  const { isAdmin } = usePermissions();
+  const { isAdmin, isManager } = usePermissions();
+  const canAccessBackup = isAdmin || isManager;
   const [dismissed, setDismissed] = useState(false);
   const [showAlert, setShowAlert] = useState(false);
 
   const { data: lastBackup } = useQuery<BackupHistory | null>({
     queryKey: ['/api/backup/last'],
-    enabled: isAdmin,
+    enabled: canAccessBackup,
   });
 
   useEffect(() => {
     const checkBackupStatus = () => {
-      if (!isAdmin) {
+      if (!canAccessBackup) {
         setShowAlert(false);
         return;
       }
@@ -77,9 +78,9 @@ export function BackupAlert() {
 
     const interval = setInterval(checkBackupStatus, 60000);
     return () => clearInterval(interval);
-  }, [lastBackup, isAdmin]);
+  }, [lastBackup, canAccessBackup]);
 
-  if (!showAlert || dismissed || !isAdmin) {
+  if (!showAlert || dismissed || !canAccessBackup) {
     return null;
   }
 
