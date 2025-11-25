@@ -88,10 +88,10 @@ export interface IStorage {
 
   // Accounts Payable
   getAccountsPayable(userId: string, userRole?: string): Promise<AccountsPayable[]>;
-  getAccountPayable(id: string, userId: string): Promise<AccountsPayable | undefined>;
+  getAccountPayable(id: string, userId: string, userRole?: string): Promise<AccountsPayable | undefined>;
   createAccountPayable(account: InsertAccountsPayable): Promise<AccountsPayable>;
   createAccountsPayableBatch(accounts: InsertAccountsPayable[]): Promise<AccountsPayable[]>;
-  updateAccountPayable(id: string, userId: string, data: Partial<InsertAccountsPayable>): Promise<AccountsPayable | undefined>;
+  updateAccountPayable(id: string, userId: string, data: Partial<InsertAccountsPayable>, userRole?: string): Promise<AccountsPayable | undefined>;
   deleteAccountPayable(id: string, userId: string): Promise<boolean>;
 
   // Accounts Receivable
@@ -539,8 +539,13 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(accountsPayable.dueDate));
   }
 
-  async getAccountPayable(id: string, userId: string): Promise<AccountsPayable | undefined> {
-    const [account] = await db.select().from(accountsPayable).where(and(eq(accountsPayable.id, id), eq(accountsPayable.userId, userId)));
+  async getAccountPayable(id: string, userId: string, userRole?: string): Promise<AccountsPayable | undefined> {
+    // Admin and gerente can access any payable
+    const whereClause = (userRole === 'admin' || userRole === 'gerente')
+      ? eq(accountsPayable.id, id)
+      : and(eq(accountsPayable.id, id), eq(accountsPayable.userId, userId));
+    
+    const [account] = await db.select().from(accountsPayable).where(whereClause);
     return account;
   }
 
@@ -575,11 +580,16 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async updateAccountPayable(id: string, userId: string, data: Partial<InsertAccountsPayable>): Promise<AccountsPayable | undefined> {
+  async updateAccountPayable(id: string, userId: string, data: Partial<InsertAccountsPayable>, userRole?: string): Promise<AccountsPayable | undefined> {
+    // Admin and gerente can update any payable
+    const whereClause = (userRole === 'admin' || userRole === 'gerente')
+      ? eq(accountsPayable.id, id)
+      : and(eq(accountsPayable.id, id), eq(accountsPayable.userId, userId));
+    
     const [updated] = await db
       .update(accountsPayable)
       .set({ ...data, updatedAt: new Date() })
-      .where(and(eq(accountsPayable.id, id), eq(accountsPayable.userId, userId)))
+      .where(whereClause)
       .returning();
     return updated;
   }

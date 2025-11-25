@@ -865,7 +865,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      const payable = await storage.updateAccountPayable(id, userId, validated);
+      const payable = await storage.updateAccountPayable(id, userId, validated, userRole);
       if (!payable) {
         return res.status(404).json({ message: "Conta a pagar não encontrada" });
       }
@@ -1325,6 +1325,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/accounts-payable/:id/allocations', isAuthenticated, requirePermission('canCreate'), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      const userRole = req.user.role;
       const { id } = req.params;
       const allocationInputs = req.body.allocations;
 
@@ -1335,7 +1336,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Get transaction to calculate amounts
-      const transaction = await storage.getAccountPayable(id, userId);
+      const transaction = await storage.getAccountPayable(id, userId, userRole);
       if (!transaction) {
         return res.status(404).json({ message: "Transaction not found" });
       }
