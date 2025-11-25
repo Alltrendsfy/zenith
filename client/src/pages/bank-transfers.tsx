@@ -16,12 +16,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus, ArrowLeftRight, Search } from "lucide-react"
+import { Plus, ArrowLeftRight, Search, Pencil, Trash2 } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -49,6 +49,9 @@ export default function BankTransfers() {
   const { canCreate, canUpdate, canDelete } = usePermissions()
   const [open, setOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
+  const [editingTransfer, setEditingTransfer] = useState<BankTransfer | null>(null)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [deletingTransfer, setDeletingTransfer] = useState<BankTransfer | null>(null)
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -97,10 +100,9 @@ export default function BankTransfers() {
         title: "Sucesso",
         description: "Transferência realizada com sucesso",
       })
-      setOpen(false)
-      form.reset()
+      handleCloseDialog()
     },
-    onError: (error) => {
+    onError: (error: any) => {
       if (isUnauthorizedError(error as Error)) {
         toast({
           title: "Não autorizado",
@@ -111,15 +113,122 @@ export default function BankTransfers() {
       } else {
         toast({
           title: "Erro",
-          description: "Falha ao criar transferência",
+          description: error.message || "Falha ao criar transferência",
           variant: "destructive",
         })
       }
     },
   })
 
+  const updateMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof formSchema> & { id: string }) => {
+      const { id, ...updateData } = data
+      const res = await apiRequest("PATCH", `/api/bank-transfers/${id}`, updateData)
+      return await res.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/bank-transfers"] })
+      queryClient.invalidateQueries({ queryKey: ["/api/bank-accounts"] })
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] })
+      toast({
+        title: "Sucesso",
+        description: "Transferência atualizada com sucesso",
+      })
+      handleCloseDialog()
+    },
+    onError: (error: any) => {
+      if (isUnauthorizedError(error as Error)) {
+        toast({
+          title: "Não autorizado",
+          description: "Você precisa fazer login novamente...",
+          variant: "destructive",
+        })
+        window.location.href = "/api/login"
+      } else {
+        toast({
+          title: "Erro",
+          description: error.message || "Falha ao atualizar transferência",
+          variant: "destructive",
+        })
+      }
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("DELETE", `/api/bank-transfers/${id}`)
+      return await res.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/bank-transfers"] })
+      queryClient.invalidateQueries({ queryKey: ["/api/bank-accounts"] })
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] })
+      toast({
+        title: "Sucesso",
+        description: "Transferência excluída com sucesso",
+      })
+      setDeleteConfirmOpen(false)
+      setDeletingTransfer(null)
+    },
+    onError: (error: any) => {
+      if (isUnauthorizedError(error as Error)) {
+        toast({
+          title: "Não autorizado",
+          description: "Você precisa fazer login novamente...",
+          variant: "destructive",
+        })
+        window.location.href = "/api/login"
+      } else {
+        toast({
+          title: "Erro",
+          description: error.message || "Falha ao excluir transferência",
+          variant: "destructive",
+        })
+      }
+    },
+  })
+
+  const handleCloseDialog = () => {
+    setOpen(false)
+    setEditingTransfer(null)
+    form.reset({
+      fromAccountId: "",
+      toAccountId: "",
+      amount: "",
+      transferDate: format(new Date(), 'yyyy-MM-dd'),
+      description: "",
+    })
+  }
+
+  const handleEdit = (transfer: BankTransfer) => {
+    setEditingTransfer(transfer)
+    form.reset({
+      fromAccountId: transfer.fromAccountId,
+      toAccountId: transfer.toAccountId,
+      amount: transfer.amount,
+      transferDate: transfer.transferDate,
+      description: transfer.description || "",
+    })
+    setOpen(true)
+  }
+
+  const handleDeleteClick = (transfer: BankTransfer) => {
+    setDeletingTransfer(transfer)
+    setDeleteConfirmOpen(true)
+  }
+
+  const handleConfirmDelete = () => {
+    if (deletingTransfer) {
+      deleteMutation.mutate(deletingTransfer.id)
+    }
+  }
+
   const onSubmit = (data: z.infer<typeof formSchema>) => {
-    createMutation.mutate(data)
+    if (editingTransfer) {
+      updateMutation.mutate({ ...data, id: editingTransfer.id })
+    } else {
+      createMutation.mutate(data)
+    }
   }
 
   if (authLoading || !isAuthenticated) {
@@ -140,6 +249,8 @@ export default function BankTransfers() {
     return fromName.includes(search) || toName.includes(search) || description.includes(search)
   }) || []
 
+  const isPending = createMutation.isPending || updateMutation.isPending
+
   return (
     <PageContainer>
       <PageHeader>
@@ -159,7 +270,10 @@ export default function BankTransfers() {
             />
           </div>
 
-          <Dialog open={open} onOpenChange={setOpen}>
+          <Dialog open={open} onOpenChange={(isOpen) => {
+            if (!isOpen) handleCloseDialog()
+            else setOpen(true)
+          }}>
             <DialogTrigger asChild>
               <Button disabled={!canCreate} data-testid="button-new-transfer">
                 <Plus className="h-4 w-4 mr-2" />
@@ -168,7 +282,7 @@ export default function BankTransfers() {
             </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Nova Transferência</DialogTitle>
+                <DialogTitle>{editingTransfer ? "Editar Transferência" : "Nova Transferência"}</DialogTitle>
               </DialogHeader>
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -192,7 +306,7 @@ export default function BankTransfers() {
                             <SelectContent>
                               {accounts?.map((account) => (
                                 <SelectItem key={account.id} value={account.id}>
-                                  {account.name} - R$ {parseFloat(account.balance).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                  {account.name} - R$ {parseFloat(account.balance || '0').toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -221,7 +335,7 @@ export default function BankTransfers() {
                             <SelectContent>
                               {accounts?.map((account) => (
                                 <SelectItem key={account.id} value={account.id}>
-                                  {account.name} - R$ {parseFloat(account.balance).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                  {account.name} - R$ {parseFloat(account.balance || '0').toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -288,11 +402,11 @@ export default function BankTransfers() {
                   </div>
 
                   <MobileFormActions>
-                    <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                    <Button type="button" variant="outline" onClick={handleCloseDialog}>
                       Cancelar
                     </Button>
-                    <Button type="submit" disabled={createMutation.isPending} data-testid="button-submit">
-                      {createMutation.isPending ? "Transferindo..." : "Transferir"}
+                    <Button type="submit" disabled={isPending} data-testid="button-submit">
+                      {isPending ? (editingTransfer ? "Salvando..." : "Transferindo...") : (editingTransfer ? "Salvar" : "Transferir")}
                     </Button>
                   </MobileFormActions>
                 </form>
@@ -300,6 +414,30 @@ export default function BankTransfers() {
             </DialogContent>
           </Dialog>
         </div>
+
+        <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Confirmar Exclusão</DialogTitle>
+              <DialogDescription>
+                Tem certeza que deseja excluir esta transferência? Esta ação irá reverter os saldos das contas envolvidas e não poderá ser desfeita.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)}>
+                Cancelar
+              </Button>
+              <Button 
+                variant="destructive" 
+                onClick={handleConfirmDelete}
+                disabled={deleteMutation.isPending}
+                data-testid="button-confirm-delete"
+              >
+                {deleteMutation.isPending ? "Excluindo..." : "Excluir"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <Card>
           <CardHeader>
@@ -343,6 +481,17 @@ export default function BankTransfers() {
                           value: transfer.description,
                         }] : []),
                       ],
+                      actions: [
+                        ...(canUpdate ? [{
+                          label: "Editar",
+                          onClick: () => handleEdit(transfer),
+                        }] : []),
+                        ...(canDelete ? [{
+                          label: "Excluir",
+                          onClick: () => handleDeleteClick(transfer),
+                          variant: "destructive" as const,
+                        }] : []),
+                      ],
                     })}
                     emptyMessage="Nenhuma transferência encontrada"
                   />
@@ -357,6 +506,7 @@ export default function BankTransfers() {
                         <TableHead>Conta de Destino</TableHead>
                         <TableHead className="text-right">Valor</TableHead>
                         <TableHead>Descrição</TableHead>
+                        <TableHead className="w-[100px]">Ações</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -370,6 +520,30 @@ export default function BankTransfers() {
                           </TableCell>
                           <TableCell className="max-w-xs truncate">
                             {transfer.description || "-"}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-1">
+                              {canUpdate && (
+                                <Button 
+                                  size="icon" 
+                                  variant="ghost"
+                                  onClick={() => handleEdit(transfer)}
+                                  data-testid={`button-edit-${transfer.id}`}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                              )}
+                              {canDelete && (
+                                <Button 
+                                  size="icon" 
+                                  variant="ghost"
+                                  onClick={() => handleDeleteClick(transfer)}
+                                  data-testid={`button-delete-${transfer.id}`}
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              )}
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
