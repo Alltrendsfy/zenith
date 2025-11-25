@@ -11,8 +11,9 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { generateInstallmentDates, RecurrenceType } from "@shared/recurrenceUtils"
-import { Edit2, Check, X } from "lucide-react"
+import { Edit2, Check, X, AlertCircle, Calendar, CheckCircle2 } from "lucide-react"
 import { format } from "date-fns"
 
 export interface RecurrenceInstallment {
@@ -27,6 +28,7 @@ interface RecurrencePreviewProps {
   recurrenceStartDate: string
   baseAmount: string
   onInstallmentsChange: (installments: RecurrenceInstallment[]) => void
+  showPendingWarning?: boolean
 }
 
 export function RecurrencePreview({
@@ -35,6 +37,7 @@ export function RecurrencePreview({
   recurrenceStartDate,
   baseAmount,
   onInstallmentsChange,
+  showPendingWarning = true,
 }: RecurrencePreviewProps) {
   const [installments, setInstallments] = useState<RecurrenceInstallment[]>([])
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
@@ -66,6 +69,27 @@ export function RecurrencePreview({
     setInstallments(newInstallments)
     onInstallmentsChange(newInstallments)
   }, [recurrenceType, recurrenceCount, recurrenceStartDate, baseAmount, onInstallmentsChange])
+
+  // Determine what's missing for the warning
+  const missingFields: string[] = []
+  if (!recurrenceCount || parseInt(recurrenceCount) < 1) missingFields.push("quantidade de parcelas")
+  if (!recurrenceStartDate) missingFields.push("data de início")
+  if (!baseAmount) missingFields.push("valor")
+
+  // Show warning when recurrence is selected but fields are missing
+  if (recurrenceType !== 'unica' && missingFields.length > 0 && showPendingWarning) {
+    return (
+      <Alert variant="destructive" className="border-amber-500 bg-amber-50 dark:bg-amber-950/30" data-testid="recurrence-missing-fields-alert">
+        <AlertCircle className="h-4 w-4 text-amber-600" />
+        <AlertTitle className="text-amber-800 dark:text-amber-200">Preencha os campos obrigatórios</AlertTitle>
+        <AlertDescription className="text-amber-700 dark:text-amber-300">
+          Para visualizar e confirmar as parcelas programadas, preencha: <strong>{missingFields.join(", ")}</strong>.
+          <br />
+          <span className="text-sm mt-1 block">As parcelas serão exibidas automaticamente após preencher todos os campos.</span>
+        </AlertDescription>
+      </Alert>
+    )
+  }
 
   const handleEdit = (index: number) => {
     setEditingIndex(index)
@@ -104,18 +128,22 @@ export function RecurrencePreview({
   }, 0)
 
   return (
-    <Card data-testid="recurrence-preview">
-      <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-        <CardTitle className="text-base font-semibold">
-          Preview das Parcelas
-        </CardTitle>
-        <Badge variant="secondary" data-testid="installment-count-badge">
+    <Card className="border-2 border-green-500 dark:border-green-600 shadow-lg" data-testid="recurrence-preview">
+      <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2 bg-green-50 dark:bg-green-950/30">
+        <div className="flex items-center gap-2">
+          <CheckCircle2 className="h-5 w-5 text-green-600" />
+          <CardTitle className="text-base font-semibold text-green-800 dark:text-green-200">
+            Parcelas Programadas
+          </CardTitle>
+        </div>
+        <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100" data-testid="installment-count-badge">
           {installments.length} parcela{installments.length !== 1 ? 's' : ''}
         </Badge>
       </CardHeader>
-      <CardContent>
-        <div className="text-sm text-muted-foreground mb-4">
-          Você pode editar a data de vencimento e o valor de cada parcela antes de salvar.
+      <CardContent className="pt-4">
+        <div className="text-sm text-muted-foreground mb-4 flex items-center gap-2">
+          <Calendar className="h-4 w-4" />
+          Verifique as parcelas abaixo antes de salvar. Você pode editar datas e valores se necessário.
         </div>
 
         <div className="border rounded-md overflow-hidden">

@@ -978,34 +978,23 @@ export default function AccountsPayable() {
                       actions: [
                         ...(payable.attachmentUrl ? [{
                           label: "Ver Anexo",
-                          icon: <ExternalLink className="h-4 w-4" />,
                           onClick: () => window.open(payable.attachmentUrl!, '_blank'),
-                          variant: 'outline' as const,
-                          testId: `button-view-attachment-${payable.id}`,
                         }] : []),
                         ...(canUpdate ? [{
                           label: "Editar",
-                          icon: <Pencil className="h-4 w-4" />,
                           onClick: () => handleEdit(payable),
-                          testId: `button-edit-${payable.id}`,
                         }] : []),
                         ...(canDelete ? [{
                           label: "Excluir",
-                          icon: <Trash2 className="h-4 w-4" />,
                           onClick: () => handleDelete(payable),
                           variant: 'destructive' as const,
-                          testId: `button-delete-${payable.id}`,
                         }] : []),
-                        ...(canSettle ? [{
+                        ...(canSettle && payable.status !== 'pago' && payable.status !== 'cancelado' ? [{
                           label: "Baixar",
-                          icon: <DollarSign className="h-4 w-4" />,
                           onClick: () => {
                             setSelectedPayable(payable)
                             setPaymentDialogOpen(true)
                           },
-                          variant: 'default' as const,
-                          disabled: payable.status === 'pago' || payable.status === 'cancelado',
-                          testId: `button-baixa-${payable.id}`,
                         }] : []),
                       ],
                     })}
