@@ -96,7 +96,7 @@ export interface IStorage {
 
   // Accounts Receivable
   getAccountsReceivable(userId: string, userRole?: string): Promise<AccountsReceivable[]>;
-  getAccountReceivable(id: string, userId: string): Promise<AccountsReceivable | undefined>;
+  getAccountReceivable(id: string, userId: string, userRole?: string): Promise<AccountsReceivable | undefined>;
   createAccountReceivable(account: InsertAccountsReceivable): Promise<AccountsReceivable>;
   createAccountsReceivableBatch(accounts: InsertAccountsReceivable[]): Promise<AccountsReceivable[]>;
   updateAccountReceivable(id: string, userId: string, userRole: string, data: Partial<InsertAccountsReceivable>): Promise<AccountsReceivable | undefined>;
@@ -619,7 +619,13 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(accountsReceivable.dueDate));
   }
 
-  async getAccountReceivable(id: string, userId: string): Promise<AccountsReceivable | undefined> {
+  async getAccountReceivable(id: string, userId: string, userRole?: string): Promise<AccountsReceivable | undefined> {
+    // Admin and gerente can access any account
+    if (userRole === 'admin' || userRole === 'gerente') {
+      const [account] = await db.select().from(accountsReceivable).where(eq(accountsReceivable.id, id));
+      return account;
+    }
+    // Other roles can only access their own accounts
     const [account] = await db.select().from(accountsReceivable).where(and(eq(accountsReceivable.id, id), eq(accountsReceivable.userId, userId)));
     return account;
   }
@@ -1263,8 +1269,8 @@ export class DatabaseStorage implements IStorage {
     // Check if we've reached the end date
     if (parentReceivable.recurrenceEndDate && newNextDate) {
       if (newNextDate > new Date(parentReceivable.recurrenceEndDate)) {
-        // Mark recurrence as completed
-        await this.updateAccountReceivable(parentReceivable.id, parentReceivable.userId, {
+        // Mark recurrence as completed (using 'admin' as userRole since this is internal system operation)
+        await this.updateAccountReceivable(parentReceivable.id, parentReceivable.userId, 'admin', {
           recurrenceStatus: 'concluida'
         });
         return null;
@@ -1293,9 +1299,9 @@ export class DatabaseStorage implements IStorage {
 
     const [created] = await db.insert(accountsReceivable).values(nextReceivable).returning();
 
-    // Update parent recurrence next date
+    // Update parent recurrence next date (using 'admin' as userRole since this is internal system operation)
     if (newNextDate) {
-      await this.updateAccountReceivable(parentReceivable.id, parentReceivable.userId, {
+      await this.updateAccountReceivable(parentReceivable.id, parentReceivable.userId, 'admin', {
         recurrenceNextDate: newNextDate.toISOString().split('T')[0]
       });
     }
@@ -1546,8 +1552,8 @@ export class DatabaseStorage implements IStorage {
       newStatus = 'parcial';
     }
 
-    // Update receivable
-    const updatedReceivable = await this.updateAccountReceivable(receivableId, userId, {
+    // Update receivable (using 'admin' as userRole since this is internal system operation)
+    const updatedReceivable = await this.updateAccountReceivable(receivableId, userId, 'admin', {
       amountReceived: newAmountReceived.toFixed(2),
       status: newStatus,
     });

@@ -1039,6 +1039,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch('/api/accounts-payable/:id/recurrence', isAuthenticated, requirePermission('canUpdate'), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      const userRole = req.user.role;
       const { id } = req.params;
       const { recurrenceStatus } = req.body;
 
@@ -1046,7 +1047,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid recurrence status" });
       }
 
-      const updated = await storage.updateAccountPayable(id, userId, { recurrenceStatus });
+      const updated = await storage.updateAccountPayable(id, userId, { recurrenceStatus }, userRole);
       if (!updated) {
         return res.status(404).json({ message: "Account payable not found" });
       }
@@ -1223,6 +1224,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/cost-centers', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      const userRole = req.user.role;
+      
+      // Admin and gerente can see all cost centers
+      if (userRole === 'admin' || userRole === 'gerente') {
+        const centers = await storage.getAllCostCenters();
+        return res.json(centers);
+      }
+      
+      // Other roles see only their assigned cost centers
       const centers = await storage.getCostCenters(userId);
       res.json(centers);
     } catch (error) {
@@ -1392,6 +1402,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/accounts-receivable/:id/allocations', isAuthenticated, requirePermission('canCreate'), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      const userRole = req.user.role;
       const { id } = req.params;
       const allocationInputs = req.body.allocations;
 
@@ -1402,7 +1413,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Get transaction to calculate amounts
-      const transaction = await storage.getAccountReceivable(id, userId);
+      const transaction = await storage.getAccountReceivable(id, userId, userRole);
       if (!transaction) {
         return res.status(404).json({ message: "Transaction not found" });
       }
