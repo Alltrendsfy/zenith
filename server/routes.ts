@@ -644,7 +644,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/bank-accounts', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const accounts = await storage.getBankAccounts(userId);
+      const userRole = req.user.role;
+      const accounts = await storage.getBankAccounts(userId, userRole);
       res.json(accounts);
     } catch (error) {
       console.error("Error fetching bank accounts:", error);
@@ -720,7 +721,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/bank-transfers', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const transfers = await storage.getBankTransfers(userId);
+      const userRole = req.user.role;
+      const transfers = await storage.getBankTransfers(userId, userRole);
       res.json(transfers);
     } catch (error) {
       console.error("Error fetching bank transfers:", error);
@@ -731,13 +733,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/bank-transfers', isAuthenticated, requirePermission('canCreate'), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      const userRole = req.user.role;
       const validated = insertBankTransferSchema.parse(req.body);
       
       // Create the transfer (with all validations and balance updates in storage)
       const transfer = await storage.createBankTransfer({
         ...validated,
         userId,
-      });
+      }, userRole);
       
       res.json(transfer);
     } catch (error: any) {

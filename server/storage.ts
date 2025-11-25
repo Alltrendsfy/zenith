@@ -80,8 +80,8 @@ export interface IStorage {
   removeUserCostCenter(userId: string, costCenterId: string): Promise<void>;
 
   // Bank Accounts
-  getBankAccounts(userId: string): Promise<BankAccount[]>;
-  getBankAccount(id: string, userId: string): Promise<BankAccount | undefined>;
+  getBankAccounts(userId: string, userRole?: string): Promise<BankAccount[]>;
+  getBankAccount(id: string, userId: string, userRole?: string): Promise<BankAccount | undefined>;
   createBankAccount(account: InsertBankAccount): Promise<BankAccount>;
   updateBankAccount(id: string, userId: string, data: Partial<InsertBankAccount>): Promise<BankAccount | undefined>;
   deleteBankAccount(id: string, userId: string): Promise<boolean>;
@@ -119,8 +119,8 @@ export interface IStorage {
   deleteCostCenter(id: string, userId: string): Promise<boolean>;
 
   // Bank Transfers
-  getBankTransfers(userId: string): Promise<BankTransfer[]>;
-  createBankTransfer(transfer: InsertBankTransfer & { userId: string }): Promise<BankTransfer>;
+  getBankTransfers(userId: string, userRole?: string): Promise<BankTransfer[]>;
+  createBankTransfer(transfer: InsertBankTransfer & { userId: string }, userRole?: string): Promise<BankTransfer>;
 
   // Cost Allocations
   getAllAllocations(userId: string): Promise<CostAllocation[]>;
@@ -466,11 +466,20 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Bank Accounts
-  async getBankAccounts(userId: string): Promise<BankAccount[]> {
+  async getBankAccounts(userId: string, userRole?: string): Promise<BankAccount[]> {
+    // Admin and gerente can see all bank accounts
+    if (userRole === 'admin' || userRole === 'gerente') {
+      return await db.select().from(bankAccounts).orderBy(desc(bankAccounts.createdAt));
+    }
     return await db.select().from(bankAccounts).where(eq(bankAccounts.userId, userId)).orderBy(desc(bankAccounts.createdAt));
   }
 
-  async getBankAccount(id: string, userId: string): Promise<BankAccount | undefined> {
+  async getBankAccount(id: string, userId: string, userRole?: string): Promise<BankAccount | undefined> {
+    // Admin and gerente can access any bank account
+    if (userRole === 'admin' || userRole === 'gerente') {
+      const [account] = await db.select().from(bankAccounts).where(eq(bankAccounts.id, id));
+      return account;
+    }
     const [account] = await db.select().from(bankAccounts).where(and(eq(bankAccounts.id, id), eq(bankAccounts.userId, userId)));
     return account;
   }
@@ -964,11 +973,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Bank Transfers
-  async getBankTransfers(userId: string): Promise<BankTransfer[]> {
+  async getBankTransfers(userId: string, userRole?: string): Promise<BankTransfer[]> {
+    // Admin and gerente can see all transfers
+    if (userRole === 'admin' || userRole === 'gerente') {
+      return await db.select().from(bankTransfers).orderBy(desc(bankTransfers.transferDate));
+    }
     return await db.select().from(bankTransfers).where(eq(bankTransfers.userId, userId)).orderBy(desc(bankTransfers.transferDate));
   }
 
-  async createBankTransfer(transfer: InsertBankTransfer & { userId: string }): Promise<BankTransfer> {
+  async createBankTransfer(transfer: InsertBankTransfer & { userId: string }, userRole?: string): Promise<BankTransfer> {
     // 1. Validate that accounts are different
     if (transfer.fromAccountId === transfer.toAccountId) {
       throw new Error("Contas de origem e destino devem ser diferentes");
@@ -980,16 +993,18 @@ export class DatabaseStorage implements IStorage {
       throw new Error("Valor deve ser maior que zero");
     }
 
-    // 3. Fetch both accounts and verify they exist and belong to the user
-    const [fromAccount] = await db
-      .select()
-      .from(bankAccounts)
-      .where(and(eq(bankAccounts.id, transfer.fromAccountId), eq(bankAccounts.userId, transfer.userId)));
+    // 3. Fetch both accounts - admin/gerente can access any account
+    let fromAccount, toAccount;
     
-    const [toAccount] = await db
-      .select()
-      .from(bankAccounts)
-      .where(and(eq(bankAccounts.id, transfer.toAccountId), eq(bankAccounts.userId, transfer.userId)));
+    if (userRole === 'admin' || userRole === 'gerente') {
+      [fromAccount] = await db.select().from(bankAccounts).where(eq(bankAccounts.id, transfer.fromAccountId));
+      [toAccount] = await db.select().from(bankAccounts).where(eq(bankAccounts.id, transfer.toAccountId));
+    } else {
+      [fromAccount] = await db.select().from(bankAccounts)
+        .where(and(eq(bankAccounts.id, transfer.fromAccountId), eq(bankAccounts.userId, transfer.userId)));
+      [toAccount] = await db.select().from(bankAccounts)
+        .where(and(eq(bankAccounts.id, transfer.toAccountId), eq(bankAccounts.userId, transfer.userId)));
+    }
 
     if (!fromAccount) {
       throw new Error("Conta de origem não encontrada");
@@ -1012,7 +1027,7 @@ export class DatabaseStorage implements IStorage {
       await db
         .update(bankAccounts)
         .set({ balance: newFromBalance, updatedAt: new Date() })
-        .where(and(eq(bankAccounts.id, transfer.fromAccountId), eq(bankAccounts.userId, transfer.userId)));
+        .where(eq(bankAccounts.id, transfer.fromAccountId));
 
       // Update to account (credit)
       const currentToBalance = parseFloat(toAccount.balance);
@@ -1020,7 +1035,7 @@ export class DatabaseStorage implements IStorage {
       await db
         .update(bankAccounts)
         .set({ balance: newToBalance, updatedAt: new Date() })
-        .where(and(eq(bankAccounts.id, transfer.toAccountId), eq(bankAccounts.userId, transfer.userId)));
+        .where(eq(bankAccounts.id, transfer.toAccountId));
 
       // Create transfer record
       const [created] = await db.insert(bankTransfers).values(transfer).returning();
