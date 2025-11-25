@@ -120,7 +120,10 @@ export interface IStorage {
 
   // Bank Transfers
   getBankTransfers(userId: string, userRole?: string): Promise<BankTransfer[]>;
+  getBankTransfer(id: string, userId: string, userRole?: string): Promise<BankTransfer | undefined>;
   createBankTransfer(transfer: InsertBankTransfer & { userId: string }, userRole?: string): Promise<BankTransfer>;
+  updateBankTransfer(id: string, userId: string, userRole: string, data: Partial<InsertBankTransfer>): Promise<BankTransfer | undefined>;
+  deleteBankTransfer(id: string, userId: string, userRole: string): Promise<boolean>;
 
   // Cost Allocations
   getAllAllocations(userId: string): Promise<CostAllocation[]>;
@@ -1045,6 +1048,118 @@ export class DatabaseStorage implements IStorage {
       console.error("Error during bank transfer:", error);
       throw new Error("Erro ao processar transferência. Por favor, tente novamente.");
     }
+  }
+
+  async getBankTransfer(id: string, userId: string, userRole?: string): Promise<BankTransfer | undefined> {
+    // Admin and gerente can access any transfer
+    if (userRole === 'admin' || userRole === 'gerente') {
+      const [transfer] = await db.select().from(bankTransfers).where(eq(bankTransfers.id, id));
+      return transfer;
+    }
+    const [transfer] = await db.select().from(bankTransfers).where(and(eq(bankTransfers.id, id), eq(bankTransfers.userId, userId)));
+    return transfer;
+  }
+
+  async updateBankTransfer(id: string, userId: string, userRole: string, data: Partial<InsertBankTransfer>): Promise<BankTransfer | undefined> {
+    // Get original transfer
+    const originalTransfer = await this.getBankTransfer(id, userId, userRole);
+    if (!originalTransfer) {
+      return undefined;
+    }
+
+    const originalAmount = parseFloat(originalTransfer.amount);
+    const newAmount = data.amount ? parseFloat(data.amount) : originalAmount;
+    const newFromAccountId = data.fromAccountId || originalTransfer.fromAccountId;
+    const newToAccountId = data.toAccountId || originalTransfer.toAccountId;
+
+    // Validate different accounts
+    if (newFromAccountId === newToAccountId) {
+      throw new Error("Contas de origem e destino devem ser diferentes");
+    }
+
+    // Validate amount is positive
+    if (newAmount <= 0) {
+      throw new Error("Valor deve ser maior que zero");
+    }
+
+    // Get all involved accounts
+    const accountsChanged = newFromAccountId !== originalTransfer.fromAccountId || 
+                           newToAccountId !== originalTransfer.toAccountId ||
+                           newAmount !== originalAmount;
+
+    if (accountsChanged) {
+      // Reverse original transfer
+      const [origFromAccount] = await db.select().from(bankAccounts).where(eq(bankAccounts.id, originalTransfer.fromAccountId));
+      const [origToAccount] = await db.select().from(bankAccounts).where(eq(bankAccounts.id, originalTransfer.toAccountId));
+
+      if (origFromAccount) {
+        const revertedFromBalance = (parseFloat(origFromAccount.balance) + originalAmount).toFixed(2);
+        await db.update(bankAccounts).set({ balance: revertedFromBalance, updatedAt: new Date() }).where(eq(bankAccounts.id, originalTransfer.fromAccountId));
+      }
+
+      if (origToAccount) {
+        const revertedToBalance = (parseFloat(origToAccount.balance) - originalAmount).toFixed(2);
+        await db.update(bankAccounts).set({ balance: revertedToBalance, updatedAt: new Date() }).where(eq(bankAccounts.id, originalTransfer.toAccountId));
+      }
+
+      // Apply new transfer
+      const [newFromAccount] = await db.select().from(bankAccounts).where(eq(bankAccounts.id, newFromAccountId));
+      const [newToAccount] = await db.select().from(bankAccounts).where(eq(bankAccounts.id, newToAccountId));
+
+      if (!newFromAccount) {
+        throw new Error("Conta de origem não encontrada");
+      }
+      if (!newToAccount) {
+        throw new Error("Conta de destino não encontrada");
+      }
+
+      const fromBalance = parseFloat(newFromAccount.balance);
+      if (fromBalance < newAmount) {
+        throw new Error("Saldo insuficiente na conta de origem");
+      }
+
+      const newFromBalance = (fromBalance - newAmount).toFixed(2);
+      await db.update(bankAccounts).set({ balance: newFromBalance, updatedAt: new Date() }).where(eq(bankAccounts.id, newFromAccountId));
+
+      const newToBalance = (parseFloat(newToAccount.balance) + newAmount).toFixed(2);
+      await db.update(bankAccounts).set({ balance: newToBalance, updatedAt: new Date() }).where(eq(bankAccounts.id, newToAccountId));
+    }
+
+    // Update transfer record
+    const [updated] = await db
+      .update(bankTransfers)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(bankTransfers.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteBankTransfer(id: string, userId: string, userRole: string): Promise<boolean> {
+    // Get the transfer
+    const transfer = await this.getBankTransfer(id, userId, userRole);
+    if (!transfer) {
+      return false;
+    }
+
+    const amount = parseFloat(transfer.amount);
+
+    // Reverse the balance changes
+    const [fromAccount] = await db.select().from(bankAccounts).where(eq(bankAccounts.id, transfer.fromAccountId));
+    const [toAccount] = await db.select().from(bankAccounts).where(eq(bankAccounts.id, transfer.toAccountId));
+
+    if (fromAccount) {
+      const revertedFromBalance = (parseFloat(fromAccount.balance) + amount).toFixed(2);
+      await db.update(bankAccounts).set({ balance: revertedFromBalance, updatedAt: new Date() }).where(eq(bankAccounts.id, transfer.fromAccountId));
+    }
+
+    if (toAccount) {
+      const revertedToBalance = (parseFloat(toAccount.balance) - amount).toFixed(2);
+      await db.update(bankAccounts).set({ balance: revertedToBalance, updatedAt: new Date() }).where(eq(bankAccounts.id, transfer.toAccountId));
+    }
+
+    // Delete the transfer
+    const result = await db.delete(bankTransfers).where(eq(bankTransfers.id, id));
+    return result.rowCount ? result.rowCount > 0 : false;
   }
 
   // Cost Allocations
