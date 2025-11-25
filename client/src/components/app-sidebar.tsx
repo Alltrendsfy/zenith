@@ -13,7 +13,8 @@ import {
   Calendar,
   Settings,
   TrendingUp,
-  ChevronRight
+  ChevronRight,
+  Database
 } from "lucide-react"
 import {
   Sidebar,
@@ -327,6 +328,18 @@ export function AppSidebar() {
                     <Link href="/user-management">
                       <User className="h-4 w-4" />
                       <span>Gerenciar Usuários</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location === "/backup"}
+                    data-testid="link-backup"
+                  >
+                    <Link href="/backup">
+                      <Database className="h-4 w-4" />
+                      <span>Backup</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

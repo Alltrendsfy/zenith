@@ -2161,6 +2161,92 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Backup routes (Admin only)
+  app.get('/api/backup/history', isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const history = await storage.getBackupHistory(userId);
+      res.json(history);
+    } catch (error) {
+      console.error("Error fetching backup history:", error);
+      res.status(500).json({ message: "Falha ao buscar histórico de backups" });
+    }
+  });
+
+  app.get('/api/backup/last', isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const lastBackup = await storage.getLastBackup(userId);
+      res.json(lastBackup || null);
+    } catch (error) {
+      console.error("Error fetching last backup:", error);
+      res.status(500).json({ message: "Falha ao buscar último backup" });
+    }
+  });
+
+  app.post('/api/backup/generate', isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { notes } = req.body;
+      
+      // Generate backup data
+      const backupData = await storage.getFullBackupData(userId);
+      
+      // Create JSON string
+      const backupJson = JSON.stringify(backupData, null, 2);
+      const fileSize = Buffer.byteLength(backupJson, 'utf8');
+      
+      // Generate filename with timestamp
+      const now = new Date();
+      const timestamp = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const filename = `zenith-backup-${timestamp}.json`;
+      
+      // Record the backup in history
+      const backupRecord = await storage.createBackupRecord({
+        userId,
+        filename,
+        fileSize,
+        tablesIncluded: backupData.summary.tablesIncluded,
+        recordsCount: backupData.summary.totalRecords,
+        status: 'completed',
+        notes: notes || null,
+      });
+
+      // Return the backup data for download
+      res.json({
+        backup: backupRecord,
+        data: backupData,
+        filename,
+      });
+    } catch (error) {
+      console.error("Error generating backup:", error);
+      res.status(500).json({ message: "Falha ao gerar backup" });
+    }
+  });
+
+  app.get('/api/backup/download', isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Generate backup data
+      const backupData = await storage.getFullBackupData(userId);
+      const backupJson = JSON.stringify(backupData, null, 2);
+      
+      // Generate filename with timestamp
+      const now = new Date();
+      const timestamp = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const filename = `zenith-backup-${timestamp}.json`;
+      
+      // Set headers for file download
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.send(backupJson);
+    } catch (error) {
+      console.error("Error downloading backup:", error);
+      res.status(500).json({ message: "Falha ao baixar backup" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

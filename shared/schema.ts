@@ -749,6 +749,37 @@ export const updateCompanySchema = insertCompanySchema.partial();
 export type Company = typeof companies.$inferSelect;
 export type InsertCompany = z.infer<typeof insertCompanySchema>;
 
+// Backup History
+export const backupHistory = pgTable("backup_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  filename: varchar("filename", { length: 255 }).notNull(),
+  fileSize: integer("file_size"),
+  tablesIncluded: text("tables_included").array(),
+  recordsCount: integer("records_count"),
+  status: varchar("status", { length: 50 }).default('completed'),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_backup_history_user_id").on(table.userId),
+  index("idx_backup_history_created_at").on(table.createdAt),
+]);
+
+export const backupHistoryRelations = relations(backupHistory, ({ one }) => ({
+  user: one(users, {
+    fields: [backupHistory.userId],
+    references: [users.id],
+  }),
+}));
+
+export const insertBackupHistorySchema = createInsertSchema(backupHistory).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type BackupHistory = typeof backupHistory.$inferSelect;
+export type InsertBackupHistory = z.infer<typeof insertBackupHistorySchema>;
+
 // DRE (Demonstração de Resultado do Exercício) Types
 export interface DRELineItem {
   accountId?: string;

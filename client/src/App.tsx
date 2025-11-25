@@ -27,6 +27,7 @@ import UserManagement from "@/pages/user-management";
 import Agenda from "@/pages/agenda";
 import CompanySettings from "@/pages/company-settings";
 import Settings from "@/pages/settings";
+import Backup from "@/pages/backup";
 import NotFound from "@/pages/not-found";
 import zenithLogo from "@assets/logo zenith erp_1763561150551.jpeg";
 
@@ -78,6 +79,7 @@ function Router() {
                     <Route path="/agenda" component={Agenda} />
                     <Route path="/company-settings" component={CompanySettings} />
                     <Route path="/user-management" component={UserManagement} />
+                    <Route path="/backup" component={Backup} />
                     <Route path="/settings" component={Settings} />
                     <Route component={NotFound} />
                   </Switch>

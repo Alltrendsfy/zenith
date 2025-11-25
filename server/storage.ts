@@ -26,6 +26,8 @@ import {
   type InsertPayment,
   type Company,
   type InsertCompany,
+  type BackupHistory,
+  type InsertBackupHistory,
   bankAccounts,
   accountsPayable,
   accountsReceivable,
@@ -39,6 +41,7 @@ import {
   activities,
   payments,
   companies,
+  backupHistory,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or, desc, asc, sql } from "drizzle-orm";
@@ -170,6 +173,12 @@ export interface IStorage {
   // Test Data Cleanup
   deleteAllTransactions(userId: string): Promise<void>;
   getCostAllocations(userId: string): Promise<CostAllocation[]>;
+
+  // Backup operations
+  getBackupHistory(userId: string): Promise<BackupHistory[]>;
+  getLastBackup(userId: string): Promise<BackupHistory | undefined>;
+  createBackupRecord(backup: InsertBackupHistory): Promise<BackupHistory>;
+  getFullBackupData(userId: string): Promise<BackupData>;
 }
 
 export interface BankStatementEntry {
@@ -186,6 +195,30 @@ export interface BankStatementEntry {
   balance: string; // Saldo após a transação
   transactionId: string; // Para referência/rastreamento
   transactionType: 'payment_out' | 'payment_in' | 'transfer_out' | 'transfer_in';
+}
+
+export interface BackupData {
+  version: string;
+  generatedAt: string;
+  userId: string;
+  data: {
+    suppliers: Supplier[];
+    customers: Customer[];
+    chartOfAccounts: ChartOfAccounts[];
+    costCenters: CostCenter[];
+    bankAccounts: BankAccount[];
+    accountsPayable: AccountsPayable[];
+    accountsReceivable: AccountsReceivable[];
+    bankTransfers: BankTransfer[];
+    costAllocations: CostAllocation[];
+    payments: Payment[];
+    activities: Activity[];
+    company: Company | null;
+  };
+  summary: {
+    totalRecords: number;
+    tablesIncluded: string[];
+  };
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1902,6 +1935,97 @@ export class DatabaseStorage implements IStorage {
         updatedAt: new Date()
       })
       .where(eq(bankAccounts.userId, userId));
+  }
+
+  // Backup operations
+  async getBackupHistory(userId: string): Promise<BackupHistory[]> {
+    return await db.select()
+      .from(backupHistory)
+      .where(eq(backupHistory.userId, userId))
+      .orderBy(desc(backupHistory.createdAt));
+  }
+
+  async getLastBackup(userId: string): Promise<BackupHistory | undefined> {
+    const [lastBackup] = await db.select()
+      .from(backupHistory)
+      .where(eq(backupHistory.userId, userId))
+      .orderBy(desc(backupHistory.createdAt))
+      .limit(1);
+    return lastBackup;
+  }
+
+  async createBackupRecord(backup: InsertBackupHistory): Promise<BackupHistory> {
+    const [newBackup] = await db.insert(backupHistory)
+      .values(backup)
+      .returning();
+    return newBackup;
+  }
+
+  async getFullBackupData(userId: string): Promise<BackupData> {
+    // Fetch all data for the user
+    const [
+      suppliersData,
+      customersData,
+      chartOfAccountsData,
+      costCentersData,
+      bankAccountsData,
+      accountsPayableData,
+      accountsReceivableData,
+      bankTransfersData,
+      costAllocationsData,
+      paymentsData,
+      activitiesData,
+      companyData,
+    ] = await Promise.all([
+      db.select().from(suppliers).where(eq(suppliers.userId, userId)),
+      db.select().from(customers).where(eq(customers.userId, userId)),
+      db.select().from(chartOfAccounts).where(eq(chartOfAccounts.userId, userId)),
+      db.select().from(costCenters).where(eq(costCenters.userId, userId)),
+      db.select().from(bankAccounts).where(eq(bankAccounts.userId, userId)),
+      db.select().from(accountsPayable).where(eq(accountsPayable.userId, userId)),
+      db.select().from(accountsReceivable).where(eq(accountsReceivable.userId, userId)),
+      db.select().from(bankTransfers).where(eq(bankTransfers.userId, userId)),
+      db.select().from(costAllocations).where(eq(costAllocations.userId, userId)),
+      db.select().from(payments).where(eq(payments.userId, userId)),
+      db.select().from(activities).where(eq(activities.userId, userId)),
+      this.getCompany(userId),
+    ]);
+
+    const tablesIncluded = [
+      'suppliers', 'customers', 'chartOfAccounts', 'costCenters',
+      'bankAccounts', 'accountsPayable', 'accountsReceivable',
+      'bankTransfers', 'costAllocations', 'payments', 'activities', 'company'
+    ];
+
+    const totalRecords = 
+      suppliersData.length + customersData.length + chartOfAccountsData.length +
+      costCentersData.length + bankAccountsData.length + accountsPayableData.length +
+      accountsReceivableData.length + bankTransfersData.length + costAllocationsData.length +
+      paymentsData.length + activitiesData.length + (companyData ? 1 : 0);
+
+    return {
+      version: '1.0.0',
+      generatedAt: new Date().toISOString(),
+      userId,
+      data: {
+        suppliers: suppliersData,
+        customers: customersData,
+        chartOfAccounts: chartOfAccountsData,
+        costCenters: costCentersData,
+        bankAccounts: bankAccountsData,
+        accountsPayable: accountsPayableData,
+        accountsReceivable: accountsReceivableData,
+        bankTransfers: bankTransfersData,
+        costAllocations: costAllocationsData,
+        payments: paymentsData,
+        activities: activitiesData,
+        company: companyData || null,
+      },
+      summary: {
+        totalRecords,
+        tablesIncluded,
+      },
+    };
   }
 }
 

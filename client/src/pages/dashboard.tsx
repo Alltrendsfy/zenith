@@ -6,6 +6,7 @@ import { isUnauthorizedError } from "@/lib/authUtils"
 import { PageHeader } from "@/components/page-header"
 import { PageContainer } from "@/components/page-container"
 import { MetricCard } from "@/components/metric-card"
+import { BackupAlert } from "@/components/backup-alert"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Wallet, TrendingUp, TrendingDown, Building2, AlertCircle } from "lucide-react"
 import {
@@ -71,6 +72,7 @@ export default function Dashboard() {
       </PageHeader>
 
       <div className="space-y-6">
+        <BackupAlert />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
               <MetricCard
                 icon={Wallet}
