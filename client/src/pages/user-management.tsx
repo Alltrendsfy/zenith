@@ -322,7 +322,7 @@ export default function UserManagement() {
   }
 
   const { data: allCostCenters } = useQuery<CostCenter[]>({
-    queryKey: ["/api/cost-centers"],
+    queryKey: ["/api/all-cost-centers"],
     enabled: isAuthenticated && isManager,
   })
 

@@ -112,6 +112,7 @@ export interface IStorage {
 
   // Cost Centers
   getCostCenters(userId: string): Promise<CostCenter[]>;
+  getAllCostCenters(): Promise<CostCenter[]>;
   getCostCenter(id: string, userId: string): Promise<CostCenter | undefined>;
   createCostCenter(center: InsertCostCenter): Promise<CostCenter>;
   updateCostCenter(id: string, userId: string, data: Partial<InsertCostCenter>): Promise<CostCenter | undefined>;
@@ -832,6 +833,10 @@ export class DatabaseStorage implements IStorage {
   // Cost Centers
   async getCostCenters(userId: string): Promise<CostCenter[]> {
     return await db.select().from(costCenters).where(eq(costCenters.userId, userId)).orderBy(costCenters.code);
+  }
+
+  async getAllCostCenters(): Promise<CostCenter[]> {
+    return await db.select().from(costCenters).orderBy(costCenters.code);
   }
 
   async getCostCenter(id: string, userId: string): Promise<CostCenter | undefined> {

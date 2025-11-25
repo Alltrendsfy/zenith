@@ -1231,6 +1231,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // All Cost Centers (for admin/gerente to manage user assignments)
+  app.get('/api/all-cost-centers', isAuthenticated, requireManager, async (req: any, res) => {
+    try {
+      const centers = await storage.getAllCostCenters();
+      res.json(centers);
+    } catch (error) {
+      console.error("Error fetching all cost centers:", error);
+      res.status(500).json({ message: "Failed to fetch all cost centers" });
+    }
+  });
+
   app.post('/api/cost-centers', isAuthenticated, requireManager, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
