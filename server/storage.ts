@@ -377,13 +377,13 @@ export class DatabaseStorage implements IStorage {
 
   async deleteUser(userId: string): Promise<boolean> {
     // Check if user has any cost centers assigned
-    const userCostCenters = await db
+    const assignedCostCenters = await db
       .select()
       .from(userCostCenters)
       .where(eq(userCostCenters.userId, userId));
 
-    if (userCostCenters.length > 0) {
-      throw new Error(`Não é possível excluir este usuário pois ele possui ${userCostCenters.length} centro(s) de custo atribuído(s)`);
+    if (assignedCostCenters.length > 0) {
+      throw new Error(`Não é possível excluir este usuário pois ele possui ${assignedCostCenters.length} centro(s) de custo atribuído(s)`);
     }
 
     // Check if user owns any data (accounts payable, receivable, etc)
