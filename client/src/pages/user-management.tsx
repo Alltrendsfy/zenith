@@ -499,7 +499,7 @@ export default function UserManagement() {
                             onValueChange={(role) => updateRoleMutation.mutate({ userId: user.id, role })}
                             disabled={updateRoleMutation.isPending}
                           >
-                            <SelectTrigger className="w-[160px]" data-testid={`select-role-${user.id}`}>
+                            <SelectTrigger className="w-[140px]" data-testid={`select-role-${user.id}`}>
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -527,6 +527,22 @@ export default function UserManagement() {
                           >
                             <Building2 className="h-4 w-4 mr-1" />
                             Centros
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => handleOpenEditDialog(user)}
+                            data-testid={`button-edit-${user.id}`}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="icon"
+                            onClick={() => handleOpenDeleteDialog(user)}
+                            data-testid={`button-delete-${user.id}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
                       </TableCell>
