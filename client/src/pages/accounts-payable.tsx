@@ -50,7 +50,7 @@ const formSchema = z.object({
   issueDate: z.string().min(1, "Data de emissão é obrigatória"),
   documentNumber: z.string().optional(),
   notes: z.string().optional(),
-  accountId: z.string().optional(),
+  accountId: z.string().min(1, "Conta contábil é obrigatória"),
   costCenterId: z.string().optional(),
   recurrenceType: z.enum(['unica', 'mensal', 'trimestral', 'anual']).default('unica'),
   recurrenceCount: z.string().optional(),
@@ -199,7 +199,7 @@ export default function AccountsPayable() {
           issueDate: data.issueDate,
           documentNumber: data.documentNumber || null,
           notes: data.notes || null,
-          chartOfAccountsId: data.accountId || null,
+          chartOfAccountsId: data.accountId,
           costCenterId: data.costCenterId || null,
           recurrenceType: data.recurrenceType,
           recurrenceStatus: 'ativa' as const,
@@ -238,10 +238,10 @@ export default function AccountsPayable() {
 
       const res = await apiRequest("POST", "/api/accounts-payable", {
         ...data,
-        // Convert empty strings to null for foreign keys
+        // Convert empty strings to null for optional foreign keys
         supplierId: data.supplierId || null,
         supplierName: data.supplierName || null,
-        chartOfAccountsId: data.accountId || null,
+        chartOfAccountsId: data.accountId,
         costCenterId: data.costCenterId || null,
         documentNumber: data.documentNumber || null,
         notes: data.notes || null,
@@ -304,7 +304,7 @@ export default function AccountsPayable() {
         ...data,
         supplierId: data.supplierId || null,
         supplierName: data.supplierName || null,
-        chartOfAccountsId: data.accountId || null,
+        chartOfAccountsId: data.accountId,
         costCenterId: data.costCenterId || null,
         documentNumber: data.documentNumber || null,
         notes: data.notes || null,
@@ -788,10 +788,10 @@ export default function AccountsPayable() {
                           name="accountId"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Conta Contábil</FormLabel>
+                              <FormLabel>Conta Contábil *</FormLabel>
                               <Select
-                                onValueChange={(value) => field.onChange(value === "NONE" ? "" : value)}
-                                value={field.value || "NONE"}
+                                onValueChange={field.onChange}
+                                value={field.value || ""}
                                 data-testid="select-account"
                               >
                                 <FormControl>
@@ -806,9 +806,6 @@ export default function AccountsPayable() {
                                     </SelectItem>
                                   ) : (
                                     <>
-                                      <SelectItem value="NONE" data-testid="select-account-none">
-                                        Nenhuma
-                                      </SelectItem>
                                       {chartOfAccounts?.filter(acc => acc.nature === 'analitica').map((account) => (
                                         <SelectItem 
                                           key={account.id} 
