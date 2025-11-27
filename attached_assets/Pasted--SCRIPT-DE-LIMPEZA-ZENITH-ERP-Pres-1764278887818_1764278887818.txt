@@ -1,0 +1,72 @@
+-- =====================================================
+-- SCRIPT DE LIMPEZA - ZENITH ERP
+-- Preserva: itopaiva01@gmail.com (49653294) e alltrendsfy@gmail.com (36544547)
+-- =====================================================
+
+-- 1. Deletar pagamentos de usuários de teste
+DELETE FROM payments 
+WHERE user_id NOT IN ('49653294', '36544547');
+
+-- 2. Deletar alocações de custo de usuários de teste
+DELETE FROM cost_allocations 
+WHERE user_id NOT IN ('49653294', '36544547');
+
+-- 3. Deletar contas a pagar de usuários de teste
+DELETE FROM accounts_payable 
+WHERE user_id NOT IN ('49653294', '36544547');
+
+-- 4. Deletar contas a receber de usuários de teste
+DELETE FROM accounts_receivable 
+WHERE user_id NOT IN ('49653294', '36544547');
+
+-- 5. Deletar transferências bancárias de usuários de teste
+DELETE FROM bank_transfers 
+WHERE user_id NOT IN ('49653294', '36544547');
+
+-- 6. Deletar contas bancárias de usuários de teste
+DELETE FROM bank_accounts 
+WHERE user_id NOT IN ('49653294', '36544547');
+
+-- 7. Deletar centros de custo de usuários de teste
+DELETE FROM cost_centers 
+WHERE user_id NOT IN ('49653294', '36544547');
+
+-- 8. Deletar plano de contas de usuários de teste
+DELETE FROM chart_of_accounts 
+WHERE user_id NOT IN ('49653294', '36544547');
+
+-- 9. Deletar fornecedores de usuários de teste
+DELETE FROM suppliers 
+WHERE user_id NOT IN ('49653294', '36544547');
+
+-- 10. Deletar clientes de usuários de teste
+DELETE FROM customers 
+WHERE user_id NOT IN ('49653294', '36544547');
+
+-- 11. Deletar atividades de usuários de teste
+DELETE FROM activities 
+WHERE user_id NOT IN ('49653294', '36544547');
+
+-- 12. Deletar empresas de usuários de teste
+DELETE FROM companies 
+WHERE user_id NOT IN ('49653294', '36544547');
+
+-- 13. Deletar atribuições de centros de custo de usuários de teste
+DELETE FROM user_cost_centers 
+WHERE user_id NOT IN ('49653294', '36544547');
+
+-- 14. Deletar sessões de usuários de teste
+DELETE FROM sessions 
+WHERE sess::text NOT LIKE '%49653294%' 
+  AND sess::text NOT LIKE '%36544547%';
+
+-- 15. Deletar usuários de teste (mantém apenas os 2 preservados)
+DELETE FROM users 
+WHERE id NOT IN ('49653294', '36544547');
+
+-- Verificação final
+SELECT 'users' as tabela, COUNT(*) as registros FROM users
+UNION ALL SELECT 'bank_accounts', COUNT(*) FROM bank_accounts
+UNION ALL SELECT 'cost_centers', COUNT(*) FROM cost_centers
+UNION ALL SELECT 'suppliers', COUNT(*) FROM suppliers
+UNION ALL SELECT 'customers', COUNT(*) FROM customers;
