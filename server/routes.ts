@@ -7,6 +7,7 @@ import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import {
   insertBankAccountSchema,
   updateBankAccountSchema,
+  updateBankAccountBalanceSchema,
   insertAccountsPayableSchema,
   updateAccountsPayableSchema,
   insertAccountsReceivableSchema,
@@ -679,6 +680,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch('/api/bank-accounts/:id', isAuthenticated, requirePermission('canUpdate'), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      const userRole = req.user.role;
       const { id } = req.params;
       
       // Convert empty strings to null for optional fields
@@ -686,9 +688,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         Object.entries(req.body).map(([key, value]) => [key, value === "" ? null : value])
       );
       
-      const validated = updateBankAccountSchema.parse(sanitizedBody);
+      // Admin and Gerente can update initial balance and date
+      const isAdminOrManager = userRole === 'admin' || userRole === 'gerente';
+      const validated = isAdminOrManager 
+        ? updateBankAccountBalanceSchema.parse(sanitizedBody)
+        : updateBankAccountSchema.parse(sanitizedBody);
       
-      const account = await storage.updateBankAccount(id, userId, validated);
+      const account = await storage.updateBankAccount(id, userId, validated, userRole);
       if (!account) {
         return res.status(404).json({ message: "Bank account not found" });
       }

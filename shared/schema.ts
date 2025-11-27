@@ -370,6 +370,7 @@ export const bankAccounts = pgTable("bank_accounts", {
   accountNumber: varchar("account_number", { length: 50 }),
   balance: decimal("balance", { precision: 15, scale: 2 }).default('0.00'),
   initialBalance: decimal("initial_balance", { precision: 15, scale: 2 }).default('0.00'),
+  initialBalanceDate: date("initial_balance_date"),
   isActive: boolean("is_active").default(true),
   description: text("description"),
   createdAt: timestamp("created_at").defaultNow(),
@@ -401,9 +402,21 @@ export const updateBankAccountSchema = createInsertSchema(bankAccounts).pick({
   description: true,
 }).partial();
 
+export const updateBankAccountBalanceSchema = createInsertSchema(bankAccounts).pick({
+  name: true,
+  bankName: true,
+  bankCode: true,
+  agency: true,
+  accountNumber: true,
+  description: true,
+  initialBalance: true,
+  initialBalanceDate: true,
+}).partial();
+
 export type BankAccount = typeof bankAccounts.$inferSelect;
 export type InsertBankAccount = z.infer<typeof insertBankAccountSchema>;
 export type UpdateBankAccount = z.infer<typeof updateBankAccountSchema>;
+export type UpdateBankAccountBalance = z.infer<typeof updateBankAccountBalanceSchema>;
 
 // Accounts Payable (Contas a Pagar)
 export const accountsPayable = pgTable("accounts_payable", {

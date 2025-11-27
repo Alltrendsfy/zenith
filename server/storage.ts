@@ -87,7 +87,7 @@ export interface IStorage {
   getBankAccounts(userId: string, userRole?: string): Promise<BankAccount[]>;
   getBankAccount(id: string, userId: string, userRole?: string): Promise<BankAccount | undefined>;
   createBankAccount(account: InsertBankAccount): Promise<BankAccount>;
-  updateBankAccount(id: string, userId: string, data: Partial<InsertBankAccount>): Promise<BankAccount | undefined>;
+  updateBankAccount(id: string, userId: string, data: Partial<InsertBankAccount>, userRole?: string): Promise<BankAccount | undefined>;
   deleteBankAccount(id: string, userId: string): Promise<boolean>;
 
   // Accounts Payable
@@ -529,11 +529,36 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  async updateBankAccount(id: string, userId: string, data: Partial<InsertBankAccount>): Promise<BankAccount | undefined> {
+  async updateBankAccount(id: string, userId: string, data: Partial<InsertBankAccount>, userRole?: string): Promise<BankAccount | undefined> {
+    // Admin and gerente can update any bank account
+    const isAdminOrManager = userRole === 'admin' || userRole === 'gerente';
+    
+    // Get current account to check if initialBalance changed
+    const [currentAccount] = await db.select().from(bankAccounts).where(eq(bankAccounts.id, id));
+    if (!currentAccount) {
+      return undefined;
+    }
+    
+    // Check access
+    if (!isAdminOrManager && currentAccount.userId !== userId) {
+      return undefined;
+    }
+    
+    // If initialBalance is being changed, recalculate the current balance
+    let updateData: any = { ...data, updatedAt: new Date() };
+    if (isAdminOrManager && data.initialBalance !== undefined && data.initialBalance !== currentAccount.initialBalance) {
+      const oldInitialBalance = parseFloat(currentAccount.initialBalance || '0');
+      const newInitialBalance = parseFloat(data.initialBalance || '0');
+      const currentBalance = parseFloat(currentAccount.balance || '0');
+      const difference = newInitialBalance - oldInitialBalance;
+      const newBalance = (currentBalance + difference).toFixed(2);
+      updateData.balance = newBalance;
+    }
+    
     const [updated] = await db
       .update(bankAccounts)
-      .set({ ...data, updatedAt: new Date() })
-      .where(and(eq(bankAccounts.id, id), eq(bankAccounts.userId, userId)))
+      .set(updateData)
+      .where(eq(bankAccounts.id, id))
       .returning();
     return updated;
   }
