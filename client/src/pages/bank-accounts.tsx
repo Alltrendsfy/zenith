@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useQuery, useMutation } from "@tanstack/react-query"
 import { useAuth } from "@/hooks/useAuth"
 import { usePermissions } from "@/hooks/usePermissions"
@@ -13,6 +13,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { DatePicker } from "@/components/ui/date-picker"
 import { Plus, Building2, Pencil, Trash2 } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -29,13 +30,18 @@ const formSchema = z.object({
   agency: z.string().optional(),
   accountNumber: z.string().optional(),
   initialBalance: z.string().min(1, "Saldo inicial é obrigatório"),
+  initialBalanceDate: z.string().optional(),
   description: z.string().optional(),
 })
 
 export default function BankAccounts() {
   const { toast } = useToast()
-  const { isAuthenticated, isLoading: authLoading } = useAuth()
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth()
   const { canCreate, canUpdate, canDelete } = usePermissions()
+  
+  const isAdminOrManager = useMemo(() => {
+    return user?.role === 'admin' || user?.role === 'gerente'
+  }, [user?.role])
   const [open, setOpen] = useState(false)
   const [editingAccount, setEditingAccount] = useState<BankAccount | null>(null)
   const [deletingAccount, setDeletingAccount] = useState<BankAccount | null>(null)
@@ -67,6 +73,7 @@ export default function BankAccounts() {
       agency: "",
       accountNumber: "",
       initialBalance: "0",
+      initialBalanceDate: "",
       description: "",
     },
   })
@@ -81,6 +88,7 @@ export default function BankAccounts() {
         agency: editingAccount.agency || "",
         accountNumber: editingAccount.accountNumber || "",
         initialBalance: editingAccount.initialBalance || "0",
+        initialBalanceDate: editingAccount.initialBalanceDate || "",
         description: editingAccount.description || "",
       })
     }
@@ -337,7 +345,7 @@ export default function BankAccounts() {
                           control={form.control}
                           name="initialBalance"
                           render={({ field }) => (
-                            <FormItem className="md:col-span-2">
+                            <FormItem>
                               <FormLabel>Saldo Inicial *</FormLabel>
                               <FormControl>
                                 <Input
@@ -346,14 +354,39 @@ export default function BankAccounts() {
                                   placeholder="0.00"
                                   className="font-mono text-right"
                                   {...field}
-                                  disabled={!!editingAccount}
+                                  disabled={editingAccount ? !isAdminOrManager : false}
                                   data-testid="input-initial-balance"
                                 />
                               </FormControl>
                               <FormMessage />
-                              {editingAccount && (
+                              {editingAccount && !isAdminOrManager && (
                                 <p className="text-xs text-muted-foreground">
-                                  O saldo inicial não pode ser alterado após a criação da conta
+                                  Apenas Admin/Gerente podem alterar o saldo inicial
+                                </p>
+                              )}
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="initialBalanceDate"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Data do Saldo Inicial</FormLabel>
+                              <FormControl>
+                                <DatePicker
+                                  value={field.value}
+                                  onChange={field.onChange}
+                                  placeholder="Selecione a data"
+                                  disabled={editingAccount ? !isAdminOrManager : false}
+                                  data-testid="input-initial-balance-date"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                              {editingAccount && !isAdminOrManager && (
+                                <p className="text-xs text-muted-foreground">
+                                  Apenas Admin/Gerente podem alterar a data
                                 </p>
                               )}
                             </FormItem>
