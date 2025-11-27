@@ -1810,11 +1810,31 @@ export class DatabaseStorage implements IStorage {
 
     // Get bank account initial balance
     const [bankAccount] = await db.select().from(bankAccounts)
-      .where(and(eq(bankAccounts.id, bankAccountId), eq(bankAccounts.userId, userId)));
+      .where(eq(bankAccounts.id, bankAccountId));
     
     if (!bankAccount) {
       return [];
     }
+    
+    // Add initial balance entry as the first line
+    const initialBalanceDate = bankAccount.initialBalanceDate || startDate;
+    const initialBalance = parseFloat(bankAccount.initialBalance || '0');
+    
+    entries.push({
+      date: initialBalanceDate,
+      type: 'C' as 'C' | 'D',
+      description: 'SALDO INICIAL',
+      entityName: null,
+      accountCode: null,
+      accountName: null,
+      costCenterCode: null,
+      costCenterName: null,
+      documentNumber: null,
+      amount: '0.00',
+      balance: initialBalance.toFixed(2),
+      transactionId: 'initial-balance',
+      transactionType: 'payment_in' as 'payment_out' | 'payment_in' | 'transfer_out' | 'transfer_in',
+    });
 
     // 1. Fetch all payments for this bank account
     const paymentsData = await db.select({
@@ -1912,12 +1932,22 @@ export class DatabaseStorage implements IStorage {
       });
     }
 
-    // 3. Sort by date
-    entries.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    // 3. Sort by date (keeping initial balance entry at the beginning)
+    entries.sort((a, b) => {
+      // Initial balance always comes first
+      if (a.transactionId === 'initial-balance') return -1;
+      if (b.transactionId === 'initial-balance') return 1;
+      return new Date(a.date).getTime() - new Date(b.date).getTime();
+    });
 
-    // 4. Calculate progressive balance
-    let runningBalance = parseFloat(bankAccount.initialBalance || '0');
+    // 4. Calculate progressive balance (starting from initial balance)
+    let runningBalance = initialBalance;
     for (const entry of entries) {
+      // Skip initial balance entry - it already has the correct balance
+      if (entry.transactionId === 'initial-balance') {
+        continue;
+      }
+      
       const amount = parseFloat(entry.amount);
       if (entry.type === 'C') {
         runningBalance += amount;
