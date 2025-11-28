@@ -689,11 +689,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
       
       // Admin and Gerente can update initial balance and date
+      // Use strict schema validation to prevent privilege escalation
       const isAdminOrManager = userRole === 'admin' || userRole === 'gerente';
       const validated = isAdminOrManager 
         ? updateBankAccountBalanceSchema.parse(sanitizedBody)
         : updateBankAccountSchema.parse(sanitizedBody);
       
+      // SECURITY: Only pass validated data to storage - prevents mass assignment attacks
       const account = await storage.updateBankAccount(id, userId, validated, userRole);
       if (!account) {
         return res.status(404).json({ message: "Bank account not found" });
