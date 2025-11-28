@@ -52,6 +52,7 @@ import { join } from "path";
 export interface IStorage {
   // User operations
   getUser(id: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
   getAllUsers(): Promise<User[]>;
   createUser(userData: { 
@@ -63,6 +64,7 @@ export interface IStorage {
     role: 'admin' | 'gerente' | 'financeiro' | 'operacional' | 'visualizador';
     isActive: boolean;
     temporaryPassword: string;
+    passwordHash?: string;
   }): Promise<User>;
   updateUser(userId: string, userData: Partial<{
     email: string;
@@ -73,10 +75,13 @@ export interface IStorage {
     role: 'admin' | 'gerente' | 'financeiro' | 'operacional' | 'visualizador';
     isActive: boolean;
     temporaryPassword: string;
+    passwordHash: string;
+    mustChangePassword: boolean;
   }>): Promise<User | undefined>;
   deleteUser(userId: string): Promise<boolean>;
   updateUserRole(userId: string, role: 'admin' | 'gerente' | 'financeiro' | 'operacional' | 'visualizador'): Promise<User | undefined>;
   toggleUserStatus(userId: string, isActive: boolean): Promise<User | undefined>;
+  updateUserPassword(userId: string, passwordHash: string, mustChangePassword: boolean): Promise<User | undefined>;
   
   // User Cost Centers
   getUserCostCenters(userId: string): Promise<CostCenter[]>;
@@ -232,6 +237,24 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user;
+  }
+
+  async updateUserPassword(userId: string, passwordHash: string, mustChangePassword: boolean): Promise<User | undefined> {
+    const [user] = await db
+      .update(users)
+      .set({
+        passwordHash,
+        mustChangePassword,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    return user;
+  }
+
   async upsertUser(userData: UpsertUser): Promise<User> {
     // First check if user exists by email (more reliable for OIDC)
     const existingByEmail = await db.select().from(users).where(eq(users.email, userData.email));
@@ -291,6 +314,7 @@ export class DatabaseStorage implements IStorage {
     role: 'admin' | 'gerente' | 'financeiro' | 'operacional' | 'visualizador';
     isActive: boolean;
     temporaryPassword: string;
+    passwordHash?: string;
   }): Promise<User> {
     // Check if email already exists
     const existingEmail = await db.select().from(users).where(eq(users.email, userData.email));
@@ -315,6 +339,9 @@ export class DatabaseStorage implements IStorage {
         role: userData.role,
         isActive: userData.isActive,
         temporaryPassword: userData.temporaryPassword,
+        passwordHash: userData.passwordHash,
+        mustChangePassword: userData.passwordHash ? true : false,
+        authProvider: userData.passwordHash ? 'local' : 'replit',
       })
       .returning();
     
