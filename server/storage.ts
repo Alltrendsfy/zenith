@@ -91,7 +91,7 @@ export interface IStorage {
   deleteBankAccount(id: string, userId: string): Promise<boolean>;
 
   // Accounts Payable
-  getAccountsPayable(userId: string, userRole?: string): Promise<AccountsPayable[]>;
+  getAccountsPayable(userId: string, userRole?: string, costCenterId?: string): Promise<AccountsPayable[]>;
   getAccountPayable(id: string, userId: string, userRole?: string): Promise<AccountsPayable | undefined>;
   createAccountPayable(account: InsertAccountsPayable): Promise<AccountsPayable>;
   createAccountsPayableBatch(accounts: InsertAccountsPayable[]): Promise<AccountsPayable[]>;
@@ -99,7 +99,7 @@ export interface IStorage {
   deleteAccountPayable(id: string, userId: string): Promise<boolean>;
 
   // Accounts Receivable
-  getAccountsReceivable(userId: string, userRole?: string): Promise<AccountsReceivable[]>;
+  getAccountsReceivable(userId: string, userRole?: string, costCenterId?: string): Promise<AccountsReceivable[]>;
   getAccountReceivable(id: string, userId: string, userRole?: string): Promise<AccountsReceivable | undefined>;
   createAccountReceivable(account: InsertAccountsReceivable): Promise<AccountsReceivable>;
   createAccountsReceivableBatch(accounts: InsertAccountsReceivable[]): Promise<AccountsReceivable[]>;
@@ -594,23 +594,31 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Accounts Payable
-  async getAccountsPayable(userId: string, userRole?: string): Promise<AccountsPayable[]> {
-    if (userRole === 'admin' || userRole === 'gerente') {
-      return await db.select().from(accountsPayable).orderBy(desc(accountsPayable.dueDate));
-    }
-    
+  async getAccountsPayable(userId: string, userRole?: string, costCenterId?: string): Promise<AccountsPayable[]> {
     const allowedCostCenters = await this.getUserAllowedCostCenters(userId, userRole || '');
-    if (allowedCostCenters === null) {
-      return await db.select().from(accountsPayable).orderBy(desc(accountsPayable.dueDate));
-    }
     
-    if (allowedCostCenters.length === 0) {
+    // Build base conditions array
+    const conditions: any[] = [];
+    
+    // Add cost center filter if specific center selected
+    if (costCenterId) {
+      conditions.push(eq(accountsPayable.costCenterId, costCenterId));
+    } else if (allowedCostCenters !== null && allowedCostCenters.length > 0) {
+      // Restricted user with "All" selected - filter by their allowed centers
+      conditions.push(sql`${accountsPayable.costCenterId} = ANY(${allowedCostCenters})`);
+    } else if (allowedCostCenters !== null && allowedCostCenters.length === 0) {
+      // Restricted user with no cost centers assigned - return empty
       return [];
     }
+    // If allowedCostCenters is null (admin/gerente) and no specific costCenterId, no filter needed
     
-    return await db.select().from(accountsPayable)
-      .where(sql`${accountsPayable.costCenterId} = ANY(${allowedCostCenters})`)
-      .orderBy(desc(accountsPayable.dueDate));
+    if (conditions.length > 0) {
+      return await db.select().from(accountsPayable)
+        .where(and(...conditions))
+        .orderBy(desc(accountsPayable.dueDate));
+    }
+    
+    return await db.select().from(accountsPayable).orderBy(desc(accountsPayable.dueDate));
   }
 
   async getAccountPayable(id: string, userId: string, userRole?: string): Promise<AccountsPayable | undefined> {
@@ -674,23 +682,31 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Accounts Receivable
-  async getAccountsReceivable(userId: string, userRole?: string): Promise<AccountsReceivable[]> {
-    if (userRole === 'admin' || userRole === 'gerente') {
-      return await db.select().from(accountsReceivable).orderBy(desc(accountsReceivable.dueDate));
-    }
-    
+  async getAccountsReceivable(userId: string, userRole?: string, costCenterId?: string): Promise<AccountsReceivable[]> {
     const allowedCostCenters = await this.getUserAllowedCostCenters(userId, userRole || '');
-    if (allowedCostCenters === null) {
-      return await db.select().from(accountsReceivable).orderBy(desc(accountsReceivable.dueDate));
-    }
     
-    if (allowedCostCenters.length === 0) {
+    // Build base conditions array
+    const conditions: any[] = [];
+    
+    // Add cost center filter if specific center selected
+    if (costCenterId) {
+      conditions.push(eq(accountsReceivable.costCenterId, costCenterId));
+    } else if (allowedCostCenters !== null && allowedCostCenters.length > 0) {
+      // Restricted user with "All" selected - filter by their allowed centers
+      conditions.push(sql`${accountsReceivable.costCenterId} = ANY(${allowedCostCenters})`);
+    } else if (allowedCostCenters !== null && allowedCostCenters.length === 0) {
+      // Restricted user with no cost centers assigned - return empty
       return [];
     }
+    // If allowedCostCenters is null (admin/gerente) and no specific costCenterId, no filter needed
     
-    return await db.select().from(accountsReceivable)
-      .where(sql`${accountsReceivable.costCenterId} = ANY(${allowedCostCenters})`)
-      .orderBy(desc(accountsReceivable.dueDate));
+    if (conditions.length > 0) {
+      return await db.select().from(accountsReceivable)
+        .where(and(...conditions))
+        .orderBy(desc(accountsReceivable.dueDate));
+    }
+    
+    return await db.select().from(accountsReceivable).orderBy(desc(accountsReceivable.dueDate));
   }
 
   async getAccountReceivable(id: string, userId: string, userRole?: string): Promise<AccountsReceivable | undefined> {

@@ -798,9 +798,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       const userRole = req.user.role;
+      const { costCenterId } = req.query;
+      
+      // Validate cost center access if specific center selected
+      if (costCenterId && costCenterId !== 'all') {
+        const hasAccess = await storage.canAccessCostCenter(userId, userRole, costCenterId);
+        if (!hasAccess) {
+          return res.status(403).json({ message: "Você não tem acesso ao centro de custo selecionado" });
+        }
+      }
+      
       // Process pending recurrences before fetching accounts
       await storage.processRecurrences(userId);
-      const accounts = await storage.getAccountsPayable(userId, userRole);
+      const accounts = await storage.getAccountsPayable(
+        userId, 
+        userRole, 
+        costCenterId && costCenterId !== 'all' ? costCenterId : undefined
+      );
       res.json(accounts);
     } catch (error) {
       console.error("Error fetching accounts payable:", error);
@@ -943,9 +957,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       const userRole = req.user.role;
+      const { costCenterId } = req.query;
+      
+      // Validate cost center access if specific center selected
+      if (costCenterId && costCenterId !== 'all') {
+        const hasAccess = await storage.canAccessCostCenter(userId, userRole, costCenterId);
+        if (!hasAccess) {
+          return res.status(403).json({ message: "Você não tem acesso ao centro de custo selecionado" });
+        }
+      }
+      
       // Process pending recurrences before fetching accounts
       await storage.processRecurrences(userId);
-      const accounts = await storage.getAccountsReceivable(userId, userRole);
+      const accounts = await storage.getAccountsReceivable(
+        userId, 
+        userRole, 
+        costCenterId && costCenterId !== 'all' ? costCenterId : undefined
+      );
       res.json(accounts);
     } catch (error) {
       console.error("Error fetching accounts receivable:", error);

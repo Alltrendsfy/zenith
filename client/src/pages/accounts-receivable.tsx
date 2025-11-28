@@ -36,7 +36,7 @@ import { RecurrencePreview, type RecurrenceInstallment } from "@/components/recu
 import { DatePicker } from "@/components/ui/date-picker"
 import { ObjectUploader } from "@/components/ObjectUploader"
 import { apiRequest, queryClient } from "@/lib/queryClient"
-import type { AccountsReceivable, Customer, ChartOfAccounts } from "@shared/schema"
+import type { AccountsReceivable, Customer, ChartOfAccounts, CostCenter } from "@shared/schema"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { format } from "date-fns"
 import { formatDateBR } from "@/lib/date-utils"
@@ -84,6 +84,7 @@ export default function AccountsReceivable() {
   const { canCreate, canUpdate, canDelete, canSettle } = usePermissions()
   const [open, setOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
+  const [costCenterId, setCostCenterId] = useState("all")
   const [allocations, setAllocations] = useState<AllocationInput[]>([])
   const [recurrenceInstallments, setRecurrenceInstallments] = useState<RecurrenceInstallment[]>([])
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
@@ -108,7 +109,9 @@ export default function AccountsReceivable() {
   }, [isAuthenticated, authLoading, toast])
 
   const { data: receivables, isLoading } = useQuery<AccountsReceivable[]>({
-    queryKey: ["/api/accounts-receivable"],
+    queryKey: costCenterId !== "all" 
+      ? ["/api/accounts-receivable", { costCenterId }]
+      : ["/api/accounts-receivable"],
     enabled: isAuthenticated,
   })
 
@@ -119,6 +122,11 @@ export default function AccountsReceivable() {
 
   const { data: chartOfAccounts, isLoading: isLoadingAccounts } = useQuery<ChartOfAccounts[]>({
     queryKey: ["/api/chart-of-accounts", { classification: "credit" }],
+    enabled: isAuthenticated,
+  })
+  
+  const { data: costCenters } = useQuery<CostCenter[]>({
+    queryKey: ["/api/cost-centers"],
     enabled: isAuthenticated,
   })
 
@@ -488,15 +496,36 @@ export default function AccountsReceivable() {
 
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Buscar contas..."
-              className="pl-10"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              data-testid="input-search"
-            />
+          <div className="flex flex-col sm:flex-row gap-4 flex-1">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Buscar contas..."
+                className="pl-10"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                data-testid="input-search"
+              />
+            </div>
+            <Select value={costCenterId} onValueChange={setCostCenterId}>
+              <SelectTrigger className="w-full sm:w-[200px]" data-testid="select-cost-center-filter">
+                <SelectValue placeholder="Centro de Custo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all" data-testid="select-cost-center-all">
+                  Todos os Centros
+                </SelectItem>
+                {costCenters?.map((center) => (
+                  <SelectItem 
+                    key={center.id} 
+                    value={center.id}
+                    data-testid={`select-cost-center-${center.id}`}
+                  >
+                    {center.code} - {center.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <Dialog open={open} onOpenChange={(value) => {
