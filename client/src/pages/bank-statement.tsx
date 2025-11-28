@@ -17,7 +17,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { Calendar, Printer, FileDown } from "lucide-react"
-import { startOfMonth, endOfMonth, format } from "date-fns"
+import { startOfMonth, endOfMonth, format, subMonths, startOfYear, subDays } from "date-fns"
 import type { BankAccount } from "@shared/schema"
 
 interface BankStatementEntry {
@@ -104,6 +104,42 @@ export default function BankStatement() {
       .reduce((sum, entry) => sum + parseFloat(entry.amount), 0)
   }
 
+  const setThisMonth = () => {
+    const now = new Date()
+    setStartDate(format(startOfMonth(now), 'yyyy-MM-dd'))
+    setEndDate(format(endOfMonth(now), 'yyyy-MM-dd'))
+  }
+
+  const setLastMonth = () => {
+    const lastMonth = subMonths(new Date(), 1)
+    setStartDate(format(startOfMonth(lastMonth), 'yyyy-MM-dd'))
+    setEndDate(format(endOfMonth(lastMonth), 'yyyy-MM-dd'))
+  }
+
+  const setThisYear = () => {
+    const now = new Date()
+    setStartDate(format(startOfYear(now), 'yyyy-MM-dd'))
+    setEndDate(format(now, 'yyyy-MM-dd'))
+  }
+
+  const setLast30Days = () => {
+    const now = new Date()
+    setStartDate(format(subDays(now, 30), 'yyyy-MM-dd'))
+    setEndDate(format(now, 'yyyy-MM-dd'))
+  }
+
+  const setLast60Days = () => {
+    const now = new Date()
+    setStartDate(format(subDays(now, 60), 'yyyy-MM-dd'))
+    setEndDate(format(now, 'yyyy-MM-dd'))
+  }
+
+  const setLast90Days = () => {
+    const now = new Date()
+    setStartDate(format(subDays(now, 90), 'yyyy-MM-dd'))
+    setEndDate(format(now, 'yyyy-MM-dd'))
+  }
+
   if (authLoading || !isAuthenticated) {
     return null
   }
@@ -127,6 +163,27 @@ export default function BankStatement() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="flex flex-wrap gap-2 mb-4">
+              <Button variant="outline" size="sm" onClick={setThisMonth} data-testid="button-this-month">
+                Este Mês
+              </Button>
+              <Button variant="outline" size="sm" onClick={setLastMonth} data-testid="button-last-month">
+                Mês Anterior
+              </Button>
+              <Button variant="outline" size="sm" onClick={setThisYear} data-testid="button-this-year">
+                Este Ano
+              </Button>
+              <Button variant="outline" size="sm" onClick={setLast30Days} data-testid="button-last-30-days">
+                Últimos 30 Dias
+              </Button>
+              <Button variant="outline" size="sm" onClick={setLast60Days} data-testid="button-last-60-days">
+                Últimos 60 Dias
+              </Button>
+              <Button variant="outline" size="sm" onClick={setLast90Days} data-testid="button-last-90-days">
+                Últimos 90 Dias
+              </Button>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="bank-account">Conta Bancária *</Label>
