@@ -51,7 +51,7 @@ const formSchema = z.object({
   documentNumber: z.string().optional(),
   notes: z.string().optional(),
   accountId: z.string().min(1, "Conta contábil é obrigatória"),
-  costCenterId: z.string().optional(),
+  costCenterId: z.string().min(1, "Centro de Custo é obrigatório"),
   recurrenceType: z.enum(['unica', 'mensal', 'trimestral', 'anual']).default('unica'),
   recurrenceCount: z.string().optional(),
   recurrenceStartDate: z.string().optional(),
@@ -850,6 +850,44 @@ export default function AccountsPayable() {
                                         </SelectItem>
                                       )}
                                     </>
+                                  )}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="costCenterId"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Centro de Custo *</FormLabel>
+                              <Select
+                                onValueChange={field.onChange}
+                                value={field.value || ""}
+                                data-testid="select-cost-center"
+                              >
+                                <FormControl>
+                                  <SelectTrigger data-testid="select-cost-center-trigger">
+                                    <SelectValue placeholder="Selecione um centro de custo" data-testid="select-cost-center-value" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {costCenters?.map((center) => (
+                                    <SelectItem 
+                                      key={center.id} 
+                                      value={center.id}
+                                      data-testid={`select-cost-center-form-${center.id}`}
+                                    >
+                                      {center.code} - {center.name}
+                                    </SelectItem>
+                                  ))}
+                                  {(!costCenters || costCenters.length === 0) && (
+                                    <SelectItem value="EMPTY" disabled data-testid="select-cost-center-empty">
+                                      Nenhum centro de custo disponível
+                                    </SelectItem>
                                   )}
                                 </SelectContent>
                               </Select>

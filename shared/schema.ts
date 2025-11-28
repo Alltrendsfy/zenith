@@ -486,6 +486,9 @@ export const insertAccountsPayableSchema = createInsertSchema(accountsPayable).o
   userId: true,
   createdAt: true,
   updatedAt: true,
+}).refine((data) => data.costCenterId && data.costCenterId.trim() !== '', {
+  message: 'Centro de Custo é obrigatório',
+  path: ['costCenterId'],
 }).transform((data) => ({
   ...data,
   recurrenceStartDate: data.recurrenceStartDate === '' ? null : data.recurrenceStartDate,
@@ -577,6 +580,9 @@ export const insertAccountsReceivableSchema = createInsertSchema(accountsReceiva
   userId: true,
   createdAt: true,
   updatedAt: true,
+}).refine((data) => data.costCenterId && data.costCenterId.trim() !== '', {
+  message: 'Centro de Custo é obrigatório',
+  path: ['costCenterId'],
 }).transform((data) => ({
   ...data,
   recurrenceStartDate: data.recurrenceStartDate === '' ? null : data.recurrenceStartDate,
