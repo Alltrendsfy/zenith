@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { requireAdmin, requirePermission, requireManager } from "./permissions";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
+import { hashPassword, generateTemporaryPassword } from "./auth-utils";
 import {
   insertBankAccountSchema,
   updateBankAccountSchema,
@@ -39,9 +40,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth routes
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.authProvider === 'local' ? req.user.id : req.user.claims.sub;
       const user = await storage.getUser(userId);
-      res.json(user);
+      if (user) {
+        res.json({
+          ...user,
+          mustChangePassword: user.mustChangePassword || false,
+          authProvider: user.authProvider || 'replit',
+        });
+      } else {
+        res.status(404).json({ message: "User not found" });
+      }
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
@@ -62,14 +71,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/users', isAuthenticated, requireManager, async (req: any, res) => {
     try {
       const validatedData = insertUserSchema.parse(req.body);
-      const newUser = await storage.createUser(validatedData);
       
-      // Set cost centers if provided
+      const temporaryPassword = generateTemporaryPassword(8);
+      const passwordHash = await hashPassword(temporaryPassword);
+      
+      const newUser = await storage.createUser({
+        ...validatedData,
+        temporaryPassword: temporaryPassword,
+        passwordHash: passwordHash,
+      });
+      
       if (req.body.costCenterIds && Array.isArray(req.body.costCenterIds)) {
         await storage.setUserCostCenters(newUser.id, req.body.costCenterIds);
       }
       
-      res.status(201).json(newUser);
+      res.status(201).json({
+        ...newUser,
+        generatedPassword: temporaryPassword,
+      });
     } catch (error: any) {
       console.error("Error creating user:", error);
       if (error.message === "Email já está em uso" || error.message === "Login já está em uso") {
