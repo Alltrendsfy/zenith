@@ -1679,12 +1679,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/reports/bank-statement', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      const userRole = req.user.role;
       
       // Validate query parameters with Zod
       const querySchema = z.object({
         bankAccountId: z.string().uuid({ message: "bankAccountId must be a valid UUID" }),
         startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, { message: "startDate must be in YYYY-MM-DD format" }),
         endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, { message: "endDate must be in YYYY-MM-DD format" }),
+        costCenterId: z.string().uuid().optional(),
       });
 
       const validation = querySchema.safeParse(req.query);
@@ -1696,7 +1698,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const { bankAccountId, startDate, endDate } = validation.data;
+      const { bankAccountId, startDate, endDate, costCenterId } = validation.data;
 
       // Validate date ordering
       if (stringToDate(startDate) > stringToDate(endDate)) {
@@ -1713,11 +1715,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      // Validate cost center access permission
+      if (costCenterId) {
+        const canAccess = await storage.canAccessCostCenter(userId, userRole, costCenterId);
+        if (!canAccess) {
+          return res.status(403).json({ 
+            message: "Acesso negado ao centro de custo selecionado" 
+          });
+        }
+      }
+
       const statement = await storage.getBankStatement(
         userId,
+        userRole,
         bankAccountId,
         startDate,
-        endDate
+        endDate,
+        costCenterId
       );
 
       res.json(statement);

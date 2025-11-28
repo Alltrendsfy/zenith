@@ -18,7 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label"
 import { Calendar, Printer, FileDown } from "lucide-react"
 import { startOfMonth, endOfMonth, format, subMonths, startOfYear, subDays } from "date-fns"
-import type { BankAccount } from "@shared/schema"
+import type { BankAccount, CostCenter } from "@shared/schema"
 
 interface BankStatementEntry {
   date: string;
@@ -41,6 +41,7 @@ export default function BankStatement() {
   const { isAuthenticated, isLoading: authLoading } = useAuth()
   
   const [bankAccountId, setBankAccountId] = useState<string>("")
+  const [costCenterId, setCostCenterId] = useState<string>("all")
   const [startDate, setStartDate] = useState<string>(format(startOfMonth(new Date()), 'yyyy-MM-dd'))
   const [endDate, setEndDate] = useState<string>(format(endOfMonth(new Date()), 'yyyy-MM-dd'))
 
@@ -63,6 +64,12 @@ export default function BankStatement() {
     enabled: isAuthenticated,
   })
 
+  // Fetch cost centers (returns only authorized centers based on user role)
+  const { data: costCenters = [] } = useQuery<CostCenter[]>({
+    queryKey: ["/api/cost-centers"],
+    enabled: isAuthenticated,
+  })
+
   // Auto-select first bank account
   useEffect(() => {
     if (bankAccounts.length > 0 && !bankAccountId) {
@@ -78,6 +85,9 @@ export default function BankStatement() {
       startDate, 
       endDate 
     })
+    if (costCenterId && costCenterId !== 'all') {
+      params.append('costCenterId', costCenterId)
+    }
     return `/api/reports/bank-statement?${params.toString()}`
   }
 
@@ -184,7 +194,7 @@ export default function BankStatement() {
               </Button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="bank-account">Conta Bancária *</Label>
                 <Select
@@ -202,6 +212,32 @@ export default function BankStatement() {
                         data-testid={`select-bank-option-${idx}`}
                       >
                         {account.name} {account.bankName && `- ${account.bankName}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="cost-center">Centro de Custo</Label>
+                <Select
+                  value={costCenterId}
+                  onValueChange={setCostCenterId}
+                >
+                  <SelectTrigger id="cost-center" data-testid="select-cost-center">
+                    <SelectValue placeholder="Todos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all" data-testid="select-cost-center-all">
+                      Todos
+                    </SelectItem>
+                    {costCenters.map((cc, idx) => (
+                      <SelectItem 
+                        key={cc.id} 
+                        value={cc.id}
+                        data-testid={`select-cost-center-${idx}`}
+                      >
+                        {cc.code} - {cc.name}
                       </SelectItem>
                     ))}
                   </SelectContent>

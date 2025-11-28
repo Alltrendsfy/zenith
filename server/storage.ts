@@ -169,7 +169,7 @@ export interface IStorage {
   upsertCompany(company: InsertCompany & { userId: string }): Promise<Company>;
 
   // Bank Statement
-  getBankStatement(userId: string, bankAccountId: string, startDate: string, endDate: string): Promise<BankStatementEntry[]>;
+  getBankStatement(userId: string, userRole: string, bankAccountId: string, startDate: string, endDate: string, costCenterId?: string): Promise<BankStatementEntry[]>;
 
   // Test Data Cleanup
   deleteAllTransactions(userId: string): Promise<void>;
@@ -1805,8 +1805,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Bank Statement - Aggregates all bank transactions (payments + transfers)
-  async getBankStatement(userId: string, bankAccountId: string, startDate: string, endDate: string): Promise<BankStatementEntry[]> {
+  async getBankStatement(userId: string, userRole: string, bankAccountId: string, startDate: string, endDate: string, costCenterId?: string): Promise<BankStatementEntry[]> {
     const entries: BankStatementEntry[] = [];
+
+    // Get allowed cost centers for restricted users
+    const allowedCostCenters = await this.getUserAllowedCostCenters(userId, userRole);
 
     // Get bank account initial balance
     const [bankAccount] = await db.select().from(bankAccounts)
@@ -1836,6 +1839,27 @@ export class DatabaseStorage implements IStorage {
       transactionType: 'payment_in' as 'payment_out' | 'payment_in' | 'transfer_out' | 'transfer_in',
     });
 
+    // Build base conditions for payments query
+    const baseConditions = [
+      eq(payments.userId, userId),
+      eq(payments.bankAccountId, bankAccountId),
+      sql`${payments.paymentDate} >= ${startDate}`,
+      sql`${payments.paymentDate} <= ${endDate}`,
+    ];
+
+    // Add cost center filter if applicable
+    if (costCenterId) {
+      // Specific cost center selected
+      baseConditions.push(sql`COALESCE(${accountsPayable.costCenterId}, ${accountsReceivable.costCenterId}) = ${costCenterId}`);
+    } else if (allowedCostCenters !== null && allowedCostCenters.length > 0) {
+      // Restricted user with "All" selected - filter by their allowed centers
+      baseConditions.push(sql`COALESCE(${accountsPayable.costCenterId}, ${accountsReceivable.costCenterId}) = ANY(${allowedCostCenters})`);
+    } else if (allowedCostCenters !== null && allowedCostCenters.length === 0) {
+      // Restricted user with no cost centers assigned - return only initial balance
+      return entries;
+    }
+    // If allowedCostCenters is null (admin/gerente) and no specific costCenterId, no filter needed
+
     // 1. Fetch all payments for this bank account
     const paymentsData = await db.select({
       payment: payments,
@@ -1859,12 +1883,7 @@ export class DatabaseStorage implements IStorage {
     .leftJoin(customers, eq(accountsReceivable.customerId, customers.id))
     .leftJoin(chartOfAccounts, sql`${chartOfAccounts.id} = COALESCE(${accountsPayable.accountId}, ${accountsReceivable.accountId})`)
     .leftJoin(costCenters, sql`${costCenters.id} = COALESCE(${accountsPayable.costCenterId}, ${accountsReceivable.costCenterId})`)
-    .where(and(
-      eq(payments.userId, userId),
-      eq(payments.bankAccountId, bankAccountId),
-      sql`${payments.paymentDate} >= ${startDate}`,
-      sql`${payments.paymentDate} <= ${endDate}`
-    ));
+    .where(and(...baseConditions));
 
     // Process payments
     for (const row of paymentsData) {
