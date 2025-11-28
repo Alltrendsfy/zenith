@@ -1866,6 +1866,18 @@ export class DatabaseStorage implements IStorage {
       sql`${payments.paymentDate} <= ${endDate}`
     ));
 
+    // Debug: Log raw data from query
+    console.log('[BANK-STATEMENT STORAGE DEBUG] Raw payments data sample:', 
+      paymentsData.slice(0, 3).map(row => ({
+        paymentId: row.payment?.id,
+        transactionType: row.payment?.transactionType,
+        payableCostCenterId: row.payable?.costCenterId,
+        receivableCostCenterId: row.receivable?.costCenterId,
+        costCenterData: row.costCenter,
+        chartAccountData: row.chartAccount
+      }))
+    );
+
     // Process payments
     for (const row of paymentsData) {
       const payment = row.payment;

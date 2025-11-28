@@ -1720,6 +1720,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         endDate
       );
 
+      // Debug: Log first few entries with cost center data
+      console.log('[BANK-STATEMENT DEBUG] Sample entries:', 
+        statement.slice(0, 5).map(e => ({
+          desc: e.description,
+          costCenterCode: e.costCenterCode,
+          costCenterName: e.costCenterName,
+          accountCode: e.accountCode
+        }))
+      );
+
       res.json(statement);
     } catch (error: any) {
       console.error("Error generating bank statement:", error);
