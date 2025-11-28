@@ -281,16 +281,16 @@ export default function BankStatement() {
                           {entry.entityName || '-'}
                         </TableCell>
                         <TableCell className="max-w-xs truncate text-sm" data-testid={`cell-account-${idx}`}>
-                          {entry.accountCode ? (
-                            <span title={entry.accountName || ''}>
-                              {entry.accountCode} - {entry.accountName}
+                          {entry.accountName ? (
+                            <span title={entry.accountCode ? `${entry.accountCode} - ${entry.accountName}` : entry.accountName}>
+                              {entry.accountName}
                             </span>
                           ) : '-'}
                         </TableCell>
-                        <TableCell className="max-w-xs truncate text-sm" data-testid={`cell-cost-center-${idx}`}>
+                        <TableCell className="text-sm text-center" data-testid={`cell-cost-center-${idx}`}>
                           {entry.costCenterCode ? (
                             <span title={entry.costCenterName || ''}>
-                              {entry.costCenterCode} - {entry.costCenterName}
+                              {entry.costCenterCode}
                             </span>
                           ) : '-'}
                         </TableCell>
