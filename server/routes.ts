@@ -1504,6 +1504,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/reports/dre', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      const userRole = req.user.role;
       const { startDate, endDate, costCenterId } = req.query;
 
       if (!startDate || !endDate) {
@@ -1513,10 +1514,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const start = stringToDate(startDate as string);
       const end = stringToDate(endDate as string);
 
-      // Fetch all transactions within period
+      // Fetch all transactions within period - pass userRole to get correct data visibility
       const [payables, receivables, accounts, costCenters] = await Promise.all([
-        storage.getAccountsPayable(userId),
-        storage.getAccountsReceivable(userId),
+        storage.getAccountsPayable(userId, userRole),
+        storage.getAccountsReceivable(userId, userRole),
         storage.getChartOfAccounts(userId),
         storage.getCostCenters(userId),
       ]);
