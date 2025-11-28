@@ -394,7 +394,7 @@ export default function Reports() {
                           cx="50%"
                           cy="50%"
                           outerRadius={100}
-                          label={(entry) => `${entry.accountCode}: ${entry.percentage?.toFixed(0)}%`}
+                          label={(entry) => `${entry.accountName}: ${entry.percentage?.toFixed(0)}%`}
                           labelLine={true}
                         >
                           {dreReport.expenses.items.map((entry, index) => (
