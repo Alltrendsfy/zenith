@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -9,7 +9,8 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { AppSidebar } from "@/components/app-sidebar";
 import { MobileBottomNav } from "@/components/mobile-bottom-nav";
 import { useAuth } from "@/hooks/useAuth";
-import Landing from "@/pages/landing";
+import Login from "@/pages/login";
+import ChangePassword from "@/pages/change-password";
 import Dashboard from "@/pages/dashboard";
 import AccountsPayable from "@/pages/accounts-payable";
 import AccountsReceivable from "@/pages/accounts-receivable";
@@ -32,66 +33,89 @@ import NotFound from "@/pages/not-found";
 import zenithLogo from "@assets/logo zenith erp_1763561150551.jpeg";
 
 function Router() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, mustChangePassword } = useAuth();
 
   const style = {
     "--sidebar-width": "16rem",
     "--sidebar-width-mobile": "100vw",
   };
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-pulse text-muted-foreground">Carregando...</div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <Switch>
+        <Route path="/login" component={Login} />
+        <Route path="/change-password" component={ChangePassword} />
+        <Route>
+          <Redirect to="/login" />
+        </Route>
+      </Switch>
+    );
+  }
+
+  if (mustChangePassword) {
+    return (
+      <Switch>
+        <Route path="/change-password" component={ChangePassword} />
+        <Route>
+          <Redirect to="/change-password?first=true" />
+        </Route>
+      </Switch>
+    );
+  }
+
   return (
-    <Switch>
-      {isLoading || !isAuthenticated ? (
-        <Route path="/" component={Landing} />
-      ) : (
-        <>
-          <SidebarProvider style={style as React.CSSProperties}>
-            <div className="flex h-screen w-full">
-              <AppSidebar />
-              <div className="flex-1 flex flex-col overflow-hidden">
-                <header className="flex h-14 items-center gap-4 border-b bg-background px-4 lg:h-16 lg:px-6">
-                  <SidebarTrigger data-testid="button-sidebar-toggle" />
-                  <div className="flex items-center gap-2 lg:hidden">
-                    <img 
-                      src={zenithLogo} 
-                      alt="Zenith ERP" 
-                      className="h-8 w-auto"
-                    />
-                  </div>
-                  <div className="flex-1" />
-                  <ThemeToggle />
-                </header>
-                <main className="flex-1 overflow-auto pb-20 lg:pb-0">
-                  <Switch>
-                    <Route path="/" component={Dashboard} />
-                    <Route path="/accounts-payable" component={AccountsPayable} />
-                    <Route path="/accounts-payable-reports" component={AccountsPayableReports} />
-                    <Route path="/accounts-receivable" component={AccountsReceivable} />
-                    <Route path="/accounts-receivable-reports" component={AccountsReceivableReports} />
-                    <Route path="/bank-accounts" component={BankAccounts} />
-                    <Route path="/bank-transfers" component={BankTransfers} />
-                    <Route path="/chart-of-accounts" component={ChartOfAccountsPage} />
-                    <Route path="/cost-centers" component={CostCenters} />
-                    <Route path="/reports" component={Reports} />
-                    <Route path="/bank-statement" component={BankStatement} />
-                    <Route path="/suppliers" component={Suppliers} />
-                    <Route path="/customers" component={Customers} />
-                    <Route path="/agenda" component={Agenda} />
-                    <Route path="/company-settings" component={CompanySettings} />
-                    <Route path="/user-management" component={UserManagement} />
-                    <Route path="/backup" component={Backup} />
-                    <Route path="/settings" component={Settings} />
-                    <Route component={NotFound} />
-                  </Switch>
-                </main>
-                <MobileBottomNav />
-              </div>
+    <SidebarProvider style={style as React.CSSProperties}>
+      <div className="flex h-screen w-full">
+        <AppSidebar />
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <header className="flex h-14 items-center gap-4 border-b bg-background px-4 lg:h-16 lg:px-6">
+            <SidebarTrigger data-testid="button-sidebar-toggle" />
+            <div className="flex items-center gap-2 lg:hidden">
+              <img 
+                src={zenithLogo} 
+                alt="Zenith ERP" 
+                className="h-8 w-auto"
+              />
             </div>
-          </SidebarProvider>
-        </>
-      )}
-      <Route component={NotFound} />
-    </Switch>
+            <div className="flex-1" />
+            <ThemeToggle />
+          </header>
+          <main className="flex-1 overflow-auto pb-20 lg:pb-0">
+            <Switch>
+              <Route path="/" component={Dashboard} />
+              <Route path="/accounts-payable" component={AccountsPayable} />
+              <Route path="/accounts-payable-reports" component={AccountsPayableReports} />
+              <Route path="/accounts-receivable" component={AccountsReceivable} />
+              <Route path="/accounts-receivable-reports" component={AccountsReceivableReports} />
+              <Route path="/bank-accounts" component={BankAccounts} />
+              <Route path="/bank-transfers" component={BankTransfers} />
+              <Route path="/chart-of-accounts" component={ChartOfAccountsPage} />
+              <Route path="/cost-centers" component={CostCenters} />
+              <Route path="/reports" component={Reports} />
+              <Route path="/bank-statement" component={BankStatement} />
+              <Route path="/suppliers" component={Suppliers} />
+              <Route path="/customers" component={Customers} />
+              <Route path="/agenda" component={Agenda} />
+              <Route path="/company-settings" component={CompanySettings} />
+              <Route path="/user-management" component={UserManagement} />
+              <Route path="/backup" component={Backup} />
+              <Route path="/settings" component={Settings} />
+              <Route path="/change-password" component={ChangePassword} />
+              <Route component={NotFound} />
+            </Switch>
+          </main>
+          <MobileBottomNav />
+        </div>
+      </div>
+    </SidebarProvider>
   );
 }
 

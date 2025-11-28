@@ -25,7 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
-import { Users, Search, Building2, Pencil, Trash2, AlertTriangle } from "lucide-react"
+import { Users, Search, Building2, Pencil, Trash2, AlertTriangle, Copy, Check, Key } from "lucide-react"
 import { EmptyState } from "@/components/empty-state"
 import { Card, CardContent } from "@/components/ui/card"
 import {
@@ -69,6 +69,8 @@ export default function UserManagement() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [credentialsDialogOpen, setCredentialsDialogOpen] = useState(false)
+  const [generatedCredentials, setGeneratedCredentials] = useState<{email: string; password: string} | null>(null)
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [newUserData, setNewUserData] = useState({
     firstName: "",
@@ -183,15 +185,26 @@ export default function UserManagement() {
 
   const createUserMutation = useMutation({
     mutationFn: async (userData: typeof newUserData) => {
-      await apiRequest("POST", "/api/users", userData)
+      const response = await apiRequest("POST", "/api/users", userData)
+      return response.json()
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/users"] })
-      toast({
-        title: "Sucesso",
-        description: "Usuário criado com sucesso",
-      })
       setCreateDialogOpen(false)
+      
+      if (data.generatedPassword) {
+        setGeneratedCredentials({
+          email: newUserData.email,
+          password: data.generatedPassword,
+        })
+        setCredentialsDialogOpen(true)
+      } else {
+        toast({
+          title: "Sucesso",
+          description: "Usuário criado com sucesso",
+        })
+      }
+      
       setNewUserData({
         firstName: "",
         lastName: "",
@@ -788,16 +801,10 @@ export default function UserManagement() {
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="temporaryPassword">Senha Provisória *</Label>
-                <Input
-                  id="temporaryPassword"
-                  type="password"
-                  value={newUserData.temporaryPassword}
-                  onChange={(e) => setNewUserData({ ...newUserData, temporaryPassword: e.target.value })}
-                  placeholder="Senha inicial do usuário"
-                  data-testid="input-temporary-password"
-                />
+              <div className="rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950 p-3">
+                <p className="text-sm text-blue-800 dark:text-blue-200">
+                  Uma senha provisória será gerada automaticamente ao criar o usuário.
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -900,7 +907,7 @@ export default function UserManagement() {
             </Button>
             <Button
               onClick={() => createUserMutation.mutate(newUserData)}
-              disabled={createUserMutation.isPending || !newUserData.firstName || !newUserData.lastName || !newUserData.email || !newUserData.username || !newUserData.temporaryPassword}
+              disabled={createUserMutation.isPending || !newUserData.firstName || !newUserData.lastName || !newUserData.email || !newUserData.username}
               data-testid="button-submit-create"
             >
               {createUserMutation.isPending ? "Criando..." : "Criar Usuário"}
@@ -1087,6 +1094,83 @@ export default function UserManagement() {
               data-testid="button-confirm-delete"
             >
               {deleteUserMutation.isPending ? "Excluindo..." : "Excluir"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de Credenciais Geradas */}
+      <Dialog open={credentialsDialogOpen} onOpenChange={setCredentialsDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-primary">
+              <Key className="h-5 w-5" />
+              Usuário Criado com Sucesso
+            </DialogTitle>
+            <DialogDescription>
+              As credenciais de acesso foram geradas automaticamente. Envie essas informações ao novo usuário.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label className="text-sm text-muted-foreground">Email</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  value={generatedCredentials?.email || ""}
+                  readOnly
+                  className="font-mono"
+                  data-testid="input-generated-email"
+                />
+                <Button
+                  size="icon"
+                  variant="outline"
+                  onClick={() => {
+                    navigator.clipboard.writeText(generatedCredentials?.email || "")
+                    toast({ description: "Email copiado!" })
+                  }}
+                  data-testid="button-copy-email"
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm text-muted-foreground">Senha Provisória</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  value={generatedCredentials?.password || ""}
+                  readOnly
+                  className="font-mono text-lg tracking-widest"
+                  data-testid="input-generated-password"
+                />
+                <Button
+                  size="icon"
+                  variant="outline"
+                  onClick={() => {
+                    navigator.clipboard.writeText(generatedCredentials?.password || "")
+                    toast({ description: "Senha copiada!" })
+                  }}
+                  data-testid="button-copy-password"
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950 p-3">
+              <p className="text-sm text-amber-800 dark:text-amber-200">
+                O usuário deverá alterar a senha no primeiro acesso ao sistema.
+              </p>
+            </div>
+          </div>
+          <div className="flex justify-end">
+            <Button
+              onClick={() => {
+                setCredentialsDialogOpen(false)
+                setGeneratedCredentials(null)
+              }}
+              data-testid="button-close-credentials"
+            >
+              Entendi
             </Button>
           </div>
         </DialogContent>
