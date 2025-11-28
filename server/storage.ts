@@ -310,19 +310,18 @@ export class DatabaseStorage implements IStorage {
     username: string;
     firstName: string; 
     lastName: string;
-    phone: string;
+    phone?: string;
     role: 'admin' | 'gerente' | 'financeiro' | 'operacional' | 'visualizador';
     isActive: boolean;
-    temporaryPassword: string;
     passwordHash?: string;
+    mustChangePassword?: boolean;
+    authProvider?: string;
   }): Promise<User> {
-    // Check if email already exists
     const existingEmail = await db.select().from(users).where(eq(users.email, userData.email));
     if (existingEmail.length > 0) {
       throw new Error("Email já está em uso");
     }
 
-    // Check if username already exists
     const existingUsername = await db.select().from(users).where(eq(users.username, userData.username));
     if (existingUsername.length > 0) {
       throw new Error("Login já está em uso");
@@ -335,13 +334,12 @@ export class DatabaseStorage implements IStorage {
         username: userData.username,
         firstName: userData.firstName,
         lastName: userData.lastName,
-        phone: userData.phone,
+        phone: userData.phone || null,
         role: userData.role,
         isActive: userData.isActive,
-        temporaryPassword: userData.temporaryPassword,
-        passwordHash: userData.passwordHash,
-        mustChangePassword: userData.passwordHash ? true : false,
-        authProvider: userData.passwordHash ? 'local' : 'replit',
+        passwordHash: userData.passwordHash || null,
+        mustChangePassword: userData.mustChangePassword ?? (userData.passwordHash ? true : false),
+        authProvider: userData.authProvider || (userData.passwordHash ? 'local' : 'replit'),
       })
       .returning();
     

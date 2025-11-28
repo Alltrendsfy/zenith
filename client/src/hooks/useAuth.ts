@@ -1,10 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import type { User } from "@shared/schema";
 
-interface AuthUser extends User {
-  mustChangePassword?: boolean;
-  authProvider?: 'replit' | 'local';
-}
+type AuthUser = User & {
+  authProvider?: 'replit' | 'local' | null;
+};
 
 export function useAuth() {
   const { data: user, isLoading } = useQuery<AuthUser>({
@@ -16,7 +15,7 @@ export function useAuth() {
     user,
     isLoading,
     isAuthenticated: !!user,
-    mustChangePassword: user?.mustChangePassword || false,
-    authProvider: user?.authProvider || 'replit',
+    mustChangePassword: user?.mustChangePassword === true,
+    authProvider: (user?.authProvider || 'replit') as 'replit' | 'local',
   };
 }

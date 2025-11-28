@@ -77,8 +77,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const newUser = await storage.createUser({
         ...validatedData,
-        temporaryPassword: temporaryPassword,
         passwordHash: passwordHash,
+        mustChangePassword: true,
+        authProvider: 'local',
       });
       
       if (req.body.costCenterIds && Array.isArray(req.body.costCenterIds)) {
