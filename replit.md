@@ -41,6 +41,7 @@ The system supports Admin, Gerente (Manager), Financeiro (Financial), Operaciona
 *   **Suppliers & Customers Management:** Comprehensive cadastro with alphabetical sorting, real-time search, duplicate validation by CPF/CNPJ, bank data fields, automatic CPF/CNPJ formatting, and active/inactive toggles.
 *   **Document Attachment System:** Full document upload and storage for accounts payable/receivable using Replit Object Storage, with progress tracking, type/size validation, and secure access.
 *   **Backup System:** Data backup functionality restricted to admin/gerente roles, offering JSON export of all database tables, backup history tracking, download capabilities, and daily reminders.
+*   **Batch Cost Center Update:** Admin/manager-only feature for assigning cost centers to multiple accounts payable/receivable at once. Accessible via sidebar Administration section at /batch-cost-center. Allows bulk selection and updates to correct historical transactions that lack cost center assignments.
 
 ### System Design Choices
 
