@@ -921,6 +921,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Batch Cost Center Update Routes - must be defined BEFORE :id routes
+  app.get('/api/accounts-payable/without-cost-center', isAuthenticated, requireManager, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const userRole = req.user.role;
+      const accounts = await storage.getAccountsPayableWithoutCostCenter(userId, userRole);
+      res.json(accounts);
+    } catch (error) {
+      console.error("Error fetching accounts payable without cost center:", error);
+      res.status(500).json({ message: "Falha ao buscar contas a pagar sem centro de custo" });
+    }
+  });
+
+  app.patch('/api/accounts-payable/batch-update-cost-center', isAuthenticated, requireManager, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const userRole = req.user.role;
+      
+      const schema = z.object({
+        payableIds: z.array(z.string().uuid()),
+        costCenterId: z.string().uuid(),
+      });
+      
+      const validation = schema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ 
+          message: "Dados inválidos",
+          errors: validation.error.errors 
+        });
+      }
+      
+      const { payableIds, costCenterId } = validation.data;
+      const updatedCount = await storage.batchUpdatePayableCostCenter(userId, userRole, payableIds, costCenterId);
+      
+      res.json({ 
+        message: `${updatedCount} conta(s) a pagar atualizada(s) com sucesso`,
+        updatedCount 
+      });
+    } catch (error) {
+      console.error("Error batch updating payable cost center:", error);
+      res.status(500).json({ message: "Falha ao atualizar centro de custo em lote" });
+    }
+  });
+
   app.patch('/api/accounts-payable/:id', isAuthenticated, requirePermission('canUpdate'), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -1075,6 +1119,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error creating accounts receivable batch:", error);
       res.status(400).json({ message: error.message || "Failed to create accounts receivable batch" });
+    }
+  });
+
+  // Batch Cost Center Update Routes for Receivables - must be defined BEFORE :id routes
+  app.get('/api/accounts-receivable/without-cost-center', isAuthenticated, requireManager, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const userRole = req.user.role;
+      const accounts = await storage.getAccountsReceivableWithoutCostCenter(userId, userRole);
+      res.json(accounts);
+    } catch (error) {
+      console.error("Error fetching accounts receivable without cost center:", error);
+      res.status(500).json({ message: "Falha ao buscar contas a receber sem centro de custo" });
+    }
+  });
+
+  app.patch('/api/accounts-receivable/batch-update-cost-center', isAuthenticated, requireManager, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const userRole = req.user.role;
+      
+      const schema = z.object({
+        receivableIds: z.array(z.string().uuid()),
+        costCenterId: z.string().uuid(),
+      });
+      
+      const validation = schema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ 
+          message: "Dados inválidos",
+          errors: validation.error.errors 
+        });
+      }
+      
+      const { receivableIds, costCenterId } = validation.data;
+      const updatedCount = await storage.batchUpdateReceivableCostCenter(userId, userRole, receivableIds, costCenterId);
+      
+      res.json({ 
+        message: `${updatedCount} conta(s) a receber atualizada(s) com sucesso`,
+        updatedCount 
+      });
+    } catch (error) {
+      console.error("Error batch updating receivable cost center:", error);
+      res.status(500).json({ message: "Falha ao atualizar centro de custo em lote" });
     }
   });
 

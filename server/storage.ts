@@ -45,7 +45,7 @@ import {
   backupHistory,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, or, desc, asc, sql } from "drizzle-orm";
+import { eq, and, or, desc, asc, sql, inArray } from "drizzle-orm";
 import { readFileSync } from "fs";
 import { join } from "path";
 
@@ -185,6 +185,12 @@ export interface IStorage {
   getLastBackup(userId: string): Promise<BackupHistory | undefined>;
   createBackupRecord(backup: InsertBackupHistory): Promise<BackupHistory>;
   getFullBackupData(userId: string): Promise<BackupData>;
+
+  // Batch Cost Center Update
+  getAccountsPayableWithoutCostCenter(userId: string, userRole: string): Promise<AccountsPayable[]>;
+  getAccountsReceivableWithoutCostCenter(userId: string, userRole: string): Promise<AccountsReceivable[]>;
+  batchUpdatePayableCostCenter(userId: string, userRole: string, payableIds: string[], costCenterId: string): Promise<number>;
+  batchUpdateReceivableCostCenter(userId: string, userRole: string, receivableIds: string[], costCenterId: string): Promise<number>;
 }
 
 export interface BankStatementEntry {
@@ -2157,6 +2163,72 @@ export class DatabaseStorage implements IStorage {
         tablesIncluded,
       },
     };
+  }
+
+  async getAccountsPayableWithoutCostCenter(userId: string, userRole: string): Promise<AccountsPayable[]> {
+    const isAdminOrManager = userRole === 'admin' || userRole === 'gerente';
+    
+    if (isAdminOrManager) {
+      return await db.select().from(accountsPayable)
+        .where(sql`${accountsPayable.costCenterId} IS NULL`)
+        .orderBy(desc(accountsPayable.dueDate));
+    }
+    
+    return [];
+  }
+
+  async getAccountsReceivableWithoutCostCenter(userId: string, userRole: string): Promise<AccountsReceivable[]> {
+    const isAdminOrManager = userRole === 'admin' || userRole === 'gerente';
+    
+    if (isAdminOrManager) {
+      return await db.select().from(accountsReceivable)
+        .where(sql`${accountsReceivable.costCenterId} IS NULL`)
+        .orderBy(desc(accountsReceivable.dueDate));
+    }
+    
+    return [];
+  }
+
+  async batchUpdatePayableCostCenter(userId: string, userRole: string, payableIds: string[], costCenterId: string): Promise<number> {
+    const isAdminOrManager = userRole === 'admin' || userRole === 'gerente';
+    if (!isAdminOrManager) {
+      throw new Error('Apenas administradores e gerentes podem realizar atualizações em lote');
+    }
+
+    if (payableIds.length === 0) {
+      return 0;
+    }
+
+    const result = await db.update(accountsPayable)
+      .set({ 
+        costCenterId,
+        updatedAt: new Date()
+      })
+      .where(inArray(accountsPayable.id, payableIds))
+      .returning();
+
+    return result.length;
+  }
+
+  async batchUpdateReceivableCostCenter(userId: string, userRole: string, receivableIds: string[], costCenterId: string): Promise<number> {
+    const isAdminOrManager = userRole === 'admin' || userRole === 'gerente';
+    if (!isAdminOrManager) {
+      throw new Error('Apenas administradores e gerentes podem realizar atualizações em lote');
+    }
+
+    if (receivableIds.length === 0) {
+      return 0;
+    }
+
+    const result = await db.update(accountsReceivable)
+      .set({ 
+        costCenterId,
+        updatedAt: new Date()
+      })
+      .where(inArray(accountsReceivable.id, receivableIds))
+      .returning();
+
+    return result.length;
   }
 }
 

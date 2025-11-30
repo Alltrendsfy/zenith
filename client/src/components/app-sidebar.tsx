@@ -14,7 +14,8 @@ import {
   Settings,
   TrendingUp,
   ChevronRight,
-  Database
+  Database,
+  Layers
 } from "lucide-react"
 import {
   Sidebar,
@@ -340,6 +341,18 @@ export function AppSidebar() {
                     <Link href="/backup">
                       <Database className="h-4 w-4" />
                       <span>Backup</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location === "/batch-cost-center"}
+                    data-testid="link-batch-cost-center"
+                  >
+                    <Link href="/batch-cost-center">
+                      <Layers className="h-4 w-4" />
+                      <span>Atualizar em Lote</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

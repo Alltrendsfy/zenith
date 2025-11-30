@@ -29,6 +29,7 @@ import Agenda from "@/pages/agenda";
 import CompanySettings from "@/pages/company-settings";
 import Settings from "@/pages/settings";
 import Backup from "@/pages/backup";
+import BatchCostCenter from "@/pages/batch-cost-center";
 import NotFound from "@/pages/not-found";
 import zenithLogo from "@assets/logo zenith erp_1763561150551.jpeg";
 
@@ -107,6 +108,7 @@ function Router() {
               <Route path="/company-settings" component={CompanySettings} />
               <Route path="/user-management" component={UserManagement} />
               <Route path="/backup" component={Backup} />
+              <Route path="/batch-cost-center" component={BatchCostCenter} />
               <Route path="/settings" component={Settings} />
               <Route path="/change-password" component={ChangePassword} />
               <Route component={NotFound} />
