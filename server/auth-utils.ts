@@ -22,11 +22,56 @@ export function generateTemporaryPassword(length: number = 8): string {
 }
 
 export function validatePasswordStrength(password: string): { valid: boolean; message?: string } {
-  if (password.length < 6) {
-    return { valid: false, message: 'Senha deve ter no mínimo 6 caracteres' };
+  // Mínimo 8 caracteres
+  if (password.length < 8) {
+    return {
+      valid: false,
+      message: 'Senha deve ter no mínimo 8 caracteres'
+    };
   }
+
+  // Máximo 128 caracteres
   if (password.length > 128) {
-    return { valid: false, message: 'Senha deve ter no máximo 128 caracteres' };
+    return {
+      valid: false,
+      message: 'Senha deve ter no máximo 128 caracteres'
+    };
   }
+
+  // Verificar complexidade
+  const hasUpperCase = /[A-Z]/.test(password);
+  const hasLowerCase = /[a-z]/.test(password);
+  const hasNumber = /\d/.test(password);
+  const hasSpecial = /[!@#$%^&*(),.?":{}|<>_\-+=[\]\\\/]/.test(password);
+
+  const complexityChecks = [
+    hasUpperCase,
+    hasLowerCase,
+    hasNumber,
+    hasSpecial
+  ];
+
+  const passedChecks = complexityChecks.filter(Boolean).length;
+
+  if (passedChecks < 3) {
+    return {
+      valid: false,
+      message: 'Senha deve conter pelo menos 3 dos seguintes: letra maiúscula, letra minúscula, número e caractere especial'
+    };
+  }
+
+  // Verificar senhas comuns (lista básica - expandir em produção)
+  const commonPasswords = [
+    '12345678', 'password', 'senha123', 'admin123', 'qwerty12',
+    'abc12345', 'password1', '123456789', 'iloveyou', 'welcome1'
+  ];
+
+  if (commonPasswords.includes(password.toLowerCase())) {
+    return {
+      valid: false,
+      message: 'Senha muito comum. Escolha uma senha mais segura'
+    };
+  }
+
   return { valid: true };
 }
