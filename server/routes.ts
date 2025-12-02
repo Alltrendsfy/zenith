@@ -5,6 +5,11 @@ import { setupAuth, isAuthenticated } from "./replitAuth";
 import { requireAdmin, requirePermission, requireManager } from "./permissions";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { hashPassword, generateTemporaryPassword } from "./auth-utils";
+import { getUserId } from "./auth-helpers";
+import { apiLimiter, registrationLimiter } from "./rate-limiters";
+import { log } from "./logger";
+import { DecimalMoney } from "./decimal-utils";
+import { ALL_ROLES, FINANCIAL_TOLERANCE } from "./constants";
 import {
   insertBankAccountSchema,
   updateBankAccountSchema,
@@ -29,18 +34,45 @@ import {
 import { validateAllocations, calculateAmounts } from "@shared/allocationUtils";
 import { z } from "zod";
 
+/**
+ * Converts YYYY-MM-DD string to Date object using UTC timezone
+ * Validates format and values to prevent invalid dates
+ * @param dateString Date in YYYY-MM-DD format
+ * @returns Date object in UTC timezone
+ * @throws Error if format or values are invalid
+ */
 function stringToDate(dateString: string): Date {
+  // Validate format
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+    throw new Error(`Invalid date format: ${dateString}. Expected YYYY-MM-DD`);
+  }
+
   const [year, month, day] = dateString.split('-').map(Number);
-  return new Date(year, month - 1, day);
+
+  // Validate values
+  if (month < 1 || month > 12) {
+    throw new Error(`Invalid month: ${month}. Must be 1-12`);
+  }
+  if (day < 1 || day > 31) {
+    throw new Error(`Invalid day: ${day}. Must be 1-31`);
+  }
+
+  // Use UTC explicitly for consistency across timezones
+  return new Date(Date.UTC(year, month - 1, day));
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
   await setupAuth(app);
 
+  // Apply global rate limiter to all API routes
+  app.use('/api/', apiLimiter);
+  log.info('Global API rate limiter applied to all /api routes');
+
+
   // Auth routes
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.authProvider === 'local' ? req.user.id : req.user.claims.sub;
+      const userId = getUserId(req);
       const user = await storage.getUser(userId);
       if (user) {
         res.json({
@@ -71,24 +103,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/users', isAuthenticated, requireManager, async (req: any, res) => {
     try {
       const validatedData = insertUserSchema.parse(req.body);
-      
+
       const temporaryPassword = generateTemporaryPassword(8);
       const passwordHash = await hashPassword(temporaryPassword);
-      
+
       const newUser = await storage.createUser({
         ...validatedData,
         passwordHash: passwordHash,
         mustChangePassword: true,
         authProvider: 'local',
       });
-      
+
       if (req.body.costCenterIds && Array.isArray(req.body.costCenterIds)) {
         await storage.setUserCostCenters(newUser.id, req.body.costCenterIds);
       }
-      
+
+      // SECURITY: Don't return temporary password in response
+      // TODO: Implement email service to send temporary password
+      console.log(`[SECURITY] Temporary password for ${newUser.email}: ${temporaryPassword}`);
+      console.log('[SECURITY] This password should be sent via emailin production');
+
       res.status(201).json({
         ...newUser,
-        generatedPassword: temporaryPassword,
+        message: 'Usuário criado com sucesso. Senha temporária será enviada por email.',
+        // Removed: generatedPassword (security risk)
       });
     } catch (error: any) {
       console.error("Error creating user:", error);
@@ -96,9 +134,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(409).json({ message: error.message });
       }
       if (error.name === 'ZodError') {
-        return res.status(400).json({ 
-          message: "Dados inválidos", 
-          errors: error.errors 
+        return res.status(400).json({
+          message: "Dados inválidos",
+          errors: error.errors
         });
       }
       res.status(500).json({ message: "Falha ao criar usuário" });
@@ -109,13 +147,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const validatedData = updateUserSchema.parse(req.body);
-      
+
       const updatedUser = await storage.updateUser(id, validatedData);
-      
+
       if (!updatedUser) {
         return res.status(404).json({ message: "Usuário não encontrado" });
       }
-      
+
       res.json(updatedUser);
     } catch (error: any) {
       console.error("Error updating user:", error);
@@ -126,9 +164,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(409).json({ message: error.message });
       }
       if (error.name === 'ZodError') {
-        return res.status(400).json({ 
-          message: "Dados inválidos", 
-          errors: error.errors 
+        return res.status(400).json({
+          message: "Dados inválidos",
+          errors: error.errors
         });
       }
       res.status(500).json({ message: "Falha ao atualizar usuário" });
@@ -138,12 +176,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete('/api/users/:id', isAuthenticated, requireManager, async (req: any, res) => {
     try {
       const { id } = req.params;
-      
+
       // Prevent users from deleting themselves
       if (id === req.user.id) {
         return res.status(400).json({ message: "Você não pode excluir seu próprio usuário" });
       }
-      
+
       await storage.deleteUser(id);
       res.json({ message: "Usuário excluído com sucesso" });
     } catch (error: any) {
@@ -159,13 +197,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const { role } = req.body;
-      
-      if (!['admin', 'gerente', 'financeiro', 'operacional', 'visualizador'].includes(role)) {
+
+      if (!ALL_ROLES.includes(role)) {
         return res.status(400).json({ message: "Role inválida" });
       }
 
       const user = await storage.updateUserRole(id, role);
-      
+
       if (!user) {
         return res.status(404).json({ message: "Usuário não encontrado" });
       }
@@ -181,13 +219,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const { isActive } = req.body;
-      
+
       if (typeof isActive !== 'boolean') {
         return res.status(400).json({ message: "isActive deve ser um booleano" });
       }
 
       const user = await storage.toggleUserStatus(id, isActive);
-      
+
       if (!user) {
         return res.status(404).json({ message: "Usuário não encontrado" });
       }
@@ -222,7 +260,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       await storage.setUserCostCenters(userId, costCenterIds);
       const updatedCostCenters = await storage.getUserCostCenters(userId);
-      
+
       res.json(updatedCostCenters);
     } catch (error) {
       console.error("Error setting user cost centers:", error);
@@ -244,7 +282,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Reports - Accounts Payable
   app.get('/api/reports/accounts-payable', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const userRole = req.user.role;
       const { startDate, endDate, status, supplierId } = req.query;
 
@@ -276,34 +314,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Calculate summaries
       const now = new Date();
-      const vencidos = filtered.filter(p => 
+      const vencidos = filtered.filter(p =>
         p.status !== 'cancelado' && p.status !== 'pago' && stringToDate(p.dueDate) < now
       );
-      const aVencer = filtered.filter(p => 
+      const aVencer = filtered.filter(p =>
         p.status === 'pendente' && stringToDate(p.dueDate) >= now
       );
       const pagos = filtered.filter(p => p.status === 'pago');
 
-      const totalVencidos = vencidos.reduce((sum, p) => sum + parseFloat(p.totalAmount || "0"), 0);
-      const totalAVencer = aVencer.reduce((sum, p) => sum + parseFloat(p.totalAmount || "0"), 0);
-      const totalPagos = pagos.reduce((sum, p) => sum + parseFloat(p.amountPaid || "0"), 0);
+      const totalVencidos = DecimalMoney.toNumber(DecimalMoney.sum(vencidos.map(p => p.totalAmount || "0")));
+      const totalAVencer = DecimalMoney.toNumber(DecimalMoney.sum(aVencer.map(p => p.totalAmount || "0")));
+      const totalPagos = DecimalMoney.toNumber(DecimalMoney.sum(pagos.map(p => p.amountPaid || "0")));
 
       // Total by cost center
       const costCenterTotals = new Map<string, { name: string; total: number }>();
-      
+
       const payableAllocations = costAllocations.filter(a => a.transactionType === 'payable');
-      
+
       payableAllocations.forEach(allocation => {
         const payable = filtered.find(p => p.id === allocation.transactionId);
         if (payable && payable.status !== 'cancelado') {
           const costCenter = costCenters.find(cc => cc.id === allocation.costCenterId);
           const key = costCenter?.id || '__unallocated__';
           const name = costCenter?.name || 'Sem Centro de Custo';
-          
+
           const current = costCenterTotals.get(key) || { name, total: 0 };
           costCenterTotals.set(key, {
             name,
-            total: current.total + parseFloat(allocation.amount)
+            total: DecimalMoney.toNumber(DecimalMoney.add(current.total, allocation.amount))
           });
         }
       });
@@ -312,17 +350,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const allocationsByPayable = new Map<string, number>();
       payableAllocations.forEach(allocation => {
         const current = allocationsByPayable.get(allocation.transactionId) || 0;
-        allocationsByPayable.set(allocation.transactionId, current + parseFloat(allocation.amount));
+        allocationsByPayable.set(allocation.transactionId, DecimalMoney.toNumber(DecimalMoney.add(current, allocation.amount)));
       });
 
       let unallocatedTotal = 0;
       filtered
         .filter(p => p.status !== 'cancelado')
         .forEach(payable => {
-          const totalAmount = parseFloat(payable.totalAmount || "0");
+          const totalAmount = DecimalMoney.toNumber(payable.totalAmount || "0");
           const allocatedAmount = allocationsByPayable.get(payable.id) || 0;
           const unallocatedAmount = totalAmount - allocatedAmount;
-          
+
           if (unallocatedAmount > 0.01) {
             unallocatedTotal += unallocatedAmount;
           }
@@ -342,14 +380,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const month = new Date();
         month.setMonth(month.getMonth() - i);
         const monthStr = month.toISOString().slice(0, 7);
-        
+
         const monthPayables = accountsPayable.filter(p => {
           return p.dueDate.startsWith(monthStr) && p.status !== 'cancelado';
         });
-        
-        const total = monthPayables.reduce((sum, p) => sum + parseFloat(p.totalAmount || "0"), 0);
-        const paid = monthPayables.filter(p => p.status === 'pago').reduce((sum, p) => sum + parseFloat(p.amountPaid || "0"), 0);
-        
+
+        const total = DecimalMoney.toNumber(DecimalMoney.sum(monthPayables.map(p => p.totalAmount || "0")));
+        const paid = DecimalMoney.toNumber(DecimalMoney.sum(monthPayables.filter(p => p.status === 'pago').map(p => p.amountPaid || "0")));
+
         evolutionData.push({
           month: monthStr,
           total: Number(total.toFixed(2)),
@@ -389,7 +427,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Reports - Accounts Receivable
   app.get('/api/reports/accounts-receivable', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const userRole = req.user.role;
       const { startDate, endDate, status, customerId } = req.query;
 
@@ -419,32 +457,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Calculate summaries
       const now = new Date();
-      const vencidos = filtered.filter(r => 
+      const vencidos = filtered.filter(r =>
         r.status !== 'cancelado' && r.status !== 'pago' && stringToDate(r.dueDate) < now
       );
-      const aVencer = filtered.filter(r => 
+      const aVencer = filtered.filter(r =>
         r.status === 'pendente' && stringToDate(r.dueDate) >= now
       );
       const recebidos = filtered.filter(r => r.status === 'pago');
 
-      const totalVencidos = vencidos.reduce((sum, r) => sum + parseFloat(r.totalAmount || "0"), 0);
-      const totalAVencer = aVencer.reduce((sum, r) => sum + parseFloat(r.totalAmount || "0"), 0);
-      const totalRecebidos = recebidos.reduce((sum, r) => sum + parseFloat(r.amountReceived || "0"), 0);
+      const totalVencidos = DecimalMoney.toNumber(DecimalMoney.sum(vencidos.map(r => r.totalAmount || "0")));
+      const totalAVencer = DecimalMoney.toNumber(DecimalMoney.sum(aVencer.map(r => r.totalAmount || "0")));
+      const totalRecebidos = DecimalMoney.toNumber(DecimalMoney.sum(recebidos.map(r => r.amountReceived || "0")));
 
       // Defaulting customers
       const defaultingCustomers = new Map<string, { name: string; count: number; total: number }>();
-      
+
       vencidos.forEach(receivable => {
         if (receivable.customerId) {
           const customer = customers.find(c => c.id === receivable.customerId);
           const key = receivable.customerId;
           const name = customer?.razaoSocial || 'Cliente Desconhecido';
-          
+
           const current = defaultingCustomers.get(key) || { name, count: 0, total: 0 };
           defaultingCustomers.set(key, {
             name,
             count: current.count + 1,
-            total: current.total + parseFloat(receivable.totalAmount || "0")
+            total: DecimalMoney.toNumber(DecimalMoney.add(current.total, receivable.totalAmount || "0"))
           });
         }
       });
@@ -455,14 +493,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const month = new Date();
         month.setMonth(month.getMonth() - i);
         const monthStr = month.toISOString().slice(0, 7);
-        
+
         const monthReceivables = accountsReceivable.filter(r => {
           return r.dueDate.startsWith(monthStr) && r.status !== 'cancelado';
         });
-        
-        const total = monthReceivables.reduce((sum, r) => sum + parseFloat(r.totalAmount || "0"), 0);
-        const received = monthReceivables.filter(r => r.status === 'pago').reduce((sum, r) => sum + parseFloat(r.amountReceived || "0"), 0);
-        
+
+        const total = DecimalMoney.toNumber(DecimalMoney.sum(monthReceivables.map(r => r.totalAmount || "0")));
+        const received = DecimalMoney.toNumber(DecimalMoney.sum(monthReceivables.filter(r => r.status === 'pago').map(r => r.amountReceived || "0")));
+
         evolutionData.push({
           month: monthStr,
           total: Number(total.toFixed(2)),
@@ -503,11 +541,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Test Data Cleanup
   app.delete('/api/test-data', isAuthenticated, requireManager, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      
+      const userId = getUserId(req);
+
       // Delete all transactions while preserving master data
       await storage.deleteAllTransactions(userId);
-      
+
       res.json({ message: "Dados de teste removidos com sucesso" });
     } catch (error) {
       console.error("Error deleting test data:", error);
@@ -518,9 +556,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Dashboard
   app.get('/api/dashboard', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const userRole = req.user.role;
-      
+
       const [bankAccounts, accountsPayable, accountsReceivable, costAllocations, costCenters] = await Promise.all([
         storage.getBankAccounts(userId),
         storage.getAccountsPayable(userId, userRole),
@@ -529,22 +567,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         storage.getCostCenters(userId),
       ]);
 
-      const totalBalance = bankAccounts.reduce((sum, acc) => sum + parseFloat(acc.balance || "0"), 0);
-      
-      const totalPayable = accountsPayable
-        .filter(a => a.status !== 'pago' && a.status !== 'cancelado')
-        .reduce((sum, acc) => sum + parseFloat(acc.totalAmount || "0"), 0);
-      
-      const totalReceivable = accountsReceivable
-        .filter(a => a.status !== 'pago' && a.status !== 'cancelado')
-        .reduce((sum, acc) => sum + parseFloat(acc.totalAmount || "0"), 0);
+      const totalBalance = DecimalMoney.toNumber(DecimalMoney.sum(bankAccounts.map(acc => acc.balance || "0")));
+
+      const totalPayable = DecimalMoney.toNumber(DecimalMoney.sum(
+        accountsPayable
+          .filter(a => a.status !== 'pago' && a.status !== 'cancelado')
+          .map(acc => acc.totalAmount || "0")
+      ));
+
+      const totalReceivable = DecimalMoney.toNumber(DecimalMoney.sum(
+        accountsReceivable
+          .filter(a => a.status !== 'pago' && a.status !== 'cancelado')
+          .map(acc => acc.totalAmount || "0")
+      ));
 
       const alerts = [];
-      
-      const overduePayables = accountsPayable.filter(a => 
+
+      const overduePayables = accountsPayable.filter(a =>
         a.status !== 'pago' && a.status !== 'cancelado' && stringToDate(a.dueDate) < new Date()
       );
-      
+
       if (overduePayables.length > 0) {
         alerts.push({
           type: 'critical',
@@ -568,21 +610,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const cashFlowData = last6Months.map(({ month, year, monthIndex }) => {
         // Include only non-canceled transactions for cash flow projection
-        const receitas = accountsReceivable
-          .filter(a => {
-            if (a.status === 'cancelado') return false;
-            const dueDate = stringToDate(a.dueDate);
-            return dueDate.getMonth() === monthIndex && dueDate.getFullYear() === year;
-          })
-          .reduce((sum, acc) => sum + parseFloat(acc.totalAmount || "0"), 0);
+        const receitas = DecimalMoney.toNumber(DecimalMoney.sum(
+          accountsReceivable
+            .filter(a => {
+              if (a.status === 'cancelado') return false;
+              const dueDate = stringToDate(a.dueDate);
+              return dueDate.getMonth() === monthIndex && dueDate.getFullYear() === year;
+            })
+            .map(acc => acc.totalAmount || "0")
+        ));
 
-        const despesas = accountsPayable
-          .filter(a => {
-            if (a.status === 'cancelado') return false;
-            const dueDate = stringToDate(a.dueDate);
-            return dueDate.getMonth() === monthIndex && dueDate.getFullYear() === year;
-          })
-          .reduce((sum, acc) => sum + parseFloat(acc.totalAmount || "0"), 0);
+        const despesas = DecimalMoney.toNumber(DecimalMoney.sum(
+          accountsPayable
+            .filter(a => {
+              if (a.status === 'cancelado') return false;
+              const dueDate = stringToDate(a.dueDate);
+              return dueDate.getMonth() === monthIndex && dueDate.getFullYear() === year;
+            })
+            .map(acc => acc.totalAmount || "0")
+        ));
 
         return {
           month,
@@ -598,14 +644,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Sum allocated expenses by cost center
       payableAllocations.forEach(allocation => {
         const current = expensesByCostCenterMap.get(allocation.costCenterId) || 0;
-        expensesByCostCenterMap.set(allocation.costCenterId, current + parseFloat(allocation.amount));
+        expensesByCostCenterMap.set(allocation.costCenterId, DecimalMoney.toNumber(DecimalMoney.add(current, allocation.amount)));
       });
 
       // Group allocations by transaction to detect partial allocations
       const allocationsByPayable = new Map<string, number>();
       payableAllocations.forEach(allocation => {
         const current = allocationsByPayable.get(allocation.transactionId) || 0;
-        allocationsByPayable.set(allocation.transactionId, current + parseFloat(allocation.amount));
+        allocationsByPayable.set(allocation.transactionId, DecimalMoney.toNumber(DecimalMoney.add(current, allocation.amount)));
       });
 
       // Calculate unallocated amounts (fully unallocated + partial allocations)
@@ -614,10 +660,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       accountsPayable
         .filter(p => p.status !== 'cancelado')
         .forEach(payable => {
-          const totalAmount = parseFloat(payable.totalAmount || "0");
+          const totalAmount = DecimalMoney.toNumber(payable.totalAmount || "0");
           const allocatedAmount = allocationsByPayable.get(payable.id) || 0;
           const unallocatedAmount = totalAmount - allocatedAmount;
-          
+
           if (unallocatedAmount > 0.01) { // Use small threshold to avoid floating point issues
             unallocatedTotal += unallocatedAmount;
           }
@@ -664,7 +710,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Bank Accounts (all authenticated users can view)
   app.get('/api/bank-accounts', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const userRole = req.user.role;
       const accounts = await storage.getBankAccounts(userId, userRole);
       res.json(accounts);
@@ -676,18 +722,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/bank-accounts', isAuthenticated, requirePermission('canCreate'), async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       console.log("[POST /api/bank-accounts] Request body:", JSON.stringify(req.body, null, 2));
-      
+
       const validated = insertBankAccountSchema.parse(req.body);
       console.log("[POST /api/bank-accounts] Validated data:", JSON.stringify(validated, null, 2));
-      
+
       const account = await storage.createBankAccount({
         ...validated,
         userId,
       });
       console.log("[POST /api/bank-accounts] Created account:", account.id);
-      
+
       res.json(account);
     } catch (error: any) {
       console.error("[POST /api/bank-accounts] Error:", error);
@@ -699,28 +745,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch('/api/bank-accounts/:id', isAuthenticated, requirePermission('canUpdate'), async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const userRole = req.user.role;
       const { id } = req.params;
-      
+
       // Convert empty strings to null for optional fields
       const sanitizedBody = Object.fromEntries(
         Object.entries(req.body).map(([key, value]) => [key, value === "" ? null : value])
       );
-      
+
       // Admin and Gerente can update initial balance and date
       // Use strict schema validation to prevent privilege escalation
       const isAdminOrManager = userRole === 'admin' || userRole === 'gerente';
-      const validated = isAdminOrManager 
+      const validated = isAdminOrManager
         ? updateBankAccountBalanceSchema.parse(sanitizedBody)
         : updateBankAccountSchema.parse(sanitizedBody);
-      
+
       // SECURITY: Only pass validated data to storage - prevents mass assignment attacks
       const account = await storage.updateBankAccount(id, userId, validated, userRole);
       if (!account) {
         return res.status(404).json({ message: "Bank account not found" });
       }
-      
+
       res.json(account);
     } catch (error: any) {
       console.error("Error updating bank account:", error);
@@ -730,14 +776,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete('/api/bank-accounts/:id', isAuthenticated, requirePermission('canDelete'), async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const { id } = req.params;
-      
+
       const success = await storage.deleteBankAccount(id, userId);
       if (!success) {
         return res.status(404).json({ message: "Bank account not found" });
       }
-      
+
       res.json({ success: true });
     } catch (error: any) {
       console.error("Error deleting bank account:", error);
@@ -748,7 +794,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Bank Transfers
   app.get('/api/bank-transfers', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const userRole = req.user.role;
       const transfers = await storage.getBankTransfers(userId, userRole);
       res.json(transfers);
@@ -760,16 +806,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/bank-transfers', isAuthenticated, requirePermission('canCreate'), async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const userRole = req.user.role;
       const validated = insertBankTransferSchema.parse(req.body);
-      
+
       // Create the transfer (with all validations and balance updates in storage)
       const transfer = await storage.createBankTransfer({
         ...validated,
         userId,
       }, userRole);
-      
+
       res.json(transfer);
     } catch (error: any) {
       console.error("Error creating bank transfer:", error);
@@ -779,15 +825,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch('/api/bank-transfers/:id', isAuthenticated, requirePermission('canUpdate'), async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const userRole = req.user.role;
       const { id } = req.params;
-      
+
       const transfer = await storage.updateBankTransfer(id, userId, userRole, req.body);
       if (!transfer) {
         return res.status(404).json({ message: "Transferência não encontrada" });
       }
-      
+
       res.json(transfer);
     } catch (error: any) {
       console.error("Error updating bank transfer:", error);
@@ -797,15 +843,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete('/api/bank-transfers/:id', isAuthenticated, requirePermission('canDelete'), async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const userRole = req.user.role;
       const { id } = req.params;
-      
+
       const success = await storage.deleteBankTransfer(id, userId, userRole);
       if (!success) {
         return res.status(404).json({ message: "Transferência não encontrada" });
       }
-      
+
       res.json({ success: true });
     } catch (error: any) {
       console.error("Error deleting bank transfer:", error);
@@ -816,10 +862,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Accounts Payable
   app.get('/api/accounts-payable', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const userRole = req.user.role;
       const { costCenterId } = req.query;
-      
+
       // Validate cost center access if specific center selected
       if (costCenterId && costCenterId !== 'all') {
         const hasAccess = await storage.canAccessCostCenter(userId, userRole, costCenterId);
@@ -827,12 +873,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(403).json({ message: "Você não tem acesso ao centro de custo selecionado" });
         }
       }
-      
+
       // Process pending recurrences before fetching accounts
       await storage.processRecurrences(userId);
       const accounts = await storage.getAccountsPayable(
-        userId, 
-        userRole, 
+        userId,
+        userRole,
         costCenterId && costCenterId !== 'all' ? costCenterId : undefined
       );
       res.json(accounts);
@@ -844,9 +890,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/accounts-payable', isAuthenticated, requirePermission('canCreate'), async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const userRole = req.user.role;
-      
+
       // Convert empty strings to null for optional foreign keys
       const sanitizedData = {
         ...req.body,
@@ -857,15 +903,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         chartOfAccountsId: req.body.chartOfAccountsId === '' ? null : req.body.chartOfAccountsId,
         recurrenceParentId: req.body.recurrenceParentId === '' ? null : req.body.recurrenceParentId,
       };
-      
+
       const validated = insertAccountsPayableSchema.parse(sanitizedData);
-      
+
       // Verify user has access to the selected cost center
       const hasAccess = await storage.canAccessCostCenter(userId, userRole, validated.costCenterId);
       if (!hasAccess) {
         return res.status(403).json({ message: "Você não tem acesso ao centro de custo selecionado" });
       }
-      
+
       const account = await storage.createAccountPayable({
         ...validated,
         userId,
@@ -879,14 +925,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/accounts-payable/batch', isAuthenticated, requirePermission('canCreate'), async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const userRole = req.user.role;
       const { installments } = req.body;
-      
+
       if (!Array.isArray(installments) || installments.length === 0) {
         return res.status(400).json({ message: "Installments array is required and cannot be empty" });
       }
-      
+
       // Validate each installment and add userId, converting empty strings to null
       const validatedInstallments = installments.map(inst => {
         const sanitized = {
@@ -904,7 +950,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           userId,
         };
       });
-      
+
       // Verify user has access to all selected cost centers
       for (const inst of validatedInstallments) {
         const hasAccess = await storage.canAccessCostCenter(userId, userRole, inst.costCenterId);
@@ -912,7 +958,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(403).json({ message: "Você não tem acesso a um ou mais centros de custo selecionados" });
         }
       }
-      
+
       const accounts = await storage.createAccountsPayableBatch(validatedInstallments);
       res.json(accounts);
     } catch (error: any) {
@@ -924,7 +970,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Batch Cost Center Update Routes - must be defined BEFORE :id routes
   app.get('/api/accounts-payable/without-cost-center', isAuthenticated, requireManager, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const userRole = req.user.role;
       const accounts = await storage.getAccountsPayableWithoutCostCenter(userId, userRole);
       res.json(accounts);
@@ -936,28 +982,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch('/api/accounts-payable/batch-update-cost-center', isAuthenticated, requireManager, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const userRole = req.user.role;
-      
+
       const schema = z.object({
         payableIds: z.array(z.string().uuid()),
         costCenterId: z.string().uuid(),
       });
-      
+
       const validation = schema.safeParse(req.body);
       if (!validation.success) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           message: "Dados inválidos",
-          errors: validation.error.errors 
+          errors: validation.error.errors
         });
       }
-      
+
       const { payableIds, costCenterId } = validation.data;
       const updatedCount = await storage.batchUpdatePayableCostCenter(userId, userRole, payableIds, costCenterId);
-      
-      res.json({ 
+
+      res.json({
         message: `${updatedCount} conta(s) a pagar atualizada(s) com sucesso`,
-        updatedCount 
+        updatedCount
       });
     } catch (error) {
       console.error("Error batch updating payable cost center:", error);
@@ -967,10 +1013,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch('/api/accounts-payable/:id', isAuthenticated, requirePermission('canUpdate'), async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const userRole = req.user.role;
       const { id } = req.params;
-      
+
       const sanitizedData = {
         ...req.body,
         supplierId: req.body.supplierId === '' ? null : req.body.supplierId,
@@ -979,9 +1025,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         accountId: req.body.accountId === '' ? null : req.body.accountId,
         chartOfAccountsId: req.body.chartOfAccountsId === '' ? null : req.body.chartOfAccountsId,
       };
-      
+
       const validated = updateAccountsPayableSchema.parse(sanitizedData);
-      
+
       // Verify user has access to the selected cost center
       if (validated.costCenterId !== undefined) {
         const hasAccess = await storage.canAccessCostCenter(userId, userRole, validated.costCenterId);
@@ -989,7 +1035,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(403).json({ message: "Você não tem acesso ao centro de custo selecionado" });
         }
       }
-      
+
       const payable = await storage.updateAccountPayable(id, userId, validated, userRole);
       if (!payable) {
         return res.status(404).json({ message: "Conta a pagar não encontrada" });
@@ -1003,7 +1049,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete('/api/accounts-payable/:id', isAuthenticated, requirePermission('canDelete'), async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const { id } = req.params;
       const deleted = await storage.deleteAccountPayable(id, userId);
       if (!deleted) {
@@ -1019,10 +1065,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Accounts Receivable
   app.get('/api/accounts-receivable', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const userRole = req.user.role;
       const { costCenterId } = req.query;
-      
+
       // Validate cost center access if specific center selected
       if (costCenterId && costCenterId !== 'all') {
         const hasAccess = await storage.canAccessCostCenter(userId, userRole, costCenterId);
@@ -1030,12 +1076,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(403).json({ message: "Você não tem acesso ao centro de custo selecionado" });
         }
       }
-      
+
       // Process pending recurrences before fetching accounts
       await storage.processRecurrences(userId);
       const accounts = await storage.getAccountsReceivable(
-        userId, 
-        userRole, 
+        userId,
+        userRole,
         costCenterId && costCenterId !== 'all' ? costCenterId : undefined
       );
       res.json(accounts);
@@ -1047,9 +1093,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/accounts-receivable', isAuthenticated, requirePermission('canCreate'), async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const userRole = req.user.role;
-      
+
       // Convert empty strings to null for optional foreign keys
       const sanitizedData = {
         ...req.body,
@@ -1059,15 +1105,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         chartOfAccountsId: req.body.chartOfAccountsId === '' ? null : req.body.chartOfAccountsId,
         parentReceivableId: req.body.parentReceivableId === '' ? null : req.body.parentReceivableId,
       };
-      
+
       const validated = insertAccountsReceivableSchema.parse(sanitizedData);
-      
+
       // Verify user has access to the selected cost center
       const hasAccess = await storage.canAccessCostCenter(userId, userRole, validated.costCenterId);
       if (!hasAccess) {
         return res.status(403).json({ message: "Você não tem acesso ao centro de custo selecionado" });
       }
-      
+
       const account = await storage.createAccountReceivable({
         ...validated,
         userId,
@@ -1081,14 +1127,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/accounts-receivable/batch', isAuthenticated, requirePermission('canCreate'), async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const userRole = req.user.role;
       const { installments } = req.body;
-      
+
       if (!Array.isArray(installments) || installments.length === 0) {
         return res.status(400).json({ message: "Installments array is required and cannot be empty" });
       }
-      
+
       // Validate each installment and add userId, converting empty strings to null
       const validatedInstallments = installments.map(inst => {
         const sanitized = {
@@ -1105,7 +1151,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           userId,
         };
       });
-      
+
       // Verify user has access to all selected cost centers
       for (const inst of validatedInstallments) {
         const hasAccess = await storage.canAccessCostCenter(userId, userRole, inst.costCenterId);
@@ -1113,7 +1159,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(403).json({ message: "Você não tem acesso a um ou mais centros de custo selecionados" });
         }
       }
-      
+
       const accounts = await storage.createAccountsReceivableBatch(validatedInstallments);
       res.json(accounts);
     } catch (error: any) {
@@ -1125,7 +1171,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Batch Cost Center Update Routes for Receivables - must be defined BEFORE :id routes
   app.get('/api/accounts-receivable/without-cost-center', isAuthenticated, requireManager, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const userRole = req.user.role;
       const accounts = await storage.getAccountsReceivableWithoutCostCenter(userId, userRole);
       res.json(accounts);
@@ -1137,28 +1183,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch('/api/accounts-receivable/batch-update-cost-center', isAuthenticated, requireManager, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const userRole = req.user.role;
-      
+
       const schema = z.object({
         receivableIds: z.array(z.string().uuid()),
         costCenterId: z.string().uuid(),
       });
-      
+
       const validation = schema.safeParse(req.body);
       if (!validation.success) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           message: "Dados inválidos",
-          errors: validation.error.errors 
+          errors: validation.error.errors
         });
       }
-      
+
       const { receivableIds, costCenterId } = validation.data;
       const updatedCount = await storage.batchUpdateReceivableCostCenter(userId, userRole, receivableIds, costCenterId);
-      
-      res.json({ 
+
+      res.json({
         message: `${updatedCount} conta(s) a receber atualizada(s) com sucesso`,
-        updatedCount 
+        updatedCount
       });
     } catch (error) {
       console.error("Error batch updating receivable cost center:", error);
@@ -1168,10 +1214,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch('/api/accounts-receivable/:id', isAuthenticated, requirePermission('canUpdate'), async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const userRole = req.user.role;
       const { id } = req.params;
-      
+
       const sanitizedData = {
         ...req.body,
         customerId: req.body.customerId === '' ? null : req.body.customerId,
@@ -1180,9 +1226,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         accountId: req.body.accountId === '' ? null : req.body.accountId,
         chartOfAccountsId: req.body.chartOfAccountsId === '' ? null : req.body.chartOfAccountsId,
       };
-      
+
       const validated = updateAccountsReceivableSchema.parse(sanitizedData);
-      
+
       // Verify user has access to the selected cost center
       if (validated.costCenterId !== undefined) {
         const hasAccess = await storage.canAccessCostCenter(userId, userRole, validated.costCenterId);
@@ -1190,7 +1236,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(403).json({ message: "Você não tem acesso ao centro de custo selecionado" });
         }
       }
-      
+
       const receivable = await storage.updateAccountReceivable(id, userId, userRole, validated);
       if (!receivable) {
         return res.status(404).json({ message: "Conta a receber não encontrada" });
@@ -1204,7 +1250,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete('/api/accounts-receivable/:id', isAuthenticated, requirePermission('canDelete'), async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const userRole = req.user.role;
       const { id } = req.params;
       const deleted = await storage.deleteAccountReceivable(id, userId, userRole);
@@ -1221,7 +1267,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Recurrence Management
   app.patch('/api/accounts-payable/:id/recurrence', isAuthenticated, requirePermission('canUpdate'), async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const userRole = req.user.role;
       const { id } = req.params;
       const { recurrenceStatus } = req.body;
@@ -1244,7 +1290,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch('/api/accounts-receivable/:id/recurrence', isAuthenticated, requirePermission('canUpdate'), async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const userRole = req.user.role;
       const { id } = req.params;
       const { recurrenceStatus } = req.body;
@@ -1267,7 +1313,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/recurrences/process', isAuthenticated, requirePermission('canCreate'), async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const result = await storage.processRecurrences(userId);
       res.json(result);
     } catch (error: any) {
@@ -1279,17 +1325,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Chart of Accounts
   app.get('/api/chart-of-accounts', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const classification = req.query.classification as string | undefined;
-      
+
       let accounts = await storage.getChartOfAccounts(userId);
-      
+
       if (classification === 'debit') {
         accounts = accounts.filter(acc => acc.type === 'despesa' || acc.type === 'ativo');
       } else if (classification === 'credit') {
         accounts = accounts.filter(acc => acc.type === 'receita' || acc.type === 'passivo');
       }
-      
+
       res.json(accounts);
     } catch (error) {
       console.error("Error fetching chart of accounts:", error);
@@ -1299,7 +1345,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/chart-of-accounts', isAuthenticated, requireManager, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const validated = insertChartOfAccountsSchema.parse(req.body);
       const account = await storage.createChartAccount({
         ...validated,
@@ -1314,20 +1360,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/chart-of-accounts/import', isAuthenticated, requireManager, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      
+      const userId = getUserId(req);
+
       const importSchema = z.object({
         types: z.array(z.enum(['receita', 'despesa'])).optional(),
       });
-      
+
       const validation = importSchema.safeParse(req.body);
       if (!validation.success) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           message: "Parâmetros inválidos",
-          errors: validation.error.errors 
+          errors: validation.error.errors
         });
       }
-      
+
       const { types } = validation.data;
       const result = await storage.importChartOfAccounts(userId, types);
       res.json(result);
@@ -1339,23 +1385,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch('/api/chart-of-accounts/:id', isAuthenticated, requireManager, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const { id } = req.params;
-      
+
       const sanitizedData = {
         ...req.body,
         parentId: req.body.parentId === '' || req.body.parentId === 'none' ? null : req.body.parentId,
         quickCode: req.body.quickCode === '' ? null : req.body.quickCode,
         description: req.body.description === '' ? null : req.body.description,
       };
-      
+
       const validated = insertChartOfAccountsSchema.partial().parse(sanitizedData);
       const account = await storage.updateChartAccount(id, userId, validated);
-      
+
       if (!account) {
         return res.status(404).json({ message: "Conta não encontrada" });
       }
-      
+
       res.json(account);
     } catch (error: any) {
       console.error("Error updating chart account:", error);
@@ -1365,37 +1411,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete('/api/chart-of-accounts/:id', isAuthenticated, requireManager, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const { id } = req.params;
-      
+
       const account = await storage.getChartAccount(id, userId);
       if (!account) {
         return res.status(404).json({ message: "Conta não encontrada" });
       }
-      
+
       const children = await storage.getChartOfAccounts(userId);
       const hasChildren = children.some(c => c.parentId === id);
       if (hasChildren) {
         return res.status(409).json({ message: "Não é possível excluir conta que possui contas filhas" });
       }
-      
+
       const payables = await storage.getAccountsPayable(userId);
       const hasPayables = payables.some(p => p.accountId === id);
       if (hasPayables) {
         return res.status(409).json({ message: "Não é possível excluir conta vinculada a contas a pagar" });
       }
-      
+
       const receivables = await storage.getAccountsReceivable(userId);
       const hasReceivables = receivables.some(r => r.accountId === id);
       if (hasReceivables) {
         return res.status(409).json({ message: "Não é possível excluir conta vinculada a contas a receber" });
       }
-      
+
       const deleted = await storage.deleteChartAccount(id, userId);
       if (!deleted) {
         return res.status(500).json({ message: "Falha ao excluir conta" });
       }
-      
+
       res.json({ success: true });
     } catch (error: any) {
       console.error("Error deleting chart account:", error);
@@ -1406,15 +1452,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Cost Centers
   app.get('/api/cost-centers', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const userRole = req.user.role;
-      
+
       // Admin and gerente can see all cost centers
       if (userRole === 'admin' || userRole === 'gerente') {
         const centers = await storage.getAllCostCenters();
         return res.json(centers);
       }
-      
+
       // Other roles see only their assigned cost centers
       const centers = await storage.getCostCenters(userId);
       res.json(centers);
@@ -1437,15 +1483,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/cost-centers', isAuthenticated, requireManager, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      
+      const userId = getUserId(req);
+
       // Sanitize empty strings to null for optional fields
       const sanitizedData = {
         ...req.body,
         parentId: req.body.parentId === '' || req.body.parentId === 'none' ? null : req.body.parentId,
         description: req.body.description === '' ? null : req.body.description,
       };
-      
+
       const validated = insertCostCenterSchema.parse(sanitizedData);
       const center = await storage.createCostCenter({
         ...validated,
@@ -1460,23 +1506,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch('/api/cost-centers/:id', isAuthenticated, requireManager, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const { id } = req.params;
-      
+
       // Convert empty strings and 'none' to null for optional fields
       const sanitizedData = {
         ...req.body,
         parentId: req.body.parentId === '' || req.body.parentId === 'none' ? null : req.body.parentId,
         description: req.body.description === '' ? null : req.body.description,
       };
-      
+
       const validated = updateCostCenterSchema.parse(sanitizedData);
       const updated = await storage.updateCostCenter(id, userId, validated);
-      
+
       if (!updated) {
         return res.status(404).json({ message: "Centro de custo não encontrado" });
       }
-      
+
       res.json(updated);
     } catch (error: any) {
       console.error("Error updating cost center:", error);
@@ -1486,15 +1532,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete('/api/cost-centers/:id', isAuthenticated, requireManager, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const { id } = req.params;
-      
+
       const deleted = await storage.deleteCostCenter(id, userId);
-      
+
       if (!deleted) {
         return res.status(404).json({ message: "Centro de custo não encontrado" });
       }
-      
+
       res.json({ success: true });
     } catch (error: any) {
       console.error("Error deleting cost center:", error);
@@ -1505,7 +1551,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Cost Allocations - Accounts Payable
   app.get('/api/accounts-payable/:id/allocations', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const { id } = req.params;
       const allocations = await storage.getAllocations(userId, 'payable', id);
       res.json(allocations);
@@ -1517,7 +1563,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/accounts-payable/:id/allocations', isAuthenticated, requirePermission('canCreate'), async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const userRole = req.user.role;
       const { id } = req.params;
       const allocationInputs = req.body.allocations;
@@ -1559,7 +1605,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete('/api/accounts-payable/:id/allocations', isAuthenticated, requirePermission('canDelete'), async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const { id } = req.params;
       await storage.deleteAllocations(userId, 'payable', id);
       res.json({ success: true });
@@ -1572,7 +1618,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Cost Allocations - Accounts Receivable
   app.get('/api/accounts-receivable/:id/allocations', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const { id } = req.params;
       const allocations = await storage.getAllocations(userId, 'receivable', id);
       res.json(allocations);
@@ -1584,7 +1630,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/accounts-receivable/:id/allocations', isAuthenticated, requirePermission('canCreate'), async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const userRole = req.user.role;
       const { id } = req.params;
       const allocationInputs = req.body.allocations;
@@ -1626,7 +1672,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete('/api/accounts-receivable/:id/allocations', isAuthenticated, requirePermission('canDelete'), async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const { id } = req.params;
       await storage.deleteAllocations(userId, 'receivable', id);
       res.json({ success: true });
@@ -1639,7 +1685,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Reports - DRE
   app.get('/api/reports/dre', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const userRole = req.user.role;
       const { startDate, endDate, costCenterId } = req.query;
 
@@ -1682,23 +1728,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Helper to check if transaction should be included based on cost center filter
       const shouldIncludeTransaction = (transactionId: string, type: 'payable' | 'receivable'): number => {
         if (!costCenterId) return 1; // Include 100% if no filter
-        
-        const txAllocations = allocations.filter(a => 
+
+        const txAllocations = allocations.filter(a =>
           a.transactionId === transactionId && a.transactionType === type
         );
-        
+
         if (txAllocations.length === 0) return 0; // Exclude if no allocations match
-        
+
         // Sum percentages for this cost center
         return txAllocations.reduce((sum, a) => sum + parseFloat(a.percentage), 0) / 100;
       };
 
       // Aggregate revenues
       const revenueMap = new Map<string, { account: any, amount: number }>();
-      
+
       filteredReceivables.forEach(r => {
         if (!r.accountId) return;
-        
+
         const account = accountMap.get(r.accountId);
         if (!account || account.type !== 'receita') return;
 
@@ -1706,7 +1752,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (percentage === 0) return;
 
         const amount = parseFloat(r.totalAmount) * percentage;
-        
+
         if (revenueMap.has(r.accountId)) {
           revenueMap.get(r.accountId)!.amount += amount;
         } else {
@@ -1716,10 +1762,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Aggregate expenses
       const expenseMap = new Map<string, { account: any, amount: number }>();
-      
+
       filteredPayables.forEach(p => {
         if (!p.accountId) return;
-        
+
         const account = accountMap.get(p.accountId);
         if (!account || account.type !== 'despesa') return;
 
@@ -1727,7 +1773,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (percentage === 0) return;
 
         const amount = parseFloat(p.totalAmount) * percentage;
-        
+
         if (expenseMap.has(p.accountId)) {
           expenseMap.get(p.accountId)!.amount += amount;
         } else {
@@ -1814,9 +1860,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Reports - Bank Statement
   app.get('/api/reports/bank-statement', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const userRole = req.user.role;
-      
+
       // Validate query parameters with Zod
       const querySchema = z.object({
         bankAccountId: z.string().uuid({ message: "bankAccountId must be a valid UUID" }),
@@ -1826,11 +1872,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       const validation = querySchema.safeParse(req.query);
-      
+
       if (!validation.success) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           message: "Invalid query parameters",
-          errors: validation.error.errors 
+          errors: validation.error.errors
         });
       }
 
@@ -1838,16 +1884,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Validate date ordering
       if (stringToDate(startDate) > stringToDate(endDate)) {
-        return res.status(400).json({ 
-          message: "startDate must be before or equal to endDate" 
+        return res.status(400).json({
+          message: "startDate must be before or equal to endDate"
         });
       }
 
       // Verify bank account ownership
       const bankAccount = await storage.getBankAccount(bankAccountId, userId);
       if (!bankAccount) {
-        return res.status(404).json({ 
-          message: "Bank account not found or access denied" 
+        return res.status(404).json({
+          message: "Bank account not found or access denied"
         });
       }
 
@@ -1855,8 +1901,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (costCenterId) {
         const canAccess = await storage.canAccessCostCenter(userId, userRole, costCenterId);
         if (!canAccess) {
-          return res.status(403).json({ 
-            message: "Acesso negado ao centro de custo selecionado" 
+          return res.status(403).json({
+            message: "Acesso negado ao centro de custo selecionado"
           });
         }
       }
@@ -1880,7 +1926,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Suppliers
   app.get('/api/suppliers', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const suppliers = await storage.getSuppliers(userId);
       res.json(suppliers);
     } catch (error) {
@@ -1891,9 +1937,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/suppliers', isAuthenticated, requirePermission('canCreate'), async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const validated = insertSupplierSchema.parse(req.body);
-      
+
       if (validated.cnpjCpf) {
         const cleanCpfCnpj = validated.cnpjCpf.replace(/\D/g, '');
         const existing = await storage.findSupplierByCpfCnpj(userId, cleanCpfCnpj);
@@ -1901,7 +1947,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(400).json({ message: "Já existe um fornecedor cadastrado com este CPF/CNPJ" });
         }
       }
-      
+
       const supplier = await storage.createSupplier({
         ...validated,
         userId,
@@ -1915,7 +1961,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch('/api/suppliers/:id', isAuthenticated, requirePermission('canUpdate'), async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const { id } = req.params;
       const validated = insertSupplierSchema.partial().parse(req.body);
       const supplier = await storage.updateSupplier(id, userId, validated);
@@ -1931,7 +1977,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete('/api/suppliers/:id', isAuthenticated, requirePermission('canDelete'), async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const { id } = req.params;
       const deleted = await storage.deleteSupplier(id, userId);
       if (!deleted) {
@@ -1947,7 +1993,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Customers
   app.get('/api/customers', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const customers = await storage.getCustomers(userId);
       res.json(customers);
     } catch (error) {
@@ -1958,9 +2004,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/customers', isAuthenticated, requirePermission('canCreate'), async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const validated = insertCustomerSchema.parse(req.body);
-      
+
       if (validated.cnpjCpf) {
         const cleanCpfCnpj = validated.cnpjCpf.replace(/\D/g, '');
         const existing = await storage.findCustomerByCpfCnpj(userId, cleanCpfCnpj);
@@ -1968,7 +2014,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(400).json({ message: "Já existe um cliente cadastrado com este CPF/CNPJ" });
         }
       }
-      
+
       const customer = await storage.createCustomer({
         ...validated,
         userId,
@@ -1982,7 +2028,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch('/api/customers/:id', isAuthenticated, requirePermission('canUpdate'), async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const { id } = req.params;
       const validated = insertCustomerSchema.partial().parse(req.body);
       const customer = await storage.updateCustomer(id, userId, validated);
@@ -1998,7 +2044,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete('/api/customers/:id', isAuthenticated, requirePermission('canDelete'), async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const { id } = req.params;
       const deleted = await storage.deleteCustomer(id, userId);
       if (!deleted) {
@@ -2014,16 +2060,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Activities
   app.get('/api/activities', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const { startDate, endDate, scope, status } = req.query;
-      
+
       const activities = await storage.getActivities(userId, {
         startDate: startDate as string,
         endDate: endDate as string,
         scope: scope as string,
         status: status as string,
       });
-      
+
       res.json(activities);
     } catch (error) {
       console.error("Error fetching activities:", error);
@@ -2033,14 +2079,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/activities/:id', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const { id } = req.params;
       const activity = await storage.getActivity(id, userId);
-      
+
       if (!activity) {
         return res.status(404).json({ message: "Activity not found" });
       }
-      
+
       res.json(activity);
     } catch (error) {
       console.error("Error fetching activity:", error);
@@ -2050,7 +2096,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/activities', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const validated = insertActivitySchema.parse(req.body);
       const activity = await storage.createActivity({
         ...validated,
@@ -2065,21 +2111,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch('/api/activities/:id', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const { id } = req.params;
-      
+
       // Ensure at least one field is provided
       if (!req.body || Object.keys(req.body).length === 0) {
         return res.status(400).json({ message: "At least one field is required for update" });
       }
-      
+
       const validated = updateActivitySchema.parse(req.body);
       const activity = await storage.updateActivity(id, userId, validated);
-      
+
       if (!activity) {
         return res.status(404).json({ message: "Activity not found" });
       }
-      
+
       res.json(activity);
     } catch (error: any) {
       console.error("Error updating activity:", error);
@@ -2089,14 +2135,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch('/api/activities/:id/toggle', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const { id } = req.params;
       const activity = await storage.toggleActivityStatus(id, userId);
-      
+
       if (!activity) {
         return res.status(404).json({ message: "Activity not found" });
       }
-      
+
       res.json(activity);
     } catch (error) {
       console.error("Error toggling activity status:", error);
@@ -2106,14 +2152,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete('/api/activities/:id', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const { id } = req.params;
       const deleted = await storage.deleteActivity(id, userId);
-      
+
       if (!deleted) {
         return res.status(404).json({ message: "Activity not found" });
       }
-      
+
       res.json({ success: true });
     } catch (error) {
       console.error("Error deleting activity:", error);
@@ -2140,13 +2186,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Payment routes (Baixas)
   app.get('/api/payments', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const { transactionType, transactionId } = req.query;
-      
+
       const filters: any = {};
       if (transactionType) filters.transactionType = transactionType;
       if (transactionId) filters.transactionId = transactionId;
-      
+
       const payments = await storage.getPayments(userId, filters);
       res.json(payments);
     } catch (error) {
@@ -2157,15 +2203,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/accounts-payable/:id/baixa', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const userRole = req.user.role;
       const { id } = req.params;
-      
+
       // Block operacional and visualizador from performing settlement
       if (userRole === 'operacional' || userRole === 'visualizador') {
         return res.status(403).json({ message: "Você não tem permissão para efetuar baixas" });
       }
-      
+
       // Validate request body with Zod
       const validated = paymentBaixaSchema.parse(req.body);
 
@@ -2181,9 +2227,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error processing payable baixa:", error);
       if (error.name === 'ZodError') {
-        return res.status(400).json({ 
-          message: "Dados de pagamento inválidos", 
-          errors: error.errors 
+        return res.status(400).json({
+          message: "Dados de pagamento inválidos",
+          errors: error.errors
         });
       }
       res.status(400).json({ message: error.message || "Failed to process payment" });
@@ -2192,15 +2238,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/accounts-receivable/:id/baixa', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const userRole = req.user.role;
       const { id } = req.params;
-      
+
       // Block operacional and visualizador from performing settlement
       if (userRole === 'operacional' || userRole === 'visualizador') {
         return res.status(403).json({ message: "Você não tem permissão para efetuar baixas" });
       }
-      
+
       // Validate request body with Zod
       const validated = paymentBaixaSchema.parse(req.body);
 
@@ -2216,9 +2262,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error processing receivable baixa:", error);
       if (error.name === 'ZodError') {
-        return res.status(400).json({ 
-          message: "Dados de pagamento inválidos", 
-          errors: error.errors 
+        return res.status(400).json({
+          message: "Dados de pagamento inválidos",
+          errors: error.errors
         });
       }
       res.status(400).json({ message: error.message || "Failed to process payment" });
@@ -2228,7 +2274,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Company routes (Admin and Manager)
   app.get('/api/company', isAuthenticated, requireManager, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const company = await storage.getCompany(userId);
       res.json(company || null);
     } catch (error) {
@@ -2239,20 +2285,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/company', isAuthenticated, requireManager, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      
+      const userId = getUserId(req);
+
       // Validate request body (insertCompanySchema already omits userId)
       const validated = insertCompanySchema.parse(req.body);
-      
+
       // Add userId to the validated data
       const company = await storage.upsertCompany({ ...validated, userId });
       res.json(company);
     } catch (error: any) {
       console.error("Error upserting company:", error);
       if (error.name === 'ZodError') {
-        return res.status(400).json({ 
-          message: "Dados da empresa inválidos", 
-          errors: error.errors 
+        return res.status(400).json({
+          message: "Dados da empresa inválidos",
+          errors: error.errors
         });
       }
       res.status(400).json({ message: error.message || "Failed to save company data" });
@@ -2299,7 +2345,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user?.claims?.sub;
       const { documentURL } = req.body;
-      
+
       if (!documentURL) {
         return res.status(400).json({ error: "documentURL is required" });
       }
@@ -2323,7 +2369,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Backup routes (Admin and Manager)
   app.get('/api/backup/history', isAuthenticated, requireManager, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const history = await storage.getBackupHistory(userId);
       res.json(history);
     } catch (error) {
@@ -2334,7 +2380,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/backup/last', isAuthenticated, requireManager, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const lastBackup = await storage.getLastBackup(userId);
       res.json(lastBackup || null);
     } catch (error) {
@@ -2345,21 +2391,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/backup/generate', isAuthenticated, requireManager, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const { notes } = req.body;
-      
+
       // Generate backup data
       const backupData = await storage.getFullBackupData(userId);
-      
+
       // Create JSON string
       const backupJson = JSON.stringify(backupData, null, 2);
       const fileSize = Buffer.byteLength(backupJson, 'utf8');
-      
+
       // Generate filename with timestamp
       const now = new Date();
       const timestamp = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
       const filename = `zenith-backup-${timestamp}.json`;
-      
+
       // Record the backup in history
       const backupRecord = await storage.createBackupRecord({
         userId,
@@ -2385,17 +2431,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/backup/download', isAuthenticated, requireManager, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      
+      const userId = getUserId(req);
+
       // Generate backup data
       const backupData = await storage.getFullBackupData(userId);
       const backupJson = JSON.stringify(backupData, null, 2);
-      
+
       // Generate filename with timestamp
       const now = new Date();
       const timestamp = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
       const filename = `zenith-backup-${timestamp}.json`;
-      
+
       // Set headers for file download
       res.setHeader('Content-Type', 'application/json');
       res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
